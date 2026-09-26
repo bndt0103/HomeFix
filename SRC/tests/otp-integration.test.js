@@ -4,11 +4,11 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import express from 'express';
 
-// A disposable DB and intercepted provider calls: no real email/SMS is sent.
+// A disposable DB and intercepted provider calls: no real email is sent.
 test('OTP registration, recovery and password change against SQL Server',async t=>{
  process.env.DB_NAME='HomeFix_OtpTest_'+crypto.randomBytes(6).toString('hex');
  process.env.JWT_SECRET=crypto.randomBytes(48).toString('hex');
- Object.assign(process.env,{RESEND_API_KEY:'test-only',OTP_EMAIL_FROM:'otp@example.com',TWILIO_ACCOUNT_SID:'ACtest',TWILIO_AUTH_TOKEN:'test-only',TWILIO_SMS_FROM:'+15005550006'});
+ Object.assign(process.env,{RESEND_API_KEY:'test-only',OTP_EMAIL_FROM:'otp@example.com'});
  const {dbConfig,config}=await import('../backend/src/config.js');
  const {sql,q,one,close}=await import('../backend/src/db.js');
  const master=await new sql.ConnectionPool(dbConfig('master')).connect();
@@ -26,8 +26,8 @@ test('OTP registration, recovery and password change against SQL Server',async t
   for(const batch of source.split(/^GO\s*$/m).filter(s=>s.trim()))await q(batch);
  }
  globalThis.fetch=async(url,options)=>{
-  if(String(url).startsWith('https://api.resend.com/')||String(url).startsWith('https://api.twilio.com/')){
-   const text=String(url).includes('resend')?JSON.parse(options.body).text:new URLSearchParams(options.body).get('Body');
+  if(String(url).startsWith('https://api.resend.com/')){
+   const text=JSON.parse(options.body).text;
    deliveries.push(text.match(/\b\d{6}\b/)[0]);return {ok:!providerFails};
   }
   throw new Error('Unexpected external request');
@@ -40,22 +40,26 @@ test('OTP registration, recovery and password change against SQL Server',async t
  async function call(path,body,token,method='POST'){const r=await realFetch(base+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});return {status:r.status,...await r.json()};}
  const account={fullName:'OTP test user',phone:'0912345678',email:'otp-test@example.com',password:'Original@123'};
  let proof,token,user;
- const age=()=>q('UPDATE dbo.AuthOtp SET createdAt=DATEADD(minute,-2,SYSUTCDATETIME())');
- await t.test('registration without OTP is rejected',async()=>assert.equal((await call('/auth/register',account)).status,422));
+ const age=()=>q('UPDATE dbo.AuthOtp SET createdAt=DATEADD(hour,-2,SYSUTCDATETIME())');
+ await t.test('registration requires both email and OTP',async()=>{
+  assert.equal((await call('/auth/register',account)).status,422);
+  assert.equal((await call('/auth/register',{...account,email:null})).status,422);
+ });
  await t.test('registration OTP is hashed and binds all registration fields',async()=>{
-  const r=await call('/auth/register/otp',{...account,channel:'email'});assert.equal(r.status,200,JSON.stringify(r));
+  await age();const r=await call('/auth/register/otp',{...account});assert.equal(r.status,200,JSON.stringify(r));
   proof={challengeId:r.data.challengeId,otp:deliveries.at(-1)};assert.equal(r.data.otp,undefined);
   const row=await one('SELECT * FROM dbo.AuthOtp WHERE id=@id',{id:proof.challengeId});assert.notEqual(row.codeHash,proof.otp);
   assert.equal((await call('/auth/register',{...account,phone:'0912345679',...proof})).status,422);
-  assert.equal((await call('/auth/register/otp',{...account,channel:'email'})).status,429);
+  assert.equal((await call('/auth/register/otp',{...account})).status,429);
  });
  await t.test('wrong guesses persist and a code locks after five failures',async()=>{
   for(let i=0;i<5;i++)assert.equal((await call('/auth/register',{...account,...proof,otp:proof.otp==='000000'?'111111':'000000'})).status,422);
   assert.equal((await one('SELECT attempts FROM dbo.AuthOtp WHERE id=@id',{id:proof.challengeId})).attempts,5);
   assert.equal((await call('/auth/register',{...account,...proof})).status,422);
  });
- await t.test('SMS registration succeeds; simultaneous replay succeeds only once',async()=>{
-  const r=await call('/auth/register/otp',{...account,channel:'sms'});assert.equal(r.status,200,JSON.stringify(r));
+ await t.test('Email registration succeeds; simultaneous replay succeeds only once',async()=>{
+  await age();
+  const r=await call('/auth/register/otp',{...account});assert.equal(r.status,200,JSON.stringify(r));
   proof={challengeId:r.data.challengeId,otp:deliveries.at(-1)};
   const responses=await Promise.all([call('/auth/register',{...account,...proof}),call('/auth/register',{...account,...proof})]);
   assert.deepEqual(responses.map(r=>r.status).sort(),[201,422]);user=responses.find(r=>r.status===201).data;
@@ -70,40 +74,38 @@ test('OTP registration, recovery and password change against SQL Server',async t
   assert.equal((await call('/users/me/password',{currentPassword:account.password,newPassword:'Changed@123'},token)).status,422);
  });
  await t.test('password change requires current password and expires old OTP',async()=>{
-  assert.equal((await call('/users/me/password/otp',{channel:'sms',currentPassword:'wrong'},token)).status,422);
-  await age();const r=await call('/users/me/password/otp',{channel:'sms',currentPassword:account.password},token);assert.equal(r.status,200);
+  assert.equal((await call('/users/me/password/otp',{currentPassword:'wrong'},token)).status,422);
+  await age();const r=await call('/users/me/password/otp',{currentPassword:account.password},token);assert.equal(r.status,200);
   proof={challengeId:r.data.challengeId,otp:deliveries.at(-1)};
   await q('UPDATE dbo.AuthOtp SET expiresAt=DATEADD(second,-1,SYSUTCDATETIME()) WHERE id=@id',{id:proof.challengeId});
   assert.equal((await call('/users/me/password',{currentPassword:account.password,newPassword:'Changed@123',...proof},token)).status,422);
  });
  await t.test('successful password change revokes existing sessions',async()=>{
-  await age();const r=await call('/users/me/password/otp',{channel:'email',currentPassword:account.password},token);assert.equal(r.status,200);
+  await age();const r=await call('/users/me/password/otp',{currentPassword:account.password},token);assert.equal(r.status,200);
   proof={challengeId:r.data.challengeId,otp:deliveries.at(-1)};
   assert.equal((await call('/users/me/password',{currentPassword:account.password,newPassword:'Changed@123',...proof},token)).status,200);
-  assert.equal((await call('/users/me/password/otp',{channel:'email',currentPassword:'Changed@123'},token)).status,401);
+  assert.equal((await call('/users/me/password/otp',{currentPassword:'Changed@123'},token)).status,401);
   assert.equal((await call('/auth/login',{identifier:account.phone,password:account.password})).status,401);
  });
  await t.test('email recovery resets password and invalidates replay',async()=>{
-  await age();const r=await call('/auth/forgot-password/otp',{channel:'email',identifier:account.email});assert.equal(r.status,200);
-  const body={channel:'email',identifier:account.email,newPassword:'Recovered@123',challengeId:r.data.challengeId,otp:deliveries.at(-1)};
+  await age();const r=await call('/auth/forgot-password/otp',{identifier:account.email});assert.equal(r.status,200);
+  const body={identifier:account.email,newPassword:'Recovered@123',challengeId:r.data.challengeId,otp:deliveries.at(-1)};
   assert.equal((await call('/auth/reset-password',body)).status,200);
   assert.equal((await call('/auth/reset-password',body)).status,422);
   assert.equal((await call('/auth/login',{identifier:account.email,password:'Recovered@123'})).status,200);
  });
- await t.test('SMS recovery can also set a new password',async()=>{
-  await age();const r=await call('/auth/forgot-password/otp',{channel:'sms',identifier:account.phone});assert.equal(r.status,200);
-  const body={channel:'sms',identifier:account.phone,newPassword:'SmsReset@123',challengeId:r.data.challengeId,otp:deliveries.at(-1)};
-  assert.equal((await call('/auth/reset-password',body)).status,200);
-  assert.equal((await call('/auth/login',{identifier:account.phone,password:'SmsReset@123'})).status,200);
+ await t.test('phone recovery and SMS channel are rejected',async()=>{
+  assert.equal((await call('/auth/reset-password',{identifier:account.phone,newPassword:'Example@123',...proof})).status,422);
+  assert.equal((await call('/auth/reset-password',{identifier:account.email,channel:'sms',newPassword:'Example@123',...proof})).status,422);
  });
  await t.test('unknown recovery addresses have the same response without sending',async()=>{
-  const before=deliveries.length;const r=await call('/auth/forgot-password/otp',{channel:'sms',identifier:'0999999999'});
+  const before=deliveries.length;const r=await call('/auth/forgot-password/otp',{identifier:'unknown@example.com'});
   assert.equal(r.status,200);assert.equal(deliveries.length,before);assert.ok(r.data.challengeId);
  });
  await t.test('provider failure prevents confirmation',async()=>{
   providerFails=true;await age();
-  const r=await call('/auth/forgot-password/otp',{channel:'sms',identifier:account.phone});assert.equal(r.status,503);
-  const row=await one("SELECT TOP 1 consumed,ready FROM dbo.AuthOtp WHERE purpose='reset' AND destination=@destination ORDER BY createdAt DESC",{destination:account.phone});
+  const r=await call('/auth/forgot-password/otp',{identifier:account.email});assert.equal(r.status,503);
+  const row=await one("SELECT TOP 1 consumed,ready FROM dbo.AuthOtp WHERE purpose='reset' AND destination=@destination ORDER BY createdAt DESC",{destination:account.email});
   assert.equal(row.consumed,true);assert.equal(row.ready,false);
  });
 });

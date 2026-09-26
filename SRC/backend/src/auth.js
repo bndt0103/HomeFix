@@ -1,7 +1,7 @@
 import {Router} from 'express';import bcrypt from 'bcryptjs';import jwt from 'jsonwebtoken';import {rateLimit} from 'express-rate-limit';
 import {config} from './config.js';import {q,one,transaction} from './db.js';
 import {z,str,id,ok,wrap,fail,roles,versionSchema,checkVersion,audit} from './common.js';
-import {channelSchema,otpFields,issueOtp,withOtp,accountBinding,registrationBinding} from './otp.js';
+import {otpFields,issueOtp,withOtp,accountBinding,registrationBinding} from './otp.js';
 export const authRouter=Router();
 const phone=z.string().regex(/^0\d{9}$/,'Số điện thoại gồm 10 chữ số, bắt đầu bằng 0.');
 const email=z.email().max(200).transform(s=>s.toLowerCase()).nullable().optional();
@@ -18,13 +18,13 @@ export async function auth(req,res,next){
  }catch(e){next(e);}
 }
 const limiter=rateLimit({windowMs:15*60*1000,limit:60,standardHeaders:'draft-8',legacyHeaders:false,message:{error:{code:'RATE_LIMITED',message:'Bạn thử quá nhiều lần. Vui lòng đợi 15 phút.'}}});
-const registration={fullName:str(2,120),phone,email,password};
+const requiredEmail=z.email().max(200).transform(s=>s.toLowerCase());
+const registration={fullName:str(2,120),phone,email:requiredEmail,password};
 const sendLimiter=rateLimit({windowMs:15*60*1000,limit:10,standardHeaders:'draft-8',legacyHeaders:false,message:{error:{code:'OTP_RATE_LIMITED',message:'Bạn gửi quá nhiều yêu cầu OTP. Vui lòng thử lại sau 15 phút.'}}});
 authRouter.post('/auth/register/otp',sendLimiter,wrap(async(req,res)=>{
- const b=z.strictObject({...registration,channel:channelSchema}).parse(req.body);
- if(b.channel==='email'&&!b.email)fail(422,'EMAIL_REQUIRED','Vui lòng nhập email để nhận OTP.');
+ const b=z.strictObject(registration).parse(req.body);
  if(await one('SELECT id FROM dbo.NguoiDung WHERE phone=@phone OR (email=@email AND @email IS NOT NULL)',{phone:b.phone,email:b.email}))fail(409,'ACCOUNT_EXISTS','Số điện thoại hoặc email đã được đăng ký. Bạn có thể dùng Quên mật khẩu.');
- ok(res,await issueOtp({purpose:'register',channel:b.channel,destination:b.channel==='sms'?b.phone:b.email,binding:registrationBinding(b)}));
+ ok(res,await issueOtp({purpose:'register',destination:b.email,binding:registrationBinding(b)}));
 }));
 authRouter.post('/auth/register',limiter,wrap(async(req,res)=>{
  const b=z.strictObject({...registration,...otpFields}).parse(req.body);const hash=await bcrypt.hash(b.password,12);
@@ -41,12 +41,12 @@ authRouter.post('/auth/login',limiter,wrap(async(req,res)=>{
  const accessToken=jwt.sign({role:u.role,tokenVersion:u.tokenVersion},config.secret,{subject:String(u.id),expiresIn:'15m',issuer:'homefix',algorithm:'HS256'});
  const {passwordHash,cccd,...safe}=u;ok(res,{accessToken,expiresIn:900,user:profile(safe)});
 }));
-const recovery={channel:channelSchema,identifier:str(3,200)};
-function recoveryDestination(b){return b.channel==='sms'?phone.parse(b.identifier):z.email().max(200).parse(b.identifier.toLowerCase());}
-async function recoveryUser(b,t){const destination=recoveryDestination(b);return one('SELECT * FROM dbo.NguoiDung WHERE '+(b.channel==='sms'?'phone':'email')+'=@destination AND isActive=1',{destination},t);}
+const recovery={identifier:requiredEmail};
+function recoveryDestination(b){return b.identifier;}
+async function recoveryUser(b,t){const destination=recoveryDestination(b);return one('SELECT * FROM dbo.NguoiDung WHERE email=@destination AND isActive=1',{destination},t);}
 authRouter.post('/auth/forgot-password/otp',sendLimiter,wrap(async(req,res)=>{
  const b=z.strictObject(recovery).parse(req.body),destination=recoveryDestination(b),u=await recoveryUser(b);
- ok(res,await issueOtp({purpose:'reset',channel:b.channel,destination,binding:u?accountBinding(u):'unknown',deliver:Boolean(u)}));
+ ok(res,await issueOtp({purpose:'reset',destination,binding:u?accountBinding(u):'unknown',deliver:Boolean(u)}));
 }));
 authRouter.post('/auth/reset-password',limiter,wrap(async(req,res)=>{
  const b=z.strictObject({...recovery,...otpFields,newPassword:password}).parse(req.body),u=await recoveryUser(b);
@@ -60,12 +60,12 @@ authRouter.post('/auth/reset-password',limiter,wrap(async(req,res)=>{
 }));
 authRouter.use(auth);
 authRouter.post('/users/me/password/otp',sendLimiter,wrap(async(req,res)=>{
- const b=z.strictObject({channel:channelSchema,currentPassword:str(1,200)}).parse(req.body);
+ const b=z.strictObject({currentPassword:str(1,200)}).parse(req.body);
  const u=await one('SELECT * FROM dbo.NguoiDung WHERE id=@id',{id:req.user.id});
  if(Buffer.byteLength(b.currentPassword)>72||!await bcrypt.compare(b.currentPassword,u.passwordHash))fail(422,'WRONG_PASSWORD','Mật khẩu hiện tại không đúng.');
- const destination=b.channel==='sms'?u.phone:u.email;
- if(!destination)fail(422,'EMAIL_REQUIRED','Tài khoản chưa có email. Vui lòng chọn SMS.');
- ok(res,await issueOtp({purpose:'change',channel:b.channel,destination,binding:accountBinding(u)}));
+ const destination=u.email;
+ if(!destination)fail(422,'EMAIL_REQUIRED','Tài khoản chưa có email. Vui lòng cập nhật email trong hồ sơ trước.');
+ ok(res,await issueOtp({purpose:'change',destination,binding:accountBinding(u)}));
 }));
 authRouter.get('/auth/me',wrap(async(req,res)=>ok(res,profile(req.user))));
 authRouter.post('/auth/logout',wrap(async(req,res)=>{await transaction(req.user,t=>q('UPDATE dbo.NguoiDung SET tokenVersion=tokenVersion+1 WHERE id=@id',{id:req.user.id},t));ok(res,{loggedOut:true});}));
