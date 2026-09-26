@@ -14,3 +14,7 @@ Tài khoản thử khách: `kh@homefix.local` / `HomeFix@123`. Đủ bảy vai t
 - `REF/KiemThu`: kết quả và ảnh kiểm thử thực tế.
 
 Bản gốc của báo cáo và bộ bàn giao 14 ngày được giữ nguyên ngoài thư mục này. Không gửi `SRC/backend/.env`, `node_modules` hoặc `_work` lên GitHub. Đã kiểm thử local; cần nhóm kiểm tra APK trên thiết bị thật trước buổi bảo vệ. Các chức năng dự kiến chưa cài được ghi rõ trong báo cáo và hướng dẫn.
+
+### OTP đăng ký và mật khẩu
+
+Đăng ký, quên mật khẩu và đổi mật khẩu hỗ trợ OTP qua Email/Gmail hoặc SMS. Xem [hướng dẫn thay đổi, cấu hình dịch vụ và migration](DOC/THAY_DOI_OTP.md). Máy đã có dữ liệu chạy npm run db:migrate:otp trong SRC, cấu hình khóa email/SMS trong backend/.env, sau đó build và khởi động lại API.

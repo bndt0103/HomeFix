@@ -1,0 +1,68 @@
+import {chromium} from 'playwright';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createServer} from 'node:http';
+import assert from 'node:assert/strict';
+
+const dist=fileURLToPath(new URL('../frontend/dist/',import.meta.url));
+const server=createServer((req,res)=>{
+ const pathname=new URL(req.url,'http://localhost').pathname;
+ const target=path.join(dist,pathname==='/'?'index.html':pathname);
+ const file=target.startsWith(dist)&&fs.existsSync(target)&&fs.statSync(target).isFile()?target:path.join(dist,'index.html');
+ res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml'})[path.extname(file)]||'application/octet-stream');
+ fs.createReadStream(file).pipe(res);
+});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+let browser;
+try{
+ const edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+ browser=await chromium.launch({headless:true,...(process.env.EDGE_PATH?{executablePath:process.env.EDGE_PATH}:fs.existsSync(edge)?{executablePath:edge}:{})});
+ const page=await browser.newPage({viewport:{width:390,height:844}}),faults=[],requests=[];
+ page.on('pageerror',e=>faults.push(e.message));
+ const user={id:1,role:'KH',fullName:'Người kiểm thử',phone:'0912345678',email:'test@gmail.com',defaultAddress:'',version:'AAAAAAAAAAA='};
+ await page.route('**/api/**',async route=>{
+  const request=route.request(),url=new URL(request.url()),body=request.postDataJSON();requests.push({path:url.pathname,body});
+  let data=[];
+  if(url.pathname.endsWith('/otp'))data={challengeId:'11111111-1111-4111-8111-111111111111',retryAfter:60,expiresIn:300,message:'Mã xác thực đã gửi.'};
+  else if(url.pathname.endsWith('/auth/login'))data={accessToken:'ui-test',user};
+  else if(url.pathname.endsWith('/users/me'))data=user;
+  else if(url.pathname.endsWith('/auth/register'))data=user;
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({data,meta:{}})});
+ });
+ await page.goto(`http://127.0.0.1:${server.address().port}`);
+ await page.getByRole('button',{name:'Đăng ký ngay',exact:true}).click();
+ await page.getByLabel('Họ và tên',{exact:true}).fill(user.fullName);
+ await page.getByLabel('Số điện thoại',{exact:true}).fill(user.phone);
+ await page.getByLabel('Email / Gmail',{exact:true}).fill(user.email);
+ await page.getByLabel(/^Mật khẩu/).fill('HomeFix@123');
+ await page.getByRole('button',{name:'Gửi mã OTP',exact:true}).click();
+ await page.getByLabel(/^Mã OTP/).fill('123456');
+ assert.equal(await page.getByRole('button',{name:/Gửi lại sau/}).isDisabled(),true);
+ await page.getByRole('button',{name:'Xác nhận đăng ký',exact:true}).click();
+ await page.getByText('Đăng ký thành công. Vui lòng đăng nhập.',{exact:true}).waitFor();
+ assert.equal(requests.find(r=>r.path==='/api/auth/register').body.otp,'123456');
+ await page.getByRole('button',{name:'Quên mật khẩu?',exact:true}).click();
+ await page.getByLabel(/^Nhận mã xác thực qua/).selectOption('sms');
+ await page.getByLabel('Số điện thoại đã đăng ký',{exact:true}).fill(user.phone);
+ await page.getByLabel(/^Mật khẩu mới/).fill('NewPass@123');
+ await page.getByRole('button',{name:'Gửi mã OTP',exact:true}).click();
+ await page.getByLabel(/^Mã OTP/).fill('654321');
+ await page.getByRole('button',{name:'Xác nhận đặt lại mật khẩu',exact:true}).click();
+ await page.getByText('Đã đặt lại mật khẩu. Vui lòng đăng nhập bằng mật khẩu mới.',{exact:true}).waitFor();
+ assert.equal(requests.find(r=>r.path==='/api/auth/reset-password').body.channel,'sms');
+ await page.getByLabel('Số điện thoại hoặc email',{exact:true}).fill(user.email);
+ await page.getByLabel(/^Mật khẩu/).fill('NewPass@123');
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ await page.locator('a.profile-chip').click();
+ await page.getByLabel('Mật khẩu hiện tại',{exact:true}).fill('NewPass@123');
+ await page.getByLabel(/^Mật khẩu mới/).fill('Changed@123');
+ await page.getByRole('button',{name:'Gửi mã OTP để đổi mật khẩu',exact:true}).click();
+ await page.getByLabel(/^Mã OTP/).fill('123456');
+ await page.getByRole('button',{name:'Xác nhận đổi mật khẩu',exact:true}).click();
+ await page.getByRole('heading',{name:'Đăng nhập HomeFix',exact:true}).waitFor();
+ assert.equal(requests.find(r=>r.path==='/api/users/me/password').body.otp,'123456');
+ assert.deepEqual(faults,[]);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+ console.log('PASS: mobile registration/email OTP, recovery/SMS OTP, profile/password OTP, resend cooldown, no browser errors.');
+}finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}

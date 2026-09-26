@@ -1,0 +1,51 @@
+import crypto from 'node:crypto';
+import {config} from './config.js';
+import {q,one,transaction} from './db.js';
+import {fail,z} from './common.js';
+import {deliverOtp,deliveryConfigured} from './otp-delivery.js';
+
+export const channelSchema=z.enum(['email','sms']);
+export const otpFields={challengeId:z.uuid(),otp:z.string().regex(/^\d{6}$/,'Mã OTP gồm 6 chữ số.')};
+export const otpBinding=value=>crypto.createHmac('sha256',config.secret).update(JSON.stringify(value)).digest('hex');
+const codeHash=(id,code)=>otpBinding([id,code]);
+export const accountBinding=u=>otpBinding([u.id,u.tokenVersion,u.phone,u.email]);
+export const registrationBinding=b=>otpBinding([b.fullName,b.phone,b.email??null,b.password]);
+
+export async function issueOtp({purpose,channel,destination,binding,deliver=true}) {
+ if(!deliveryConfigured(channel))fail(503,'OTP_NOT_CONFIGURED','Kênh gửi OTP chưa được cấu hình. Vui lòng chọn kênh khác hoặc liên hệ hỗ trợ.');
+ const id=crypto.randomUUID(),code=String(crypto.randomInt(0,1000000)).padStart(6,'0');
+ await transaction(null,async t=>{
+  await q('DELETE dbo.AuthOtp WHERE createdAt<DATEADD(day,-1,SYSUTCDATETIME())',{},t);
+  const recent=await one('SELECT COUNT(*) n,MAX(createdAt) lastSent FROM dbo.AuthOtp WHERE destination=@destination AND createdAt>DATEADD(hour,-1,SYSUTCDATETIME())',{destination},t);
+  if(recent.n>=5 || recent.lastSent && Date.now()-recent.lastSent.getTime()<60000)
+   fail(429,'OTP_RATE_LIMITED','Chờ ít nhất 60 giây trước khi gửi lại; tối đa 5 mã mỗi giờ cho một địa chỉ nhận.');
+  await q('UPDATE dbo.AuthOtp SET consumed=1 WHERE destination=@destination AND purpose=@purpose',{destination,purpose},t);
+  await q('INSERT dbo.AuthOtp(id,purpose,channel,destination,binding,codeHash,expiresAt) VALUES(@id,@purpose,@channel,@destination,@binding,@hash,DATEADD(minute,5,SYSUTCDATETIME()))',{id,purpose,channel,destination,binding,hash:codeHash(id,code)},t);
+ });
+ try {
+  if(deliver)await deliverOtp(channel,destination,code);
+  await q('UPDATE dbo.AuthOtp SET ready=1 WHERE id=@id',{id});
+ } catch {
+  await q('UPDATE dbo.AuthOtp SET consumed=1 WHERE id=@id',{id});
+  fail(503,'OTP_DELIVERY_FAILED','Chưa gửi được mã OTP. Vui lòng thử lại sau hoặc chọn kênh khác.');
+ }
+ return {challengeId:id,expiresIn:300,retryAfter:60,message:'Nếu thông tin hợp lệ, mã OTP sẽ được gửi đến địa chỉ bạn chọn. Mã có hiệu lực 5 phút.'};
+}
+
+// Persist failed attempts even when verification fails; consume and mutate together.
+// The shared transaction lock also prevents two processes from replaying a code.
+export async function withOtp(body,purpose,binding,actor,action) {
+ const result=await transaction(actor,async t=>{
+  const row=await one('SELECT *,CASE WHEN expiresAt>SYSUTCDATETIME() THEN 1 ELSE 0 END validTime FROM dbo.AuthOtp WHERE id=@id',{id:body.challengeId},t);
+  if(!row || row.purpose!==purpose || row.binding!==binding || !row.ready || row.consumed || !row.validTime || row.attempts>=5)return {invalid:true};
+  if(!crypto.timingSafeEqual(Buffer.from(row.codeHash,'hex'),Buffer.from(codeHash(row.id.toLowerCase(),body.otp),'hex'))) {
+   await q('UPDATE dbo.AuthOtp SET attempts=attempts+1 WHERE id=@id',{id:body.challengeId},t);
+   return {invalid:true};
+  }
+  const data=await action(t);
+  await q('UPDATE dbo.AuthOtp SET consumed=1 WHERE id=@id',{id:body.challengeId},t);
+  return {data};
+ });
+ if(result.invalid)fail(422,'INVALID_OTP','Mã OTP không đúng, đã hết hạn, đã dùng hoặc thông tin đã thay đổi. Sau 5 lần sai, hãy yêu cầu mã mới.');
+ return result.data;
+}

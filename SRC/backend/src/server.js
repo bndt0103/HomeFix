@@ -22,7 +22,7 @@ app.use((err,req,res,next)=>{
  if([2601,2627].includes(num)){status=409;code='DUPLICATE_RESOURCE';message='Dữ liệu đã tồn tại hoặc vừa được người khác xử lý.';}
  if(num===547){status=409;code='CONSTRAINT_VIOLATION';message='Dữ liệu vi phạm ràng buộc hoặc số dư không đủ.';}
  if([51003,51004,51009].includes(num)){status=num===51003?403:num===51004?404:409;code=(message.match(/[A-Z][A-Z_]{3,}/)||['BUSINESS_CONFLICT'])[0];message=code==='INSUFFICIENT_BALANCE'?'Ví không đủ số dư để đối soát.':'Không thể xử lý với trạng thái hoặc phiên bản hiện tại. Hãy tải lại dữ liệu.';}
- if(status>=500){console.error(JSON.stringify({requestId:req.requestId,code:err.code,number:num||undefined,message:err.message}));code='INTERNAL_ERROR';message='Có lỗi xử lý. Vui lòng thử lại hoặc cung cấp mã yêu cầu cho nhóm hỗ trợ.';}
+ if(status>=500){console.error(JSON.stringify({requestId:req.requestId,code:err.code,number:num||undefined,message:err.message}));if(!(status===503&&['OTP_NOT_CONFIGURED','OTP_DELIVERY_FAILED'].includes(code))){code='INTERNAL_ERROR';message='Có lỗi xử lý. Vui lòng thử lại hoặc cung cấp mã yêu cầu cho nhóm hỗ trợ.';}}
  res.status(status).json({error:{code,message,...(details?{details}:{})},requestId:req.requestId});
 });
 await pool();await expireAssignments();
