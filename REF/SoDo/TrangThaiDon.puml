@@ -1,0 +1,32 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam defaultFontSize 15
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 280
+skinparam ParticipantBackgroundColor #EDF7F0
+skinparam ParticipantBorderColor #348059
+skinparam ArrowColor #345346
+skinparam NoteBackgroundColor #FFF8E6
+title Trạng thái đơn dịch vụ
+[*] --> ChoTiepNhan
+ChoTiepNhan --> ChoDuyetSoBo : ĐPV gửi báo giá
+ChoDuyetSoBo --> ChoPhanCong : KH duyệt
+ChoDuyetSoBo --> Huy : KH từ chối
+ChoPhanCong --> ChoNhan : ĐPV giao thợ
+ChoNhan --> ChoPhanCong : từ chối / hết hạn
+ChoNhan --> DaTiepNhan : KTV nhận
+DaTiepNhan --> DangDiChuyen : xuất phát
+DangDiChuyen --> DaDenNoi : đến nơi
+DaDenNoi --> DangXuLy : bắt đầu sửa
+DangXuLy --> ChoNghiemThu : gửi phiếu
+ChoNghiemThu --> DangXuLy : yêu cầu sửa lại
+ChoNghiemThu --> HoanThanh : KH xác nhận
+DangDiChuyen --> Huy : hủy, lưu phí phải thu
+HoanThanh --> [*]
+Huy --> [*]
+note right of HoanThanh : Hoàn thành kỹ thuật không đồng nghĩa Paid.\nThu COD là nghiệp vụ riêng sau nghiệm thu.
+note left of Huy : Các trạng thái trước xuất phát\ncũng cho hủy miễn phí qua API.\nTừ DaDenNoi phải qua hỗ trợ.
+@enduml

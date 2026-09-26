@@ -1,0 +1,105 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam defaultFontSize 15
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 280
+skinparam ParticipantBackgroundColor #EDF7F0
+skinparam ParticipantBorderColor #348059
+skinparam ArrowColor #345346
+skinparam NoteBackgroundColor #FFF8E6
+hide circle
+hide methods
+left to right direction
+skinparam linetype ortho
+entity DanhGia {
+ id : PK
+orderId : FK
+customerId : FK
+technicianId : FK
+}
+entity DoiSoat {
+ id : PK
+orderId : FK
+technicianId : FK
+paymentId : FK
+confirmedBy : FK
+}
+entity DonHang {
+ id : PK
+customerId : FK
+serviceId : FK
+assignedTechnicianId : FK
+}
+entity GiaoDichVi {
+ id : PK
+technicianId : FK
+actorId : FK
+}
+entity KyThuatVien {
+ id : PK
+
+}
+entity LichSuHoTro {
+ id : PK
+ticketId : FK
+actorId : FK
+}
+entity NguoiDung {
+ id : PK
+
+}
+entity PhieuNghiemThu {
+ id : PK
+orderId : FK
+technicianId : FK
+materialQuoteId : FK
+decidedBy : FK
+signatureId : FK
+}
+entity ThanhToan {
+ id : PK
+orderId : FK
+acceptanceId : FK
+receivedBy : FK
+}
+entity YeuCauHoTro {
+ id : PK
+orderId : FK
+customerId : FK
+assignedTo : FK
+}
+entity YeuCauVi {
+ id : PK
+technicianId : FK
+proofId : FK
+decidedBy : FK
+}
+DonHang ||--o| DanhGia : orderId
+NguoiDung ||--o{ DanhGia : customerId
+KyThuatVien ||--o{ DanhGia : technicianId
+DonHang ||--o| DoiSoat : orderId
+KyThuatVien ||--o{ DoiSoat : technicianId
+ThanhToan ||--o| DoiSoat : paymentId
+NguoiDung |o--o{ DoiSoat : confirmedBy
+NguoiDung ||--o{ DonHang : customerId
+KyThuatVien |o--o{ DonHang : assignedTechnicianId
+KyThuatVien ||--o{ GiaoDichVi : technicianId
+NguoiDung |o--o{ GiaoDichVi : actorId
+NguoiDung ||--o| KyThuatVien : id
+YeuCauHoTro ||--o{ LichSuHoTro : ticketId
+NguoiDung ||--o{ LichSuHoTro : actorId
+DonHang ||--o{ PhieuNghiemThu : orderId
+KyThuatVien ||--o{ PhieuNghiemThu : technicianId
+NguoiDung |o--o{ PhieuNghiemThu : decidedBy
+DonHang ||--o| ThanhToan : orderId
+PhieuNghiemThu ||--o| ThanhToan : acceptanceId
+KyThuatVien ||--o{ ThanhToan : receivedBy
+DonHang ||--o{ YeuCauHoTro : orderId
+NguoiDung ||--o{ YeuCauHoTro : customerId
+NguoiDung |o--o{ YeuCauHoTro : assignedTo
+KyThuatVien ||--o{ YeuCauVi : technicianId
+NguoiDung |o--o{ YeuCauVi : decidedBy
+@enduml

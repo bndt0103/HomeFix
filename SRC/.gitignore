@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+backend/uploads/
+frontend/dist/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/**/build/
+test-results/
+*.log

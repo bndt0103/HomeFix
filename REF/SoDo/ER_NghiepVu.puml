@@ -1,0 +1,93 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam defaultFontSize 15
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 280
+skinparam ParticipantBackgroundColor #EDF7F0
+skinparam ParticipantBorderColor #348059
+skinparam ArrowColor #345346
+skinparam NoteBackgroundColor #FFF8E6
+hide circle
+hide methods
+left to right direction
+skinparam linetype ortho
+entity BaoGiaSoBo {
+ id : PK
+orderId : FK
+createdBy : FK
+decidedBy : FK
+}
+entity ChiTietDeXuatVatTu {
+ id : PK
+quoteId : FK
+}
+entity DeXuatVatTu {
+ id : PK
+orderId : FK
+createdBy : FK
+decidedBy : FK
+}
+entity DichVu {
+ id : PK
+
+}
+entity DonHang {
+ id : PK
+customerId : FK
+serviceId : FK
+assignedTechnicianId : FK
+}
+entity KyThuatVien {
+ id : PK
+
+}
+entity LenhDieuPhoi {
+ id : PK
+orderId : FK
+technicianId : FK
+createdBy : FK
+}
+entity NguoiDung {
+ id : PK
+
+}
+entity PhieuNghiemThu {
+ id : PK
+orderId : FK
+technicianId : FK
+materialQuoteId : FK
+decidedBy : FK
+signatureId : FK
+}
+entity TepDinhKem {
+ id : PK
+ownerId : FK
+orderId : FK
+acceptanceId : FK
+}
+DonHang ||--o| BaoGiaSoBo : orderId
+NguoiDung ||--o{ BaoGiaSoBo : createdBy
+NguoiDung |o--o{ BaoGiaSoBo : decidedBy
+DeXuatVatTu ||--o{ ChiTietDeXuatVatTu : quoteId
+DonHang ||--o{ DeXuatVatTu : orderId
+NguoiDung ||--o{ DeXuatVatTu : createdBy
+NguoiDung |o--o{ DeXuatVatTu : decidedBy
+NguoiDung ||--o{ DonHang : customerId
+DichVu ||--o{ DonHang : serviceId
+KyThuatVien |o--o{ DonHang : assignedTechnicianId
+NguoiDung ||--o| KyThuatVien : id
+DonHang ||--o{ LenhDieuPhoi : orderId
+KyThuatVien ||--o{ LenhDieuPhoi : technicianId
+NguoiDung ||--o{ LenhDieuPhoi : createdBy
+DonHang ||--o{ PhieuNghiemThu : orderId
+KyThuatVien ||--o{ PhieuNghiemThu : technicianId
+DeXuatVatTu |o--o{ PhieuNghiemThu : materialQuoteId
+NguoiDung |o--o{ PhieuNghiemThu : decidedBy
+TepDinhKem |o--o{ PhieuNghiemThu : signatureId
+NguoiDung ||--o{ TepDinhKem : ownerId
+DonHang |o--o{ TepDinhKem : orderId
+PhieuNghiemThu |o--o{ TepDinhKem : acceptanceId
+@enduml

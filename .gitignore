@@ -1,0 +1,10 @@
+_work/
+SRC/node_modules/
+SRC/backend/.env
+SRC/backend/uploads/
+SRC/frontend/.env.local
+SRC/frontend/android/local.properties
+SRC/frontend/android/.gradle/
+SRC/frontend/android/**/build/
+*.log
+*.zip

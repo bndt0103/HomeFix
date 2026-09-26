@@ -1,0 +1,12 @@
+{
+  "executedAt": "2026-09-25T14:30:12.404Z",
+  "database": "HomeFix_InstallationCheck",
+  "base": "http://localhost:3001",
+  "status": "PASS",
+  "results": [
+    "Máy chủ dùng database mới trả health 200",
+    "Website build được phục vụ",
+    "Có đúng 6 dịch vụ mẫu",
+    "7 vai trò đăng nhập đúng quyền; KH mới chưa có đơn; ví KTV mẫu 1.000.000"
+  ]
+}

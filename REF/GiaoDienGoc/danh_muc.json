@@ -1,0 +1,499 @@
+[
+  {
+    "file": "image22.png",
+    "section": "4.2.1.1. Màn hình đăng nhập",
+    "caption": "Hình 4-2: Màn hình Đăng nhập",
+    "paragraph": "P02333",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image23.png",
+    "section": "4.2.1.2. Màn hình Đăng ký tài khoản Khách hàng",
+    "caption": "Hình 4-3: Màn hình Đăng ký tài khoản Khách hàng",
+    "paragraph": "P02374",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image24.png",
+    "section": "4.2.1.3. Màn hình Quên mật khẩu - Thông tin xác thực",
+    "caption": "Hình 4-4: Màn hình Quên mật khẩu - Thông tin xác thực",
+    "paragraph": "P02421",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image25.png",
+    "section": "4.2.1.3. Màn hình đăng ký hồ sơ Kỹ thuật viên",
+    "caption": "Hình 4-5: Màn hình Đăng ký hồ sơ KTV: Bước 1 nhập thông tin cá nhân",
+    "paragraph": "P02449",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image27.png",
+    "section": "4.2.1.3. Màn hình đăng ký hồ sơ Kỹ thuật viên",
+    "caption": "Hình 4-6: Màn hình Đăng ký hồ sơ KTV: Bước 2 nhập thông tin về chuyên môn & Dịch vụ",
+    "paragraph": "P02542",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image29.png",
+    "section": "4.2.1.3. Màn hình đăng ký hồ sơ Kỹ thuật viên",
+    "caption": "Hình 4-7: Màn hình Đăng ký hồ sơ KTV: Bước 3 nhập thông tin giấy tờ cá nhân",
+    "paragraph": "P02638",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image31.png",
+    "section": "4.2.1.3. Màn hình đăng ký hồ sơ Kỹ thuật viên",
+    "caption": "Hình 4-8: Màn hình Đăng ký hồ sơ KTV: Bước 4 hoàn thành và gửi hồ sơ đăng ký",
+    "paragraph": "P02730",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image33.png",
+    "section": "4.2.1.4. Màn hình Quên mật khẩu – OTP",
+    "caption": "Hình 4-9: Màn hình Quên mật khẩu – OT",
+    "paragraph": "P02769",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image34.png",
+    "section": "4.2.1.5. Màn hình Quên mật khẩu - Đổi mật khẩu mới",
+    "caption": "Hình 4-10: Màn hình Quên mật khẩu - Đổi mật khẩu mới",
+    "paragraph": "P02799",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image35.png",
+    "section": "4.2.1.6. Màn hình Cài đặt tài khoản",
+    "caption": "Hình 4-11: Màn hình Cài đặt tài khoản",
+    "paragraph": "P02834",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image36.png",
+    "section": "4.2.1.7. Màn hình Tài khoản - Đổi mật khẩu",
+    "caption": "Hình 4-12: Màn hình Tài khoản - Đổi mật khẩu",
+    "paragraph": "P02893",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image37.png",
+    "section": "4.2.2.1 Màn hình chính Khách hàng",
+    "caption": "Hình 4-13: Màn hình chính Khách hàng",
+    "paragraph": "P02929",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image38.png",
+    "section": "4.2.2.2. Màn hình chính Kỹ thuật viên",
+    "caption": "Hình 4-14: Màn hình chính KTV ở trạng thái bình thường",
+    "paragraph": "P02976",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image40.png",
+    "section": "4.2.2.2. Màn hình chính Kỹ thuật viên",
+    "caption": "Hình 4-15: Màn hình chính  KTV ở trạng thái lỗi ví",
+    "paragraph": "P03038",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image42.png",
+    "section": "4.2.2.3. Màn hình chính Điều phối viên",
+    "caption": "Hình 416: Màn hình chính Điều phối viên",
+    "paragraph": "P03093",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image43.png",
+    "section": "4.2.2.4. Màn hình chính Nhân viên CSKH",
+    "caption": "Hình 417: Các đối tượng  màn hình chính Nhân viên CSKH ",
+    "paragraph": "P03132",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image44.png",
+    "section": "4.2.2.5. Màn hình chính Kế toán",
+    "caption": "4.2.2.5. Màn hình chính Kế toán",
+    "paragraph": "P03169",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image45.png",
+    "section": "4.2.2.6. Màn hình chính Quản trị viên",
+    "caption": "Hình 419: Màn hình chính Admin Dashboard",
+    "paragraph": "P03251",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image46.png",
+    "section": "4.2.2.7. Màn hình chính Giám đốc",
+    "caption": "Hình 420: Màn hình chính Giám đốc",
+    "paragraph": "P03358",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image47.png",
+    "section": "4.2.3.1. Màn hình Dịch vụ sửa chữa - Xem",
+    "caption": "Hình 4-21: Màn hình Dịch vụ sửa chữa - Xem",
+    "paragraph": "P03436",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image48.png",
+    "section": "4.2.3.2. Màn hình Dịch vụ sửa chữa - Thêm mới",
+    "caption": "Hình 4-22: Màn hình Dịch vụ sửa chữa - Thêm mới",
+    "paragraph": "P03489",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image49.png",
+    "section": "4.2.3.3. Màn hình Dịch vụ sửa chữa - Cập nhật",
+    "caption": "Hình 4-23: Màn hình Dịch vụ sửa chữa - Cập nhật",
+    "paragraph": "P03542",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image50.png",
+    "section": "4.2.3.4. Màn hình Dịch vụ sửa chữa - Xóa",
+    "caption": "Hình 4-24: Màn hình Dịch vụ sửa chữa - Xóa",
+    "paragraph": "P03595",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image51.png",
+    "section": "4.2.4.1.1. Màn hình Quản lý & Lịch sử đơn hàng",
+    "caption": "Hình 4-25: Màn hình Quản lý & Lịch sử đơn hàng",
+    "paragraph": "P03626",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image52.png",
+    "section": "4.2.4.1.2. Màn hình Chi tiết đơn hàng & Định vị thợ",
+    "caption": "Hình 4-26: Màn hình Chi tiết đơn hàng & Định vị thợ",
+    "paragraph": "P03673",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image53.png",
+    "section": "4.2.4.1.3 Màn hình Chẩn đoán lỗi từ xa (Video Call, Chat, xem ảnh/video) ",
+    "caption": "Hình 426: Màn hình Chẩn đoán lỗi từ xa",
+    "paragraph": "P03726",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image54.png",
+    "section": "4.2.4.2.1. Màn hình Đặt dịch vụ",
+    "caption": "Hình 4-27: Màn hình Đặt dịch vụ",
+    "paragraph": "P03751",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image55.png",
+    "section": "4.2.4.2.2 Màn hình Lập & gửi báo giá sơ bộ ",
+    "caption": "Hình 428: Màn hình Lập & gửi báo giá sơ bộ (ĐPV_BM 1)",
+    "paragraph": "P03822",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image56.png",
+    "section": "4.2.4.2.3. Màn hình Xác nhận báo giá sơ bộ (Khách Hàng)",
+    "caption": "Hình 4-29: Màn hình Xác nhận báo giá sơ bộ",
+    "paragraph": "P03868",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image57.png",
+    "section": "4.2.4.3.1 Màn hình Điều phối thợ  Dispatch",
+    "caption": "Hình 430: Màn hình Điều phối thợ  Dispatch ",
+    "paragraph": "P03910",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image58.png",
+    "section": "4.2.4.3.2. Màn hình Tiếp nhận / Từ chối đơn hàng (Kỹ thuật viên)",
+    "caption": "Hình 4-31:  Màn hình tiếp nhận đơn ",
+    "paragraph": "P03946",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image60.png",
+    "section": "4.2.4.3.2. Màn hình Tiếp nhận / Từ chối đơn hàng (Kỹ thuật viên)",
+    "caption": "Hình 4-32: Màn hình từ chối đơn",
+    "paragraph": "P04055",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image62.png",
+    "section": "4.2.4.3.3. Màn hình Cập nhật tiến độ công việc 4 bước",
+    "caption": "Hình 4-33: Màn hình cập nhật tiến độ bước 1 – Đã nhận",
+    "paragraph": "P04120",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image64.png",
+    "section": "4.2.4.3.3. Màn hình Cập nhật tiến độ công việc 4 bước",
+    "caption": "Hình 4-34: Màn hình cập nhật tiến độ bước 2 – Đã đến nơi",
+    "paragraph": "P04207",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image66.png",
+    "section": "4.2.4.3.3. Màn hình Cập nhật tiến độ công việc 4 bước",
+    "caption": "Hình 4-35: Màn hình cập nhật tiến độ bước 3 – Đang làm",
+    "paragraph": "P04302",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image68.png",
+    "section": "4.2.4.3.3. Màn hình Cập nhật tiến độ công việc 4 bước",
+    "caption": "Hình 4-36: Màn hình cập nhật tiến độ bước 4– Hoàn thành",
+    "paragraph": "P04427",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image70.png",
+    "section": "4.2.4.3.4. Màn hình Lập đề xuất báo giá vật tư phát sinh tại hiện trường",
+    "caption": "Hình 4-37: Màn hình đề xuất vật tư – Soạn phiếu đề xuất",
+    "paragraph": "P04518",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image72.png",
+    "section": "4.2.4.3.4. Màn hình Lập đề xuất báo giá vật tư phát sinh tại hiện trường",
+    "caption": "Hình 4-38: Màn hình đề xuất vật tư – Đang chờ khách duyệt",
+    "paragraph": "P04609",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image74.png",
+    "section": "4.2.4.3.5. Màn hình Lập phiếu nghiệm thu, chụp ảnh thành phẩm & lấy chữ ký khách hàng",
+    "caption": "Hình 4-39: Màn hình phiếu nghiệm thu - có thể chỉnh sửa",
+    "paragraph": "P04709",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image76.png",
+    "section": "4.2.4.3.5. Màn hình Lập phiếu nghiệm thu, chụp ảnh thành phẩm & lấy chữ ký khách hàng",
+    "caption": "Hình 4-40: Phiếu nghiệm thu – không chỉnh sửa(xem lại)",
+    "paragraph": "P04942",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image78.png",
+    "section": "4.2.4.4.1. Màn hình Hủy đơn hàng (Khách Hàng)",
+    "caption": "Hình 4-41: Màn hình Hủy đơn hàng",
+    "paragraph": "P04989",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image79.png",
+    "section": "4.2.4.4.2 Màn hình Hủy đơn hàng & Xử lý phí di chuyển (ĐPV)",
+    "caption": "Hình 442: Màn hình Hủy đơn hàng & Xử lý phí di chuyển  ",
+    "paragraph": "P05030",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image80.png",
+    "section": "4.2.5.1. Màn hình xem danh sách tài khoản người dùng",
+    "caption": "4.2.5.1. Màn hình xem danh sách tài khoản người dùng",
+    "paragraph": "P05077",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image81.png",
+    "section": "4.2.5.2. Màn hình thêm/ cấp tài khoản người dùng mới",
+    "caption": "Hình 444: Màn hình thêm/ cấp tài khoản người dùng mới",
+    "paragraph": "P05135",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image82.png",
+    "section": "4.2.5.3. Màn hình cập nhật thông tin & phân quyền tài khoản",
+    "caption": "Hình 446: Màn hình khóa/ xoá tài khoản người dùng",
+    "paragraph": "P05212",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image83.png",
+    "section": "4.2.5.4. Màn hình khóa/ xoá tài khoản người dùng",
+    "caption": "4.2.5.4. Màn hình khóa/ xoá tài khoản người dùng",
+    "paragraph": "P05277",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image84.png",
+    "section": "4.2.6.1. Màn hình xem danh sách khiếu nại, phiếu bảo hành & khảo sát kém",
+    "caption": "4.2.6.1. Màn hình xem danh sách khiếu nại, phiếu bảo hành & khảo sát kém",
+    "paragraph": "P05328",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image85.png",
+    "section": "4.2.6.1. Màn hình xem danh sách khiếu nại, phiếu bảo hành & khảo sát kém",
+    "caption": "4.2.6.1. Màn hình xem danh sách khiếu nại, phiếu bảo hành & khảo sát kém",
+    "paragraph": "P05345",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image86.png",
+    "section": "4.2.6.1. Màn hình xem danh sách khiếu nại, phiếu bảo hành & khảo sát kém",
+    "caption": "Hình 447: Màn hình xem danh sách khiếu nại, bảo hành & đánh giá kém (< 3 sao) ",
+    "paragraph": "P05346",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image87.png",
+    "section": "4.2.6.2.2 Màn hình Tiếp nhận & Tạo phiếu khiếu nại (CSKH) ",
+    "caption": "4.2.6.2.2 Màn hình Tiếp nhận & Tạo phiếu khiếu nại (CSKH) ",
+    "paragraph": "P05397",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image88.png",
+    "section": "4.2.6.2.2 Màn hình Tiếp nhận & Tạo phiếu khiếu nại (CSKH) ",
+    "caption": "Hình 448: Màn hình Tiếp nhận & Tạo phiếu khiếu nại",
+    "paragraph": "P05408",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image89.png",
+    "section": "4.2.6.2.3 Màn hình Khởi tạo phiếu bảo hành dịch vụ (CSKH)",
+    "caption": "Hình 449: Màn hình Khởi tạo phiếu bảo hành dịch vụ (CSKH)",
+    "paragraph": "P05444",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image90.png",
+    "section": "5.2.6.3 & 5.2.6.4 Màn hình Cập nhật tiến độ & Hủy/Đóng phiếu khiếu nại, bảo hành",
+    "caption": "Hình 450 : Màn hình Cập nhật tiến độ & Hủy/Đóng phiếu khiếu nại, bảo hành",
+    "paragraph": "P05485",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image91.png",
+    "section": "4.2.6.2.1 Màn hình Đánh giá & Phản hồi",
+    "caption": "Hình 4-52: Màn hình Đánh giá & Phản hồi",
+    "paragraph": "P05525",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image92.png",
+    "section": "4.2.6.2. Màn hình Khiếu nại & Bảo hành của Khách hàng",
+    "caption": "Hình 4-53: Màn hình Khiếu nại & Bảo hành",
+    "paragraph": "P05560",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image93.png",
+    "section": "4.2.7.1.1. Màn hình xem số dư Ví KTV & lịch sử giao dịch",
+    "caption": "Hình 4-54: Màn hình xem số dư ví KTV & Lịch sử giao dịch",
+    "paragraph": "P05603",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image95.png",
+    "section": "4.2.7.1.2. Màn hình Đối soát doanh thu, chiết khấu & tiền mặt COD",
+    "caption": "4.2.7.1.2. Màn hình Đối soát doanh thu, chiết khấu & tiền mặt COD",
+    "paragraph": "P05793",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image96.png",
+    "section": "4.2.7.2.1. Màn hình Thanh toán dịch vụ",
+    "caption": "Hình 4-56: Màn hình Thanh toán dịch vụ",
+    "paragraph": "P05852",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image97.png",
+    "section": "4.2.7.2.2. Màn hình tạo yêu cầu Nạp / Rút tiền Ví KTV",
+    "caption": "Hình 4-57: Màn hình tạo yêu cầu Nạp / Rút tiền Ví KTV",
+    "paragraph": "P05887",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image99.png",
+    "section": "4.2.7.3. Màn hình cập nhật & Duyệt/ Từ chối lệnh Nạp - Rút tiền Ví KTV",
+    "caption": "Hình 459: Màn hình xóa/ hủy lệnh giao dịch không hợp lệ",
+    "paragraph": "P06126",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image100.png",
+    "section": "4.2.7.4. Màn hình xóa/ hủy lệnh giao dịch không hợp lệ",
+    "caption": "Hình 460: Màn hình Báo cáo dòng tiền",
+    "paragraph": "P06190",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image101.png",
+    "section": "4.2.7.5. Màn hình Báo cáo dòng tiền",
+    "caption": "Hình 461: Màn hình xem Nhật ký hoạt động hệ thống",
+    "paragraph": "P06236",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image102.png",
+    "section": "4.2.8.1. Màn hình xem Nhật ký hoạt động hệ thống",
+    "caption": "Hình 461: Màn hình Cấu hình tham số hệ thống",
+    "paragraph": "P06313",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image103.png",
+    "section": "4.2.8.2. Màn hình Cấu hình tham số hệ thống",
+    "caption": "Hình 462: Cấu hình bảng giá sàn dịch vụ",
+    "paragraph": "P06371",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image104.png",
+    "section": "4.2.8.2.1. Cấu hình bảng giá sàn dịch vụ",
+    "caption": "Hình 463: Màn hình Phê duyệt chính sách & bảng giá mới",
+    "paragraph": "P06435",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image105.png",
+    "section": "4.2.8.3. Màn hình Phê duyệt chính sách & bảng giá mới",
+    "caption": "4.2.8.3. Màn hình Phê duyệt chính sách & bảng giá mới",
+    "paragraph": "P06487",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image106.png",
+    "section": "4.2.8.4. Màn hình Trung tâm thông báo của Khách Hàng",
+    "caption": "Hình 4-64: Màn hình Trung tâm thông báo",
+    "paragraph": "P06557",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image107.png",
+    "section": "4.2.9.1. Thống kê khách hàng & chỉ số đánh giá chất lượng dịch vụ",
+    "caption": "Hình 4-67: Màn hình Thống kê & Lập báo cáo dòng tiền, doanh thu, lợi nhuận",
+    "paragraph": "P06593",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image109.png",
+    "section": "4.2.9.2. Thống kê & Lập báo cáo dòng tiền, doanh thu, lợi nhuận ",
+    "caption": "Hình 4-68: Màn hình Thống kê & Báo cáo hiệu suất, năng suất làm việc KTV",
+    "paragraph": "P06847",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "image110.png",
+    "section": "4.2.9.3. Thống kê & Báo cáo hiệu suất, năng suất làm việc KTV",
+    "caption": "4.2.9.3. Thống kê & Báo cáo hiệu suất, năng suất làm việc KTV",
+    "paragraph": "P06851",
+    "source": "Báo cáo DOCX chương 4"
+  },
+  {
+    "file": "extra_countdown.png",
+    "section": "4.2.4.3.2. Tiếp nhận / từ chối đơn",
+    "caption": "Ảnh rời bổ sung: cảnh báo countdown 01:42",
+    "paragraph": "PNG ngoài báo cáo",
+    "source": "D:\\Subject_K5\\CNPM\\Screen_KTV_GD\\GD\\Tiếp nhận đơn_Gấp.png"
+  }
+]

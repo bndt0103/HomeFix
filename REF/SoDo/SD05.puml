@@ -1,0 +1,46 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam defaultFontSize 15
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 280
+skinparam ParticipantBackgroundColor #EDF7F0
+skinparam ParticipantBorderColor #348059
+skinparam ArrowColor #345346
+skinparam NoteBackgroundColor #FFF8E6
+hide footbox
+title SD05 — Nhận hoặc từ chối lệnh
+actor "Kỹ thuật viên" as A
+boundary "Giao diện React" as UI
+control "API / orders.js" as API
+database "SQL Server" as DB
+A -> UI : Nhập và xác nhận
+UI -> API : POST /assignments/:id/decision\ndecision, reason?, expectedVersion
+activate API
+API -> API : JWT, vai trò, Zod
+API -> DB : BEGIN TRAN + sp_getapplock
+DB --> API : Giữ khóa giao dịch
+API -> DB : Đọc dữ liệu; kiểm tra điều kiện
+DB --> API : Dữ liệu + rowversion
+note over API,DB
+Đúng thợ; Pending; phiên bản đúng
+So sánh expiresAt với giờ máy chủ
+end note
+alt Hợp lệ
+API -> DB : Accepted: giữ ca, thợ DangBan\nRejected: đóng lệnh, gỡ thợ\nsp_ChuyenTrangThaiDon
+DB --> API : Kết quả cập nhật
+API -> DB : COMMIT
+API --> UI : 200/201 + dữ liệu + version mới
+UI --> A : Accepted → DaTiepNhan\nRejected → ChoPhanCong
+else Nhánh ngoại lệ
+note over API,DB
+Hết hạn: COMMIT đóng lệnh, trả đơn; trả 409
+Không rollback việc xử lý hết hạn
+end note
+API --> UI : Mã lỗi + thông báo
+UI --> A : Giải thích và cho tải lại
+end
+deactivate API
+@enduml

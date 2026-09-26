@@ -1,0 +1,216 @@
+Kế hoạch cài đặt và thử nghiệm
+
+Tên đề tài: Xây dựng hệ thống quản lý dịch vụ sửa chữa và bảo trì thiết bị tại nhà.
+Họ và tên SV thực hiện: NHÓM 08
+Nguyễn Quốc Việt				MSSV: 24110381
+Đỗ Anh Tuấn 					MSSV: 24110369
+Bùi Nguyễn Duy Trung			MSSV: 24110363
+Lê Tấn Tài					MSSV: 24110319
+GVHD: Nguyễn Trần Thi Văn
+Thời gian: 3 tuần
+Ngày bắt đầu: 21/09/2026
+Ngày kết thúc: 10/10/2026
+Kế hoạch cụ thể:	
+
+Tuần
+ | Ngày
+ | Nhiệm vụ (Công việc dự kiến)
+ | Người chịu trách nhiệm
+ | Sản phẩm
+ | Kết quả thực tế
+ | Chữ ký GVHD
+ | 
+ | 1
+ | 21/09 – 27/09
+
+ | -  Viết script SQL tạo cơ sở dữ liệu theo lược đồ logic và tạo dữ liệu mẫu.
+-  Khởi tạo Backend, kết nối cơ sở dữ liệu.
+-  Xây dựng API đăng ký, đăng nhập, xác thực token và phân quyền 7 vai trò.
+-  Xây dựng API hồ sơ cá nhân và đăng ký hồ sơ kỹ thuật viên.
+ | Việt
+ | -  Script cơ sở dữ liệu + dữ liệu mẫu chạy được.
+-  Backend chạy trên máy local.
+-  Bộ API xác thực & phân quyền đạt kiểm thử.
+ | 
+ | 
+ | 
+ | 
+ | 
+ | -  Khởi tạo project Frontend Web, dựng khung layout Dashboard dùng chung.
+-  Xây dựng giao diện đăng nhập và thông tin cá nhân (bản Web).
+-  Xây dựng giao diện quản lý tài khoản & phân quyền người dùng.
+-  Xây dựng giao diện quản lý danh mục dịch vụ & bảng giá.
+ | Tuấn
+ | -  Base code Web + layout Dashboard.
+-  Giao diện đăng nhập, quản lý tài khoản và danh mục chạy với dữ liệu thật.
+ | 
+ | 
+ | 
+ | 
+ | 
+ | -  Khởi tạo project Mobile App, cấu hình điều hướng và lưu trữ phiên đăng nhập.
+-  Xây dựng giao diện đăng nhập, đăng ký khách hàng và đăng ký hồ sơ kỹ thuật viên.
+-  Xây dựng giao diện trang chủ Khách hàng.
+-  Xử lý quyền truy cập Vị trí / Camera / Micro phục vụ nghiệp vụ Tuần 2.
+ | Trung
+ | -  Base code App chạy trên thiết bị thật.
+-  Giao diện đăng nhập – đăng ký – trang chủ chạy với dữ liệu thật.
+ | 
+ | 
+ | 
+ | 
+ | 
+ | -  Thiết lập GitHub, quy trình Pull Request và bảng quản lý công việc (Trello).
+-  Viết tài liệu đặc tả API cho các luồng nghiệp vụ Tuần 2 - 3.
+-  Xây dựng API cấu hình danh mục dịch vụ, bảng giá niêm yết và tham số hệ thống.
+-  Lập kế hoạch kiểm thử tổng thể và bộ test case đợt.
+ | Tài
+ | -  Repository Git + bảng công việc sẵn sàng.
+-  Tài liệu đặc tả API.
+-  API cấu hình danh mục và tham số hệ thống chạy được.
+-  Bộ test case đợt 1; 
+ | 
+ | 
+ | 
+ | 
+ | 27/09/2026
+ | MỐC KIỂM SOÁT: Demo nội bộ lần 1 - đăng nhập đúng 7 vai trò trên Web và App, cơ sở dữ liệu sẵn sàng. Đóng băng cấu trúc cơ sở dữ liệu sau mốc này.
+ | Cả nhóm
+ | Biên bản họp nhóm + ảnh chụp demo lưu trên repo
+ | 
+ | 
+ | 
+ | 2
+
+ | 28/09 – 04/10
+
+ | -  Xây dựng API đặt dịch vụ, tải lên ảnh/video/ghi âm mô tả lỗi.
+-  Xây dựng API theo dõi đơn hàng và định vị kỹ thuật viên theo thời gian thực.
+-  Xây dựng API lập báo giá sơ bộ và khách hàng xác nhận báo giá.
+-  Xây dựng API điều phối kỹ thuật viên kèm cơ chế tự chuyển đơn khi quá hạn phản hồi.
+-  Xây dựng API trạng thái làm việc, tiếp nhận/từ chối đơn và cập nhật tiến độ 4 bước.
+-  Xây dựng API chẩn đoán lỗi từ xa (phiên video/chat).
+ | Việt
+ | -  Bộ API luồng nghiệp vụ lõi đạt kiểm thử.
+-  Kênh định vị thời gian thực hoạt động.
+-  Cơ chế tự chuyển đơn chạy đúng quy định.
+ | 
+ | 
+ | 
+ | 
+ | 
+ | -  Xây dựng giao diện Điều phối viên: dashboard, bản đồ thợ, chẩn đoán lỗi từ xa, lập báo giá sơ bộ, điều phối thợ và huỷ đơn.
+-  Xây dựng giao diện Chăm sóc khách hàng: tiếp nhận khiếu nại, khởi tạo phiếu bảo hành, cập nhật và đóng phiếu.
+-  Ghép nối toàn bộ giao diện trên với API.
+ | Tuấn
+ | -  Giao diện phân hệ Điều phối viên và CSKH chạy với dữ liệu thật.
+-  Video call và chat thử nghiệm thành công giữa 2 máy.
+ | 
+ | 
+ | 
+ | 
+ | 
+ | -  Xây dựng giao diện Khách hàng: đặt dịch vụ, danh sách và chi tiết đơn hàng, theo dõi vị trí thợ trên bản đồ.
+-  Bổ sung giao diện khách hàng xác nhận báo giá sơ bộ và vật tư phát sinh (xem Ghi chú 4).
+-  Xây dựng giao diện Kỹ thuật viên: bật/tắt trạng thái sẵn sàng, tiếp nhận/từ chối đơn, cập nhật tiến độ 4 bước.
+ | Trung
+ | -  App Khách hàng đặt được đơn thật và theo dõi thợ trên bản đồ.
+-  App Kỹ thuật viên nhận đơn và cập nhật đủ 4 bước tiến độ.
+ | 
+ | 
+ | 
+ | 
+ | 
+ | -  Xây dựng API lập phiếu nghiệm thu, tổng hợp chi phí và bảng kê vật tư phát sinh.
+-  Xây dựng API tiếp nhận khiếu nại và quản lý phiếu bảo hành.
+-  Kiểm thử tích hợp đợt 2 toàn bộ luồng nghiệp vụ lõi trên Web và App, ghi nhận bug.
+ | Tài
+ | -  API nghiệm thu, vật tư, khiếu nại, bảo hành đạt kiểm thử.
+-  Biên bản kiểm thử đợt 2 kèm danh sách bug.
+ | 
+ | 
+
+ | 
+ | 
+ | 04/10/2026
+ | MỐC KIỂM SOÁT: Demo nội bộ lần 2 — chạy thông luồng từ khách hàng đặt đơn, điều phối, kỹ thuật viên thi công đến nghiệm thu.
+ | Cả nhóm
+ | Biên bản họp nhóm + ảnh chụp demo lưu trên repo
+ | 
+ | 
+ | 
+ | 3
+
+ | 05/10 – 10/10
+
+ | -  Xây dựng API thanh toán (tiền mặt, chuyển khoản, ví điện tử) và đánh giá dịch vụ.
+-  Xây dựng API quản lý ví kỹ thuật viên, lịch sử giao dịch và yêu cầu nạp/rút tiền.
+-  Sửa bug backend và tối ưu hiệu năng theo yêu cầu chất lượng hệ thống.
+-  Triển khai Backend và cơ sở dữ liệu lên server, bàn giao link API.
+ | Việt
+ | -  API thanh toán, đánh giá, ví kỹ thuật viên đạt kiểm thử.
+-  Backend và cơ sở dữ liệu chạy trực tuyến.
+-  Biên bản đo hiệu năng; bug backend đã đóng.
+ | 
+ | 
+ | 
+ | 
+ | 
+ | -  Xây dựng giao diện Kế toán: duyệt lệnh nạp/rút ví, đối soát doanh thu và hoa hồng.
+-  Xây dựng giao diện Quản trị viên: dashboard giám sát và cấu hình tham số hệ thống.
+-  Rà soát toàn bộ Web, chuẩn hoá thông báo lỗi và kiểm tra hợp lệ biểu mẫu; sửa bug giao diện.
+-  Triển khai Web Frontend, bàn giao link demo.
+ | Tuấn
+ | -  Giao diện phân hệ Kế toán và Quản trị viên chạy với dữ liệu thật.
+-  Web chạy trực tuyến, có link demo.
+-  Ảnh chụp màn hình giao diện Web phục vụ báo cáo.
+ | 
+ | 
+ | 
+ | 
+ | 
+ | -  Xây dựng giao diện đề xuất vật tư phát sinh và lập phiếu nghiệm thu kèm chữ ký khách hàng.
+-  Xây dựng giao diện thanh toán và đánh giá dịch vụ cho Khách hàng.
+-  Xây dựng giao diện ví kỹ thuật viên và yêu cầu nạp/rút tiền.
+-  Build file APK demo và kiểm thử trên 2 thiết bị Android.
+-  Sau khi hoàn tất APK: hỗ trợ Tuấn hoàn thiện Web và cùng Tài chạy kiểm thử.
+ | Trung
+ | -  Các giao diện App còn lại chạy với dữ liệu thật.
+-  File APK demo chạy được trên thiết bị thật.
+-  Ảnh chụp màn hình giao diện App phục vụ báo cáo.
+ | 
+ | 
+ | 
+ | 
+ | 
+ | -  Xây dựng API duyệt nạp/rút ví, đối soát doanh thu và trừ hoa hồng sàn.
+-  Xây dựng API xử lý hoàn tiền, phí huỷ đơn và báo cáo tổng hợp dòng tiền.
+-  Xây dựng API và giao diện thống kê, báo cáo dành cho Giám đốc.
+-  Kiểm thử hệ thống đợt 3: kịch bản end-to-end, phân quyền, ràng buộc nghiệp vụ và kiểm thử hồi quy (Phụ lục A).
+-  Hoàn thiện báo cáo đồ án và phần hướng dẫn sử dụng.
+ | Tài
+ | -  API và giao diện phân hệ Kế toán – Giám đốc hoạt động.
+-  Biên bản kiểm thử đợt 3 và ma trận kiểm thử phân quyền.
+-  Cuốn báo cáo đồ án hoàn chỉnh.
+ | 
+ | 
+ | 
+ | 
+
+ | 08/10/2026
+ | MỐC KIỂM SOÁT: Đóng băng mã nguồn (Code Freeze) - chỉ sửa lỗi, không thêm tính năng. Ngày 09/10 dành cho kiểm thử hồi quy và hoàn thiện báo cáo (buffer dự phòng).
+ | Cả nhóm
+ | Biên bản họp nhóm + ảnh chụp demo lưu trên repo
+ | 
+ | 
+ | 
+ | 
+ | 10/10/2026
+ | MỐC KIỂM SOÁT: NGHIỆM THU & NỘP SẢN PHẨM - bàn giao link Web demo, link API, file APK, mã nguồn, script cơ sở dữ liệu, báo cáo và biên bản kiểm thử.
+ | Cả nhóm
+ | Biên bản họp nhóm + ảnh chụp demo lưu trên repo
+ | 
+ | 
+ | 
+ | 
+
