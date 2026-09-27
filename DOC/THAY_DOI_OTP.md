@@ -21,15 +21,15 @@
 API không nhận trường channel. Số điện thoại không được dùng để nhận OTP hoặc khôi phục mật khẩu.
 
 ## Cấu hình
-Chỉ cần hai biến trong SRC/backend/.env:
+Ưu tiên Gmail SMTP để thử đồ án mà không cần tên miền. Xem [hướng dẫn Gmail SMTP](CAU_HINH_GMAIL_SMTP.md) để bật Xác minh 2 bước và tạo mật khẩu ứng dụng.
 ```dotenv
-RESEND_API_KEY=<khóa API Resend>
-OTP_EMAIL_FROM=HomeFix <otp@ten-mien-da-xac-minh.vn>
+OTP_EMAIL_PROVIDER=gmail
+GMAIL_USER=dia-chi-gui@gmail.com
+GMAIL_APP_PASSWORD=
 ```
-Không đặt khóa trong frontend hoặc commit .env. Không cần cấu hình Twilio; các biến TWILIO_* cũ không còn được sử dụng.
-
-Để thử bằng địa chỉ gửi onboarding@resend.dev, người nhận phải là email gắn với tài khoản Resend. Muốn gửi đến người khác, xác minh tên miền và đổi địa chỉ gửi.
-Tài liệu: https://resend.com/docs/knowledge-base/403-error-resend-dev-domain
+Điền mật khẩu ứng dụng trực tiếp trong SRC/backend/.env; không commit file này. Chạy npm run email:check, rồi khởi động lại API.
+Nếu dùng Resend, đặt OTP_EMAIL_PROVIDER=resend cùng RESEND_API_KEY và OTP_EMAIL_FROM. Địa chỉ onboarding@resend.dev vẫn chỉ gửi thử đến email của tài khoản Resend.
+Không cần cấu hình Twilio; các biến TWILIO_* cũ không được sử dụng.
 
 ## Cơ sở dữ liệu và chạy local
 Trong SRC:
@@ -55,5 +55,5 @@ npm run test:otp:ui
 ```
 Test tích hợp dùng SQL Server với database tạm riêng, tự dọn sau khi chạy; cần quyền tạo/xóa database. Provider được giả lập, không gửi thư thật.
 Test Playwright kiểm tra cả ba luồng email trên màn hình điện thoại, không có bộ chọn kênh, có đếm ngược gửi lại.
-15 kiểm thử OTP và bài kiểm thử giao diện đạt sau cập nhật email-only; build thành công.
-Giao nhận email thật cần khóa Resend hợp lệ và người nhận phù hợp. Các kiểm thử tự động không xác nhận email thực sự đã tới hộp thư.
+Bộ kiểm thử OTP bao gồm Gmail SMTP, Resend và kiểm thử SQL Server cho cả ba luồng xác thực.
+Giao nhận email thật cần cấu hình đúng dịch vụ gửi đã chọn. Các kiểm thử tự động không xác nhận email thực sự đã tới hộp thư.

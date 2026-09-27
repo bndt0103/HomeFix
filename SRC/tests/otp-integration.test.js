@@ -3,19 +3,20 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import express from 'express';
+import nodemailer from 'nodemailer';
 
 // A disposable DB and intercepted provider calls: no real email is sent.
 test('OTP registration, recovery and password change against SQL Server',async t=>{
  process.env.DB_NAME='HomeFix_OtpTest_'+crypto.randomBytes(6).toString('hex');
  process.env.JWT_SECRET=crypto.randomBytes(48).toString('hex');
- Object.assign(process.env,{RESEND_API_KEY:'test-only',OTP_EMAIL_FROM:'otp@example.com'});
+ Object.assign(process.env,{OTP_EMAIL_PROVIDER:'gmail',GMAIL_USER:'test-sender@gmail.com',GMAIL_APP_PASSWORD:'abcdefghijklmnop'});
  const {dbConfig,config}=await import('../backend/src/config.js');
  const {sql,q,one,close}=await import('../backend/src/db.js');
  const master=await new sql.ConnectionPool(dbConfig('master')).connect();
  await master.request().query(`CREATE DATABASE [${config.database}]`);
- let server;const realFetch=globalThis.fetch;const deliveries=[];let providerFails=false;
+ let server;const originalTransport=nodemailer.createTransport;const realFetch=globalThis.fetch;const deliveries=[];let providerFails=false;
  t.after(async()=>{
-  globalThis.fetch=realFetch;
+  globalThis.fetch=realFetch;nodemailer.createTransport=originalTransport;
   if(server)await new Promise(resolve=>server.close(resolve));
   await close();
   await master.request().query(`ALTER DATABASE [${config.database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${config.database}]`);
@@ -25,13 +26,11 @@ test('OTP registration, recovery and password change against SQL Server',async t
   const source=await fs.readFile(new URL('../database/'+file,import.meta.url),'utf8');
   for(const batch of source.split(/^GO\s*$/m).filter(s=>s.trim()))await q(batch);
  }
- globalThis.fetch=async(url,options)=>{
-  if(String(url).startsWith('https://api.resend.com/')){
-   const text=JSON.parse(options.body).text;
-   deliveries.push(text.match(/\b\d{6}\b/)[0]);return {ok:!providerFails};
-  }
-  throw new Error('Unexpected external request');
- };
+ nodemailer.createTransport=()=>({
+  sendMail:async message=>{deliveries.push(message.text.match(/\b\d{6}\b/)[0]);return {accepted:providerFails?[]:message.to};},
+  close:()=>{}
+ });
+ globalThis.fetch=async()=>{throw new Error('Unexpected external request');};
  const {authRouter}=await import('../backend/src/auth.js');
  const app=express();app.use(express.json());app.use('/api',authRouter);
  app.use((e,req,res,next)=>res.status(e.name==='ZodError'?422:e.status||500).json({error:{code:e.code,message:e.message}}));

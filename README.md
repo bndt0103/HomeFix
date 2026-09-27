@@ -17,4 +17,4 @@ Bản gốc của báo cáo và bộ bàn giao 14 ngày được giữ nguyên n
 
 ### OTP đăng ký và mật khẩu
 
-Đăng ký, quên mật khẩu và đổi mật khẩu xác thực OTP qua email, không cần chọn hình thức gửi. Xem [hướng dẫn thay đổi, cấu hình dịch vụ và migration](DOC/THAY_DOI_OTP.md). Máy đã có dữ liệu chạy npm run db:migrate:otp trong SRC, cấu hình khóa Resend trong backend/.env, sau đó build và khởi động lại API.
+Đăng ký, quên mật khẩu và đổi mật khẩu xác thực OTP qua email, không cần chọn hình thức gửi. Xem [hướng dẫn thay đổi, cấu hình dịch vụ và migration](DOC/THAY_DOI_OTP.md). Máy đã có dữ liệu chạy npm run db:migrate:otp trong SRC, cấu hình Gmail SMTP (GMAIL_USER, GMAIL_APP_PASSWORD) trong backend/.env, sau đó build và khởi động lại API.

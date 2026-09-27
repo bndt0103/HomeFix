@@ -17,7 +17,8 @@
     "mobile:sync": "npm run mobile:sync -w frontend",
     "db:migrate:otp": "node scripts/migrate-otp.js",
     "test:otp": "node --test --test-concurrency=1 tests/otp-delivery.test.js tests/otp-integration.test.js",
-    "test:otp:ui": "npm run build && node tests/ui-otp.mjs"
+    "test:otp:ui": "npm run build && node tests/ui-otp.mjs",
+    "email:check": "node scripts/check-email.js"
   },
   "engines": {
     "node": ">=22.12"
