@@ -49,3 +49,20 @@ Gmail có giới hạn gửi và có thể chặn đăng nhập/gửi thư; phù
 ## Kiểm thử
 npm run test:otp kiểm tra nhà cung cấp Gmail/Resend và luồng OTP trên database tạm. SMTP và dịch vụ email được giả lập; không gửi thư thật.
 Kiểm thử tự động không xác nhận email đã đến hộp thư. Sau khi điền mật khẩu ứng dụng, chạy email:check và thử website.
+
+## Xác nhận kiểm tra local ngày 27/09/2026
+- Code Gmail SMTP được triển khai tại commit `1adc907`; giao diện chỉ dùng email, không chọn SMS.
+- Đã chạy `npm run email:check` với cấu hình local: kết nối và xác thực Gmail SMTP thành công. Lệnh này không gửi email.
+- Website local phản hồi HTTP 200; API health và kết nối database hoạt động.
+- Người dùng đã chạy thử website local và yêu cầu commit/push sau khi thử. Không ghi nhận kết luận kiểm thử chi tiết thay cho người dùng.
+- Kiểm thử kỹ thuật trước đó: 19 kiểm thử OTP đạt, build Vite và Playwright cho ba luồng email đạt. Dịch vụ gửi trong kiểm thử tự động được giả lập.
+
+### Thành viên cần làm sau khi pull
+1. Trong `SRC`, chạy `npm install` để cài Nodemailer và các dependency theo lockfile.
+2. Chuẩn bị `backend/.env` từ `.env.example` nếu máy chưa có. Giữ cấu hình database/JWT riêng của máy.
+3. Điền `OTP_EMAIL_PROVIDER=gmail`, `GMAIL_USER` và `GMAIL_APP_PASSWORD` (Mật khẩu ứng dụng Google của tài khoản gửi).
+4. Với database cũ chưa có bảng OTP, chạy `npm run db:migrate:otp`; máy mới dùng `npm run db:init`.
+5. Chạy `npm run email:check`, `npm run build`, sau đó `npm start` hoặc khởi động lại API đang chạy.
+6. Thử đăng ký, quên mật khẩu và đổi mật khẩu bằng email thật; kiểm tra cả mục Spam nếu chưa thấy thư.
+
+Cấu hình và mật khẩu trong `.env` không được commit. Pull code không tự mang thông tin xác thực từ máy khác sang.
