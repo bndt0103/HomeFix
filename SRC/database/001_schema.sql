@@ -24,6 +24,7 @@ CREATE TABLE dbo.DichVu (
  id int IDENTITY PRIMARY KEY, name nvarchar(150) NOT NULL, groupCode nvarchar(60) NOT NULL,
  description nvarchar(1500) NOT NULL, inspectionFee decimal(18,2) NOT NULL CHECK(inspectionFee>=0),
  laborFee decimal(18,2) NOT NULL CHECK(laborFee>=0), commissionRatePercent decimal(5,2) NOT NULL CHECK(commissionRatePercent BETWEEN 0 AND 100),
+ isPopular bit NOT NULL DEFAULT 0,
  isActive bit NOT NULL DEFAULT 1, version rowversion
 );
 CREATE TABLE dbo.DonHang (

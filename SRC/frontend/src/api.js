@@ -1,10 +1,12 @@
 import {Capacitor} from '@capacitor/core';
+import {normalizeApiUrl,resolveApiUrl} from './api-endpoint';
 let token='';let onUnauthorized=()=>{};
 export function setSession(accessToken,handler){token=accessToken||'';if(handler)onUnauthorized=handler;}
 export const native=Capacitor.isNativePlatform();
-export function baseUrl(){return (localStorage.getItem('homefix.api')||import.meta.env.VITE_API_BASE_URL||(native?'http://10.0.2.2:3000/api':'/api')).replace(/\/$/,'');}
-export function saveBaseUrl(value){const u=new URL(value);if(!['http:','https:'].includes(u.protocol))throw new Error('Địa chỉ phải bắt đầu bằng http:// hoặc https://');if(u.username||u.password||u.search||u.hash)throw new Error('Địa chỉ API không được chứa mật khẩu hoặc tham số.');localStorage.setItem('homefix.api',u.href.replace(/\/$/,'').replace(/\/api$/,'')+'/api');setSession('');}
+export function baseUrl(){return resolveApiUrl({platform:Capacitor.getPlatform(),stored:localStorage.getItem('homefix.api')||'',configured:import.meta.env.VITE_API_BASE_URL||''});}
+export function saveBaseUrl(value){localStorage.setItem('homefix.api',normalizeApiUrl(value));setSession('');}
 export async function api(path,{method='GET',body,key,blob=false,signal}={}){
+ if(!baseUrl())throw new Error('Chưa cấu hình máy chủ. Mở Cài đặt kết nối và nhập địa chỉ HTTPS của HomeFix.');
  const headers={};if(token)headers.Authorization='Bearer '+token;if(body&&!(body instanceof FormData))headers['Content-Type']='application/json';if(key)headers['Idempotency-Key']=key;
  let r;try{r=await fetch(baseUrl()+path,{method,headers,body:body instanceof FormData?body:body?JSON.stringify(body):undefined,signal});}catch(e){if(e.name==='AbortError')throw e;throw new Error('Không kết nối được máy chủ. Kiểm tra mạng và địa chỉ API trong Cài đặt kết nối.');}
  if(!r.ok){const data=await r.json().catch(()=>({}));if(r.status===401&&token){setSession('');onUnauthorized();}const e=new Error(data.error?.message||'Không thể xử lý yêu cầu.');e.status=r.status;e.code=data.error?.code;e.details=data.error?.details;e.requestId=data.requestId;throw e;}

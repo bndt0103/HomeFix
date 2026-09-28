@@ -2,6 +2,7 @@ import {Router} from 'express';
 import {q,one,transaction} from './db.js';
 import {z,str,id,ok,wrap,fail,roles,versionSchema,money,decisionSchema,checkVersion,state,getOrder,activeTech,transition,touch,notify} from './common.js';
 import {setting} from './orders.js';
+import {selectPayment} from './payments.js';
 export const quotesRouter=Router();
 const fresh=(table,rid,t)=>one(`SELECT * FROM dbo.${table} WHERE id=@id`,{id:rid},t);
 for(const [route,table] of [['preliminary-quotes','BaoGiaSoBo'],['material-quotes','DeXuatVatTu'],['acceptances','PhieuNghiemThu']]){
@@ -39,15 +40,16 @@ quotesRouter.post('/orders/:id/acceptances',roles('KTV'),wrap(async(req,res)=>{
  });ok(res,result,201);
 }));
 quotesRouter.post('/orders/:id/acceptances/:recordId/decision',roles('KH'),wrap(async(req,res)=>{
- const oid=id(req.params.id),rid=id(req.params.recordId),b=decisionSchema.parse(req.body);
+ const oid=id(req.params.id),rid=id(req.params.recordId),b=decisionSchema.safeExtend({paymentMethod:z.enum(['COD','BANK']).optional(),bankAccountId:z.number().int().positive().optional()}).parse(req.body);
  const result=await transaction(req.user,async t=>{const o=await getOrder(oid,req.user,t);state(o,'ChoNghiemThu');const current=await one('SELECT * FROM dbo.PhieuNghiemThu WHERE orderId=@oid AND id=@id',{oid,id:rid},t);checkVersion(current,b.expectedVersion);state(current,'Pending');
   if(b.decision==='Approved'){
    if(await setting(t,'signatureRequired','false')==='true'&&!b.signatureId)fail(422,'SIGNATURE_REQUIRED','Vui lòng bổ sung chữ ký.');
    if(b.signatureId&&!await one("SELECT id FROM dbo.TepDinhKem WHERE id=@id AND ownerId=@uid AND orderId=@oid AND purpose='CustomerSignature'",{id:b.signatureId,uid:req.user.id,oid},t))fail(404,'ATTACHMENT_NOT_FOUND','Chữ ký không hợp lệ.');
   }
   await q('UPDATE dbo.PhieuNghiemThu SET status=@decision,reason=@reason,signatureId=@signature,decidedBy=@uid,decidedAt=SYSUTCDATETIME() WHERE id=@id',{id:rid,decision:b.decision,reason:b.reason,signature:b.signatureId,uid:req.user.id},t);
+  if(b.decision==='Approved')await selectPayment(t,o,current,b.paymentMethod||'COD',b.bankAccountId,req.user);
   await transition(t,o,req.user,b.decision==='Approved'?'HoanThanh':'DangXuLy',b.reason||'Khách xác nhận nghiệm thu');
   if(b.decision==='Approved'){await q('UPDATE dbo.LenhDieuPhoi SET isActive=0 WHERE orderId=@id AND isActive=1',{id:oid},t);await q("UPDATE dbo.KyThuatVien SET availability='TamBan' WHERE id=@id",{id:current.technicianId},t);}
-  await notify(t,current.technicianId,oid,b.decision==='Approved'?'Khách đã nghiệm thu':'Khách yêu cầu xử lý lại',b.reason||'Thu tiền COD và xác nhận sau khi thực nhận.');return fresh('PhieuNghiemThu',rid,t);
+  await notify(t,current.technicianId,oid,b.decision==='Approved'?'Khách đã nghiệm thu':'Khách yêu cầu xử lý lại',b.reason||(b.paymentMethod==='BANK'?'Khách chuyển khoản về HomeFix. Không thu thêm tiền mặt.':'Thu tiền mặt và xác nhận sau khi thực nhận.'));return fresh('PhieuNghiemThu',rid,t);
  });ok(res,result);
 }));
