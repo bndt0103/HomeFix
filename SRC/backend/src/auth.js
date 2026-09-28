@@ -85,7 +85,17 @@ authRouter.post('/users/me/password',limiter,wrap(async(req,res)=>{
  });ok(res,{loginRequired:true});
 }));
 
-authRouter.get('/users',roles('ADMIN'),wrap(async(req,res)=>ok(res,(await q(`SELECT ${userColumns} FROM dbo.NguoiDung ORDER BY id DESC`)).map(profile))));
+authRouter.get('/users',roles('ADMIN'),wrap(async(req,res)=>{
+ const {page=1,pageSize=15,search,role,status}=req.query;
+ const offset=(Number(page)-1)*Number(pageSize);
+ let where='1=1';const params={offset,limit:Number(pageSize)};
+ if(search){where+=' AND (fullName LIKE @search OR phone LIKE @search OR email LIKE @search)';params.search=`%${search}%`;}
+ if(role){where+=' AND role=@role';params.role=role;}
+ if(status){if(status==='active'){where+=' AND isActive=1';}else if(status==='inactive'){where+=' AND isActive=0';}}
+ const total=await one(`SELECT COUNT(*) n FROM dbo.NguoiDung WHERE ${where}`,params);
+ const rows=await q(`SELECT ${userColumns}, (SELECT TOP 1 skillGroup FROM dbo.KyThuatVien WHERE id=dbo.NguoiDung.id) skillGroup FROM dbo.NguoiDung WHERE ${where} ORDER BY id DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,params);
+ ok(res,rows.map(profile),200,{total:total.n,page:Number(page),pageSize:Number(pageSize)});
+}));
 authRouter.post('/users',roles('ADMIN'),wrap(async(req,res)=>{
  const b=z.strictObject({fullName:str(2,120),phone,email,role:z.enum(['KH','KTV','DPV','CSKH','KT','ADMIN','GD']),initialPassword:password,technicianProfile:z.strictObject({skillGroup:str(1,60),serviceArea:str(1,120)}).optional()}).parse(req.body);
  if(b.role==='KTV'&&!b.technicianProfile)fail(422,'PROFILE_REQUIRED','Cần chuyên môn và khu vực kỹ thuật viên.');const hash=await bcrypt.hash(b.initialPassword,12);

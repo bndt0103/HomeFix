@@ -13,14 +13,27 @@ export async function expireOne(t,a){
  await notify(t,a.technicianId,a.orderId,'Lệnh nhận việc đã hết hạn','Bật sẵn sàng để nhận việc mới.');
 }
 export async function expireAssignments(){await transaction(null,async t=>{const rows=await q("SELECT * FROM dbo.LenhDieuPhoi WHERE isActive=1 AND status='Pending' AND expiresAt<=SYSUTCDATETIME()",{},t);for(const a of rows)await expireOne(t,a);});}
-ordersRouter.get('/orders',roles('KH','KTV','DPV','CSKH','KT'),wrap(async(req,res)=>{
+ordersRouter.get('/orders',roles('KH','KTV','DPV','CSKH','KT','ADMIN'),wrap(async(req,res)=>{
  const p=page(req);let where='1=1';const params={uid:req.user.id,offset:(p.page-1)*p.pageSize,limit:p.pageSize};
  if(req.user.role==='KH')where+=' AND d.customerId=@uid';
  if(req.user.role==='KTV')where+=" AND EXISTS(SELECT 1 FROM dbo.LenhDieuPhoi a WHERE a.orderId=d.id AND a.technicianId=@uid AND (a.isActive=1 OR a.status='Accepted'))";
  if(req.query.status){where+=' AND d.status=@status';params.status=String(req.query.status);}
+ if(req.query.serviceGroup){where+=' AND d.serviceGroup=@serviceGroup';params.serviceGroup=String(req.query.serviceGroup);}
+ if(req.query.from){where+=' AND d.createdAt>=@from';params.from=new Date(req.query.from);}
+ if(req.query.to){where+=' AND d.createdAt<@to';params.to=new Date(req.query.to);}
  if(req.query.paymentStatus==='Paid')where+=' AND p.id IS NOT NULL';else if(req.query.paymentStatus==='Unpaid')where+=' AND p.id IS NULL';
  const total=await one(`SELECT COUNT(*) n FROM dbo.DonHang d LEFT JOIN dbo.ThanhToan p ON p.orderId=d.id WHERE ${where}`,params);
  const rows=await q(`SELECT d.*,CASE WHEN p.id IS NULL THEN 'Unpaid' ELSE 'Paid' END paymentStatus,n.fullName technicianName FROM dbo.DonHang d LEFT JOIN dbo.ThanhToan p ON p.orderId=d.id LEFT JOIN dbo.NguoiDung n ON n.id=d.assignedTechnicianId WHERE ${where} ORDER BY d.id DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,params);ok(res,rows,200,{...p,total:total.n});
+}));
+ordersRouter.get('/orders.csv',roles('ADMIN'),wrap(async(req,res)=>{
+ let where='1=1';const params={};
+ if(req.query.status){where+=' AND d.status=@status';params.status=String(req.query.status);}
+ if(req.query.serviceGroup){where+=' AND d.serviceGroup=@serviceGroup';params.serviceGroup=String(req.query.serviceGroup);}
+ if(req.query.from){where+=' AND d.createdAt>=@from';params.from=new Date(req.query.from);}
+ if(req.query.to){where+=' AND d.createdAt<@to';params.to=new Date(req.query.to);}
+ const rows=await q(`SELECT d.*,n.fullName technicianName FROM dbo.DonHang d LEFT JOIN dbo.NguoiDung n ON n.id=d.assignedTechnicianId WHERE ${where} ORDER BY d.id DESC`,params);
+ const lines=['Mã đơn,Tên dịch vụ,Nhóm,Khách hàng,SĐT,Địa chỉ,Trạng thái,KTV,Ngày tạo',...rows.map(r=>[r.id,`"${r.serviceName}"`,r.serviceGroup,`"${r.contactName}"`,r.contactPhone,`"${r.address}"`,r.status,`"${r.technicianName||''}"`,new Date(r.createdAt).toISOString()].join(','))];
+ res.attachment('DanhSachDonHang.csv').type('text/csv').send('\ufeff'+lines.join('\r\n'));
 }));
 ordersRouter.post('/orders',roles('KH'),wrap(async(req,res)=>{
  const b=z.strictObject({serviceId:z.number().int().positive(),address:str(10,500),description:str(5,2000),scheduledAt:z.iso.datetime({offset:true}).nullable().default(null),attachmentIds:z.array(z.number().int().positive()).max(5).default([])}).parse(req.body);
