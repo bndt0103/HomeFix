@@ -13,7 +13,7 @@ if(!v.id){
  const text=fs.readFileSync(path.join(root,'database/001_schema.sql'),'utf8');
  for(const batch of text.split(/^GO\s*$/m).filter(x=>x.trim()))await q(batch);
 }
-for(const filename of ['002_procedures_triggers.sql','003_cancellation_snapshot.sql','004_auth_otp.sql'])
+for(const filename of ['002_procedures_triggers.sql','003_cancellation_snapshot.sql','004_auth_otp.sql','005_bank_payments.sql'])
  for(const batch of fs.readFileSync(path.join(root,'database',filename),'utf8').split(/^GO\s*$/m).filter(x=>x.trim()))await q(batch);
 const hash=await bcrypt.hash('HomeFix@123',12);
 await transaction(null,async t=>{

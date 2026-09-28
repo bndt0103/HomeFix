@@ -11,14 +11,19 @@
     "dev": "concurrently -k -n API,WEB \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build -w frontend",
     "start": "node backend/src/server.js",
+    "online:setup": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-tunnel.ps1",
+    "online": "node scripts/start-online.js",
+    "online:stop": "node scripts/start-online.js --stop",
     "db:init": "node scripts/init-db.js",
     "test": "node --test --test-concurrency=1 tests/*.test.js",
     "test:e2e": "node tests/ui-smoke.mjs && node tests/ui-workflow.mjs",
     "mobile:sync": "npm run mobile:sync -w frontend",
     "db:migrate:otp": "node scripts/migrate-otp.js",
+    "db:migrate:payments": "node scripts/migrate-payments.js",
     "test:otp": "node --test --test-concurrency=1 tests/otp-delivery.test.js tests/otp-integration.test.js",
     "test:otp:ui": "npm run build && node tests/ui-otp.mjs",
-    "email:check": "node scripts/check-email.js"
+    "email:check": "node scripts/check-email.js",
+    "test:mobile": "node --test tests/mobile-api.test.js"
   },
   "engines": {
     "node": ">=22.12"

@@ -8,20 +8,20 @@ financeRouter.post('/orders/:id/payments/cod',roles('KTV'),wrap(async(req,res)=>
  const result=await transaction(req.user,async t=>{
   const o=await getOrder(oid,req.user,t);const a=await one("SELECT * FROM dbo.PhieuNghiemThu WHERE orderId=@id AND status='Approved'",{id:oid},t);
   if(!a){state(o,'HoanThanh');fail(409,'ACCEPTANCE_REQUIRED','Chưa nghiệm thu.');}if(a.technicianId!==req.user.id)fail(404,'NOT_FOUND','Bạn không phải thợ thực hiện.');
-  return idempotent(t,req,b,async()=>{checkVersion(o,b.expectedVersion);state(o,'HoanThanh');if(await one('SELECT id FROM dbo.ThanhToan WHERE orderId=@id',{id:oid},t))fail(409,'PAYMENT_ALREADY_PAID','Đơn đã được ghi nhận thu tiền.');
+  return idempotent(t,req,b,async()=>{checkVersion(o,b.expectedVersion);state(o,'HoanThanh');if(o.paymentMethod!=='COD')fail(409,'PAYMENT_METHOD_MISMATCH','Khách đang chọn chuyển khoản. Không được thu thêm tiền mặt.');if(await one('SELECT id FROM dbo.ThanhToan WHERE orderId=@id',{id:oid},t))fail(409,'PAYMENT_ALREADY_PAID','Đơn đã được ghi nhận thu tiền.');
    const p=await one("INSERT dbo.ThanhToan(orderId,acceptanceId,amount,receivedBy) OUTPUT INSERTED.* SELECT orderId,id,total,technicianId FROM dbo.PhieuNghiemThu WHERE id=@aid",{aid:a.id},t);
    await q('INSERT dbo.DoiSoat(orderId,technicianId,paymentId,laborFee,commissionRatePercent) SELECT @oid,@kid,@pid,laborFee,commissionRatePercent FROM dbo.BaoGiaSoBo WHERE orderId=@oid',{oid,kid:req.user.id,pid:p.id},t);
    await q('UPDATE dbo.DonHang SET updatedAt=SYSUTCDATETIME() WHERE id=@id',{id:oid},t);await audit(t,req.user,'ReceiveCOD','ThanhToan',p.id);await notify(t,o.customerId,oid,'Đã ghi nhận thanh toán COD','Cảm ơn bạn. Bạn có thể đánh giá dịch vụ.');return p;
   });
  });ok(res,result.data,result.replay?200:201);
 }));
-financeRouter.get('/settlements',roles('KT'),wrap(async(req,res)=>ok(res,await q('SELECT s.*,n.fullName technicianName,p.amount,p.paidAt FROM dbo.DoiSoat s JOIN dbo.NguoiDung n ON n.id=s.technicianId JOIN dbo.ThanhToan p ON p.id=s.paymentId ORDER BY s.id DESC'))));
+financeRouter.get('/settlements',roles('KT'),wrap(async(req,res)=>ok(res,await q('SELECT s.*,n.fullName technicianName,p.amount,p.paidAt,p.method,p.amount-s.commissionAmount technicianCredit FROM dbo.DoiSoat s JOIN dbo.NguoiDung n ON n.id=s.technicianId JOIN dbo.ThanhToan p ON p.id=s.paymentId ORDER BY s.id DESC'))));
 financeRouter.post('/settlements/:id/confirm',roles('KT'),wrap(async(req,res)=>{
  const sid=id(req.params.id),b=z.strictObject({expectedVersion:versionSchema}).parse(req.body);
  const r=await transaction(req.user,t=>idempotent(t,req,b,async()=>{const r=new sql.Request(t);r.input('SettlementId',sql.Int,sid).input('ActorId',sql.Int,req.user.id).input('ExpectedVersion',sql.Binary(8),Buffer.from(b.expectedVersion,'base64'));await r.execute('dbo.sp_DoiSoatCOD');return one('SELECT * FROM dbo.DoiSoat WHERE id=@id',{id:sid},t);}));ok(res,r.data);
 }));
 financeRouter.get('/technicians/me/wallet',roles('KTV'),wrap(async(req,res)=>{const k=await one('SELECT balance,version FROM dbo.KyThuatVien WHERE id=@id',{id:req.user.id});ok(res,{...k,transactions:await q('SELECT * FROM dbo.GiaoDichVi WHERE technicianId=@id ORDER BY id DESC',{id:req.user.id})});}));
-financeRouter.get('/technicians/me/income',roles('KTV'),wrap(async(req,res)=>ok(res,await one('SELECT COALESCE(SUM(a.inspectionFee+a.laborFee-s.commissionAmount),0) income,COALESCE(SUM(a.materialTotal),0) materialReimbursement,COUNT(*) completedOrders FROM dbo.ThanhToan p JOIN dbo.PhieuNghiemThu a ON a.id=p.acceptanceId JOIN dbo.DoiSoat s ON s.paymentId=p.id WHERE p.receivedBy=@id',{id:req.user.id}))));
+financeRouter.get('/technicians/me/income',roles('KTV'),wrap(async(req,res)=>ok(res,await one('SELECT COALESCE(SUM(a.inspectionFee+a.laborFee-s.commissionAmount),0) income,COALESCE(SUM(a.materialTotal),0) materialReimbursement,COUNT(*) completedOrders FROM dbo.ThanhToan p JOIN dbo.PhieuNghiemThu a ON a.id=p.acceptanceId JOIN dbo.DoiSoat s ON s.paymentId=p.id WHERE s.technicianId=@id',{id:req.user.id}))));
 financeRouter.get('/wallet-requests',roles('KTV','KT'),wrap(async(req,res)=>ok(res,await q(`SELECT w.*,n.fullName technicianName FROM dbo.YeuCauVi w JOIN dbo.NguoiDung n ON n.id=w.technicianId ${req.user.role==='KTV'?'WHERE technicianId=@id':''} ORDER BY w.id DESC`,{id:req.user.id}))));
 financeRouter.post('/wallet-requests',roles('KTV'),wrap(async(req,res)=>{
  const b=z.strictObject({type:z.enum(['Deposit','Withdrawal']),amount:money.refine(s=>Number(s)>0),note:str(5,1000),proofId:z.number().int().positive().optional()}).parse(req.body);

@@ -1,14 +1,17 @@
 import express from 'express';import cors from 'cors';import helmet from 'helmet';import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import {ZodError} from 'zod';
 import {config,backendDir} from './config.js';import {pool,close} from './db.js';import {ok,wrap} from './common.js';import {authRouter} from './auth.js';import {ordersRouter,expireAssignments} from './orders.js';import {quotesRouter} from './quotes.js';import {uploadsRouter} from './uploads.js';import {financeRouter} from './finance.js';import {adminRouter,publicServices} from './admin.js';import {supportRouter} from './support.js';
 if(!config.secret||config.secret.length<32||config.secret.startsWith('replace-'))throw new Error('Chạy npm run db:init hoặc đặt JWT_SECRET ngẫu nhiên tối thiểu 32 ký tự trong backend/.env.');
+import {paymentsRouter} from './payments.js';
 export const app=express();app.disable('x-powered-by');
+// The online launcher trusts only the tunnel running on this machine.
+if(process.env.TRUST_PROXY==='loopback')app.set('trust proxy','loopback');
 app.use((req,res,next)=>{req.requestId=crypto.randomUUID();res.set('X-Request-ID',req.requestId);next();});
 app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],imgSrc:["'self'",'blob:','data:'],styleSrc:["'self'","'unsafe-inline'"],scriptSrc:["'self'"],connectSrc:["'self'"],upgradeInsecureRequests:null}},crossOriginResourcePolicy:{policy:'cross-origin'}}));
 app.use((req,res,next)=>cors({origin:(origin,cb)=>{const self=`${req.protocol}://${req.get('host')}`;if(!origin||origin===self||config.origins.includes(origin))cb(null,true);else cb(Object.assign(new Error('Nguồn truy cập chưa được cấu hình.'),{status:403,code:'ORIGIN_NOT_ALLOWED'}));},exposedHeaders:['Content-Disposition'],methods:['GET','POST','PATCH','DELETE','OPTIONS']})(req,res,next));
 app.use(express.json({limit:'256kb'}));
 app.get('/api/health',wrap(async(req,res)=>{await pool();ok(res,{status:'ok'});}));
 app.get('/api/services',publicServices);
-app.use('/api',authRouter,ordersRouter,quotesRouter,uploadsRouter,financeRouter,adminRouter,supportRouter);
+app.use('/api',authRouter,ordersRouter,quotesRouter,uploadsRouter,financeRouter,adminRouter,supportRouter,paymentsRouter);
 app.use('/api',(req,res)=>res.status(404).json({error:{code:'NOT_FOUND',message:'Không tìm thấy API.'},requestId:req.requestId}));
 const dist=path.resolve(backendDir,'../frontend/dist');app.use(express.static(dist,{index:false}));
 app.get(/.*/, (req,res)=>{const index=path.join(dist,'index.html');if(fs.existsSync(index))res.sendFile(index);else res.status(503).type('text').send('HomeFix API đang chạy. Build frontend bằng npm run build để mở website tại đây.');});
@@ -26,7 +29,7 @@ app.use((err,req,res,next)=>{
  res.status(status).json({error:{code,message,...(details?{details}:{})},requestId:req.requestId});
 });
 await pool();await expireAssignments();
-const server=app.listen(config.port,'0.0.0.0',()=>console.log(`HomeFix running at http://localhost:${config.port}`));
+const server=app.listen(config.port,process.env.HOST||'0.0.0.0',()=>console.log(`HomeFix running at http://localhost:${config.port}`));
 let sweeping=false;const interval=setInterval(async()=>{if(sweeping)return;sweeping=true;try{await expireAssignments();}catch(e){console.error('Assignment sweep:',e.message);}finally{sweeping=false;}},10000);interval.unref();
 async function shutdown(){clearInterval(interval);server.close(async()=>{await close();process.exit(0)});}
 process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
