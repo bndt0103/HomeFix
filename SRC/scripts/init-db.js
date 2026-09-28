@@ -2,6 +2,7 @@ import fs from 'node:fs';import path from 'node:path';import crypto from 'node:c
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const env=path.join(root,'backend/.env');if(!fs.existsSync(env)){const template=fs.readFileSync(env+'.example','utf8').replace('replace-with-a-random-value-at-least-32-characters',crypto.randomBytes(48).toString('base64url'));fs.writeFileSync(env,template);}
 const {config,dbConfig}=await import('../backend/src/config.js');const {sql,q,one,transaction,close}=await import('../backend/src/db.js');
+const {applyServiceCatalog}=await import('./service-catalog.js');
 const bcrypt=(await import('bcryptjs')).default;
 if(!/^[A-Za-z][A-Za-z0-9_]{0,60}$/.test(config.database))throw new Error('DB_NAME không hợp lệ.');
 const master=await new sql.ConnectionPool(dbConfig('master')).connect();
@@ -27,10 +28,7 @@ await transaction(null,async t=>{
    await q("INSERT dbo.GiaoDichVi(technicianId,type,amount,referenceType,referenceId,note) VALUES(@id,'Opening',1000000,'Opening',@id,N'Số dư mở đầu bộ dữ liệu demo')",{id:u.id},t);
   }
  }
- if(!(await one('SELECT COUNT(*) n FROM dbo.DichVu',{},t)).n){
-  const services=[['Sửa máy lạnh','DienLanh','Kiểm tra và sửa máy lạnh tại nhà. Báo giá rõ ràng trước khi thực hiện.',50000,300000],['Vệ sinh máy lạnh','DienLanh','Vệ sinh dàn lạnh, dàn nóng và kiểm tra vận hành.',30000,180000],['Sửa tủ lạnh','DienLanh','Xử lý tủ lạnh không lạnh, chảy nước hoặc hoạt động bất thường.',50000,280000],['Sửa máy giặt','DienGiaDung','Kiểm tra nguồn, thoát nước và sự cố lồng giặt.',50000,250000],['Sửa điện nước','DienNuoc','Sửa rò rỉ, đường ống và thiết bị điện gia đình.',50000,200000],['Vệ sinh thiết bị','VeSinh','Làm sạch và bảo trì định kỳ thiết bị gia đình.',30000,150000]];
-  for(const [name,groupCode,description,inspectionFee,laborFee] of services)await q('INSERT dbo.DichVu(name,groupCode,description,inspectionFee,laborFee,commissionRatePercent) VALUES(@name,@groupCode,@description,@inspectionFee,@laborFee,15)',{name,groupCode,description,inspectionFee,laborFee},t);
- }
+ await applyServiceCatalog(t);
  for(const [key,value,label] of [['minimumWallet','200000','Số dư tối thiểu nhận việc'],['assignmentMinutes','10','Phút phản hồi lệnh'],['cancellationFee','50000','Phí hủy khi đang di chuyển'],['signatureRequired','false','Yêu cầu chữ ký nghiệm thu']])if(!await one('SELECT [key] FROM dbo.CauHinh WHERE [key]=@key',{key},t))await q('INSERT dbo.CauHinh([key],value,label) VALUES(@key,@value,@label)',{key,value,label},t);
 });
 await close();console.log('DB ready: '+config.database+'. Seed giữ nguyên dữ liệu và mật khẩu tài khoản đã tồn tại.');

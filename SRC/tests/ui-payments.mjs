@@ -27,7 +27,18 @@ async function submit(dialog,label){
  await Promise.race([dialog.waitFor({state:'hidden'}),dialog.getByRole('alert').waitFor().then(async()=>{throw Error(await dialog.getByRole('alert').innerText());})]);
 }
 try{
- const admin=await login('admin');await nav(admin,'/admin/settings');
+ const admin=await login('admin');
+ await nav(admin,'/admin/services');
+ const service=(await h.request('GET','/services',null,'NONE'))[0];
+ await admin.getByRole('row').nth(1).getByRole('button',{name:'Sửa',exact:true}).click();
+ const editor=admin.getByRole('dialog');
+ await editor.getByRole('checkbox',{name:/Dịch vụ phổ biến/}).setChecked(!service.isPopular);
+ await submit(editor,'Lưu thay đổi');
+ const changed=(await h.request('GET','/admin/services',null,'ADMIN')).find(x=>x.id===service.id);
+ assert.equal(changed.isPopular,!service.isPopular);
+ await h.request('PATCH','/services/'+service.id,{name:service.name,groupCode:service.groupCode,description:service.description,inspectionFee:service.inspectionFee,laborFee:service.laborFee,commissionRatePercent:service.commissionRatePercent,isActive:service.isActive,isPopular:service.isPopular,expectedVersion:changed.version},'ADMIN');
+ checks.push('Merged service popularity editor persists without losing payment settings');
+ await nav(admin,'/admin/settings');
  const opener=admin.getByRole('button',{name:'Thêm tài khoản nhận tiền',exact:true});await opener.click();
  let d=admin.getByRole('dialog');await d.getByLabel(/^Ngân hàng/).selectOption('VCB');
  await typed(d.getByLabel('Số tài khoản',{exact:true}),'000'+h.stamp);
@@ -40,7 +51,14 @@ try{
  await opener.click();d=admin.getByRole('dialog');await d.getByLabel(/^Ngân hàng/).selectOption('VCB');
  await d.getByLabel('Số tài khoản',{exact:true}).fill('000'+h.stamp);await d.getByLabel('Tên chủ tài khoản',{exact:true}).fill('TEST UI ACCOUNT ONLY');await d.getByRole('checkbox').check();await submit(d,'Thêm tài khoản');
  const bank=(await h.request('GET','/bank-accounts',null,'ADMIN')).find(x=>x.accountNumber==='000'+h.stamp);assert.ok(bank);checks.push('Admin account + typing, Tab, Escape, IME');
- const kh=await login('kh');await nav(kh,'/orders/'+fixture.order.id);
+ const kh=await login('kh');await nav(kh,'/services');
+ const search=kh.getByPlaceholder('Tìm kiếm dịch vụ (ví dụ: Sửa máy lạnh...)');
+ await typed(search,'Sửa máy lạnh');assert.equal(await kh.locator('.service-card').count(),1);
+ await search.fill('No service matches this');assert.equal(await kh.locator('.service-card').count(),0);
+ await kh.setViewportSize({width:390,height:844});await search.fill('');
+ assert.ok(await kh.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Service search mobile overflow');
+ await kh.setViewportSize({width:1400,height:1000});checks.push('Merged service search and mobile layout');
+ await nav(kh,'/orders/'+fixture.order.id);
  await kh.getByRole('button',{name:'Xác nhận nghiệm thu',exact:true}).click();d=kh.getByRole('dialog');
  await d.getByRole('radio',{name:/Chuyển khoản ngân hàng/}).check();
  await d.getByLabel('Ngân hàng / tài khoản nhận tiền').selectOption(String(bank.id));await d.getByRole('checkbox').check();await submit(d,'Xác nhận');

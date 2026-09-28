@@ -2,6 +2,8 @@
 
 **Demo online nhiều máy, dùng chung database:** xem [hướng dẫn chạy online](DOC/CHAY_ONLINE_DEMO.md). Chạy `CHAY_ONLINE.bat` hoặc `npm.cmd run online:setup` rồi `npm.cmd run online` trong `SRC`. Máy chủ phải luôn bật; link HTTPS được in trong terminal.
 
+**Thành viên đã có source:** xem [cách pull và cập nhật database sau merge](DOC/CAP_NHAT_NHOM.md).
+
 Website desktop + giao diện mobile + APK Android + Express API + SQL Server, đồ án nhóm 08.
 
 **Bắt đầu:** đọc [hướng dẫn cài đặt và sử dụng](HUONG_DAN_CAI_DAT.md). Máy hiện tại: chạy `CHAY_HOMEFIX.bat`, mở http://localhost:3000. Máy mới: cài Node 24 LTS, SQL Server và ODBC rồi chạy `CAI_DAT.bat`.

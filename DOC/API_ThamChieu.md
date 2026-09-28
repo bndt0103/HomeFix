@@ -131,3 +131,20 @@ Danh mục được trích từ các khai báo route cuối cùng. Các route kh
 ## Cách thử
 
 Chạy máy chủ, dùng npm test để thực hiện 35 ca đã viết. Xem tests/api.test.js để có chuỗi request, dữ liệu và cách lấy phiên bản thực từ phản hồi. Không lấy token/ID/expectedVersion cũ trong ví dụ rồi dùng lại cho dữ liệu khác. Tài liệu thiết kế 14 ngày là bản đề xuất trước triển khai; bảng này và mã nguồn cuối là nguồn đối chiếu khi sửa client.
+
+## Bổ sung sau merge: danh mục và thanh toán
+
+Dịch vụ có thêm isPopular (boolean); ADMIN có thể đặt khi POST /api/services hoặc PATCH /api/services/:id. PATCH vẫn cần expectedVersion. Trang danh mục lọc tên và nhóm trên danh sách dịch vụ hoạt động. Cập nhật database cũ bằng npm.cmd run db:migrate trước khi chạy server mới.
+
+| Method | Endpoint | Quyền | Nội dung |
+| --- | --- | --- | --- |
+| GET | /api/payment-options | Đã đăng nhập | Danh mục ngân hàng và tài khoản nhận đang bật |
+| GET, POST | /api/bank-accounts | ADMIN | Xem/thêm tài khoản nhận tiền |
+| PATCH | /api/bank-accounts/:id | ADMIN | isActive, expectedVersion |
+| GET | /api/orders/:id/payment-details | Có quyền xem đơn | Phương thức, biên nhận, yêu cầu chuyển khoản |
+| POST | /api/orders/:id/payment-method | KH sở hữu đơn | method COD/BANK, bankAccountId khi BANK, expectedVersion |
+| POST | /api/payment-requests/:id/submit | KH sở hữu yêu cầu | proofId, customerReference tùy chọn, expectedVersion |
+| GET | /api/bank-payment-requests | KT | Hàng đợi và kết quả xác minh |
+| POST | /api/payment-requests/:id/decision | KT | decision Approved/Rejected, expectedVersion; duyệt cần receivedAmount + bankReference, từ chối cần reason |
+
+Các POST chọn phương thức, gửi chứng từ và quyết định kế toán cần Idempotency-Key UUID. Gửi lại đúng request dùng cùng key; thao tác mới dùng key mới. Khi KH duyệt nghiệm thu, gửi paymentMethod COD/BANK và bankAccountId nếu BANK. Ảnh chuyển khoản dùng purpose PaymentProof tại /api/uploads, có orderId; chỉ KH sở hữu ảnh và KT xem được ảnh. Gửi chứng từ không tự đánh dấu đã thanh toán. Xem [quy trình thanh toán](THANH_TOAN.md).

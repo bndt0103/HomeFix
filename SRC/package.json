@@ -23,7 +23,9 @@
     "test:otp": "node --test --test-concurrency=1 tests/otp-delivery.test.js tests/otp-integration.test.js",
     "test:otp:ui": "npm run build && node tests/ui-otp.mjs",
     "email:check": "node scripts/check-email.js",
-    "test:mobile": "node --test tests/mobile-api.test.js"
+    "test:mobile": "node --test tests/mobile-api.test.js",
+    "db:migrate:services": "node scripts/migrate-services.js",
+    "db:migrate": "npm run db:migrate:otp && npm run db:migrate:payments && npm run db:migrate:services"
   },
   "engines": {
     "node": ">=22.12"
