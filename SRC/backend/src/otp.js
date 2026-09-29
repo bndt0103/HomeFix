@@ -9,6 +9,10 @@ export const otpBinding=value=>crypto.createHmac('sha256',config.secret).update(
 const codeHash=(id,code)=>otpBinding([id,code]);
 export const accountBinding=u=>otpBinding([u.id,u.tokenVersion,u.phone,u.email]);
 export const registrationBinding=b=>otpBinding([b.fullName,b.phone,b.email??null,b.password]);
+export const otpEmailDeliverable=email=>{
+ const domain=String(email||'').toLowerCase().split('@').at(-1);
+ return Boolean(domain)&&!['localhost','local','test','invalid','example'].includes(domain)&&!domain.endsWith('.local')&&!domain.endsWith('.test')&&!domain.endsWith('.invalid')&&!domain.endsWith('.example');
+};
 
 export async function issueOtp({purpose,destination,binding,deliver=true}) {
  if(!deliveryConfigured())fail(503,'OTP_NOT_CONFIGURED','Dịch vụ gửi email OTP chưa được cấu hình. Vui lòng liên hệ hỗ trợ.');

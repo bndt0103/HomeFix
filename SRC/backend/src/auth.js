@@ -1,7 +1,7 @@
 import {Router} from 'express';import bcrypt from 'bcryptjs';import jwt from 'jsonwebtoken';import {rateLimit} from 'express-rate-limit';
 import {config} from './config.js';import {q,one,transaction} from './db.js';
 import {z,str,id,ok,wrap,fail,roles,versionSchema,checkVersion,audit} from './common.js';
-import {otpFields,issueOtp,withOtp,accountBinding,registrationBinding} from './otp.js';
+import {otpFields,issueOtp,withOtp,accountBinding,registrationBinding,otpEmailDeliverable} from './otp.js';
 export const authRouter=Router();
 const phone=z.string().regex(/^0\d{9}$/,'Số điện thoại gồm 10 chữ số, bắt đầu bằng 0.');
 const email=z.email().max(200).transform(s=>s.toLowerCase()).nullable().optional();
@@ -23,6 +23,7 @@ const registration={fullName:str(2,120),phone,email:requiredEmail,password};
 const sendLimiter=rateLimit({windowMs:15*60*1000,limit:10,standardHeaders:'draft-8',legacyHeaders:false,message:{error:{code:'OTP_RATE_LIMITED',message:'Bạn gửi quá nhiều yêu cầu OTP. Vui lòng thử lại sau 15 phút.'}}});
 authRouter.post('/auth/register/otp',sendLimiter,wrap(async(req,res)=>{
  const b=z.strictObject(registration).parse(req.body);
+ if(!otpEmailDeliverable(b.email))fail(422,'OTP_EMAIL_UNDELIVERABLE','Email này không nhận được OTP. Hãy dùng Gmail/email thật; tài khoản demo .local không nhận email.');
  if(await one('SELECT id FROM dbo.NguoiDung WHERE phone=@phone OR (email=@email AND @email IS NOT NULL)',{phone:b.phone,email:b.email}))fail(409,'ACCOUNT_EXISTS','Số điện thoại hoặc email đã được đăng ký. Bạn có thể dùng Quên mật khẩu.');
  ok(res,await issueOtp({purpose:'register',destination:b.email,binding:registrationBinding(b)}));
 }));
@@ -46,6 +47,7 @@ function recoveryDestination(b){return b.identifier;}
 async function recoveryUser(b,t){const destination=recoveryDestination(b);return one('SELECT * FROM dbo.NguoiDung WHERE email=@destination AND isActive=1',{destination},t);}
 authRouter.post('/auth/forgot-password/otp',sendLimiter,wrap(async(req,res)=>{
  const b=z.strictObject(recovery).parse(req.body),destination=recoveryDestination(b),u=await recoveryUser(b);
+ if(u&&!otpEmailDeliverable(u.email))fail(422,'OTP_EMAIL_UNDELIVERABLE','Tài khoản demo .local không nhận OTP. Hãy dùng mật khẩu demo hoặc email thật.');
  ok(res,await issueOtp({purpose:'reset',destination,binding:u?accountBinding(u):'unknown',deliver:Boolean(u)}));
 }));
 authRouter.post('/auth/reset-password',limiter,wrap(async(req,res)=>{
@@ -65,6 +67,7 @@ authRouter.post('/users/me/password/otp',sendLimiter,wrap(async(req,res)=>{
  if(Buffer.byteLength(b.currentPassword)>72||!await bcrypt.compare(b.currentPassword,u.passwordHash))fail(422,'WRONG_PASSWORD','Mật khẩu hiện tại không đúng.');
  const destination=u.email;
  if(!destination)fail(422,'EMAIL_REQUIRED','Tài khoản chưa có email. Vui lòng cập nhật email trong hồ sơ trước.');
+ if(!otpEmailDeliverable(destination))fail(422,'OTP_EMAIL_UNDELIVERABLE','Tài khoản demo .local không nhận OTP. Hãy dùng email thật.');
  ok(res,await issueOtp({purpose:'change',destination,binding:accountBinding(u)}));
 }));
 authRouter.get('/auth/me',wrap(async(req,res)=>ok(res,profile(req.user))));
