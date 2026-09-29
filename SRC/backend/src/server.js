@@ -1,6 +1,6 @@
 import {paymentsRouter} from './payments.js';
 import express from 'express'; import cors from 'cors'; import helmet from 'helmet'; import fs from 'node:fs'; import path from 'node:path'; import crypto from 'node:crypto'; import { ZodError } from 'zod';
-import { config, backendDir } from './config.js'; import { pool, close } from './db.js'; import { ok, wrap } from './common.js'; import { authRouter } from './auth.js'; import { ordersRouter, expireAssignments } from './orders.js'; import { quotesRouter } from './quotes.js'; import { uploadsRouter } from './uploads.js'; import { financeRouter } from './finance.js'; import { adminRouter, publicServices } from './admin.js'; import { supportRouter } from './support.js';
+import { config, backendDir } from './config.js'; import { pool, close } from './db.js'; import { ok, wrap } from './common.js'; import { authRouter } from './auth.js'; import { ordersRouter, expireAssignments } from './orders.js'; import { quotesRouter } from './quotes.js'; import { uploadsRouter, publicUploadsRouter } from './uploads.js'; import { financeRouter } from './finance.js'; import { adminRouter, publicServices } from './admin.js'; import { supportRouter } from './support.js';
 if (!config.secret || config.secret.length < 32 || config.secret.startsWith('replace-')) throw new Error('Chạy npm run db:init hoặc đặt JWT_SECRET ngẫu nhiên tối thiểu 32 ký tự trong backend/.env.');
 export const app = express(); app.disable('x-powered-by');
 if(process.env.TRUST_PROXY==='loopback')app.set('trust proxy','loopback');
@@ -24,7 +24,7 @@ app.use((req, res, next) => cors({ origin: (origin, cb) => { const self = `${req
 app.use(express.json({ limit: '256kb' }));
 app.get('/api/health', wrap(async (req, res) => { await pool(); ok(res, { status: 'ok' }); }));
 app.get('/api/services', publicServices);
-app.use('/api', authRouter, ordersRouter, quotesRouter, uploadsRouter, financeRouter, adminRouter, supportRouter, paymentsRouter);
+app.use('/api', publicUploadsRouter, authRouter, ordersRouter, quotesRouter, uploadsRouter, financeRouter, adminRouter, supportRouter, paymentsRouter);
 app.use('/api', (req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Không tìm thấy API.' }, requestId: req.requestId }));
 const dist = path.resolve(backendDir, '../frontend/dist'); app.use(express.static(dist, { index: false }));
 app.get(/.*/, (req, res) => { const index = path.join(dist, 'index.html'); if (fs.existsSync(index)) res.sendFile(index); else res.status(503).type('text').send('HomeFix API đang chạy. Build frontend bằng npm run build để mở website tại đây.'); });
