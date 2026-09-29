@@ -1,8 +1,14 @@
 import {Router} from 'express';import multer from 'multer';import sharp from 'sharp';import crypto from 'node:crypto';import fs from 'node:fs/promises';import path from 'node:path';
 import {config} from './config.js';import {q,one,transaction} from './db.js';import {z,id,ok,wrap,fail,getOrder,activeTech,state} from './common.js';
 export const uploadsRouter=Router();
+export const publicUploadsRouter=Router();
+publicUploadsRouter.get('/avatar/:id',wrap(async(req,res)=>{
+ const f=await one('SELECT storageKey,mimeType FROM dbo.TepDinhKem WHERE id=@id AND purpose=\'Avatar\'',{id:id(req.params.id)});
+ if(!f)fail(404,'NOT_FOUND','Không tìm thấy ảnh.');
+ res.set('Cache-Control','public, max-age=86400');res.type(f.mimeType).sendFile(path.join(config.uploads,f.storageKey));
+}));
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:5*1024*1024,files:1,fields:3}});
-const purposes=z.enum(['OrderFault','MaterialEvidence','AcceptancePhoto','CustomerSignature','WalletProof','TechnicianDocument','PaymentProof']);
+const purposes=z.enum(['OrderFault','MaterialEvidence','AcceptancePhoto','CustomerSignature','WalletProof','TechnicianDocument','PaymentProof','Avatar']);
 uploadsRouter.post('/uploads',upload.single('file'),wrap(async(req,res)=>{
  const purpose=purposes.parse(req.body.purpose),oid=req.body.orderId?id(req.body.orderId):null;
  if(!req.file)fail(422,'FILE_REQUIRED','Vui lòng chọn ảnh JPG hoặc PNG.');
@@ -18,14 +24,17 @@ uploadsRouter.post('/uploads',upload.single('file'),wrap(async(req,res)=>{
    if(['CustomerSignature','TechnicianDocument','PaymentProof'].includes(purpose)&&req.user.role!=='KH')fail(403,'FORBIDDEN','Chỉ khách dùng loại ảnh này.');
    if(oid){const o=await getOrder(oid,req.user,t);if(['MaterialEvidence','AcceptancePhoto'].includes(purpose)){await activeTech(t,o,req.user);state(o,'DangXuLy');}if(purpose==='PaymentProof'){state(o,'HoanThanh');if(o.paymentMethod!=='BANK'||o.paymentStatus==='Paid'||!await one("SELECT id FROM dbo.YeuCauThanhToan WHERE orderId=@oid AND status IN('AwaitingTransfer','Rejected') AND isActive=1",{oid},t))fail(409,'PAYMENT_PROOF_NOT_ALLOWED','Chọn chuyển khoản đang chờ thanh toán trước khi gửi chứng từ.');}if(purpose==='CustomerSignature')state(o,'ChoNghiemThu');if(purpose==='OrderFault')state(o,'ChoTiepNhan');}
    if(oid&&(await one('SELECT COUNT(*) n FROM dbo.TepDinhKem WHERE orderId=@oid AND purpose=@purpose AND acceptanceId IS NULL',{oid,purpose},t)).n>=5)fail(422,'TOO_MANY_IMAGES','Đã đủ 5 ảnh cho nhóm này.');
-   const f=await one('INSERT dbo.TepDinhKem(ownerId,orderId,purpose,storageKey,originalName,mimeType,size) OUTPUT INSERTED.id,INSERTED.purpose,INSERTED.size,INSERTED.mimeType VALUES(@uid,@oid,@purpose,@key,@name,\'image/jpeg\',@size)',{uid:req.user.id,oid,purpose,key,name:req.file.originalname.slice(0,255),size:bytes.length},t);return {...f,downloadPath:'/api/uploads/'+f.id};
+   const f=await one('INSERT dbo.TepDinhKem(ownerId,orderId,purpose,storageKey,originalName,mimeType,size) OUTPUT INSERTED.id,INSERTED.purpose,INSERTED.size,INSERTED.mimeType VALUES(@uid,@oid,@purpose,@key,@name,\'image/jpeg\',@size)',{uid:req.user.id,oid,purpose,key,name:req.file.originalname.slice(0,255),size:bytes.length},t);
+   if(purpose==='Avatar'){await q('UPDATE dbo.NguoiDung SET avatarUrl=@url WHERE id=@uid',{url:'/api/avatar/'+f.id,uid:req.user.id},t);}
+   return {...f,downloadPath:purpose==='Avatar'?'/api/avatar/'+f.id:'/api/uploads/'+f.id};
   });ok(res,record,201);
  }catch(e){await fs.unlink(target).catch(()=>{});throw e;}
 }));
-uploadsRouter.get('/uploads/:id',wrap(async(req,res)=>{
- const f=await one('SELECT * FROM dbo.TepDinhKem WHERE id=@id',{id:id(req.params.id)});if(!f)fail(404,'NOT_FOUND','Không tìm thấy ảnh.');
- if(f.purpose==='PaymentProof'){if(f.ownerId!==req.user.id&&req.user.role!=='KT')fail(404,'NOT_FOUND','Không tìm thấy ảnh.');}
- else if(['WalletProof','TechnicianDocument'].includes(f.purpose)){if(f.ownerId!==req.user.id&&!(f.purpose==='WalletProof'&&req.user.role==='KT')&&!(f.purpose==='TechnicianDocument'&&req.user.role==='ADMIN'))fail(404,'NOT_FOUND','Không tìm thấy ảnh.');}
+ uploadsRouter.get('/uploads/:id',wrap(async(req,res)=>{
+  const f=await one('SELECT * FROM dbo.TepDinhKem WHERE id=@id',{id:id(req.params.id)});if(!f)fail(404,'NOT_FOUND','Không tìm thấy ảnh.');
+  if(f.purpose==='PaymentProof'){if(f.ownerId!==req.user.id&&req.user.role!=='KT')fail(404,'NOT_FOUND','Không tìm thấy ảnh.');}
+  else if(['WalletProof','TechnicianDocument'].includes(f.purpose)){if(f.ownerId!==req.user.id&&!(f.purpose==='WalletProof'&&req.user.role==='KT')&&!(f.purpose==='TechnicianDocument'&&req.user.role==='ADMIN'))fail(404,'NOT_FOUND','Không tìm thấy ảnh.');}
+ else if(f.purpose==='Avatar'){}
  else if(f.orderId){if(req.user.role==='KT')fail(403,'FORBIDDEN','Kế toán không xem ảnh hiện trường.');await getOrder(f.orderId,req.user);}else if(f.ownerId!==req.user.id)fail(404,'NOT_FOUND','Không tìm thấy ảnh.');
  res.set('Cache-Control','private, no-store');res.type(f.mimeType).sendFile(path.join(config.uploads,f.storageKey));
 }));

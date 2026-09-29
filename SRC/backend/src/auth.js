@@ -6,7 +6,7 @@ export const authRouter=Router();
 const phone=z.string().regex(/^0\d{9}$/,'Số điện thoại gồm 10 chữ số, bắt đầu bằng 0.');
 const email=z.email().max(200).transform(s=>s.toLowerCase()).nullable().optional();
 const password=z.string().min(8,'Mật khẩu ít nhất 8 ký tự.').refine(s=>Buffer.byteLength(s,'utf8')<=72,'Mật khẩu tối đa 72 byte UTF-8.');
-export const userColumns='id,fullName,phone,email,role,defaultAddress,isActive,tokenVersion,createdAt,version';
+export const userColumns='id,fullName,phone,email,role,defaultAddress,avatarUrl,isActive,tokenVersion,createdAt,version';
 export const profile=u=>{const {tokenVersion,...safe}=u;return safe;};
 export async function auth(req,res,next){
  try{

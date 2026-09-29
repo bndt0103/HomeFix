@@ -25,19 +25,21 @@ function OtpFields({flow,busy,resend}){
 
 export function AuthForm(){
  const {login}=useApp(),navigate=useNavigate(),flow=useOtp();
- const [mode,setMode]=useState('login'),[values,setValues]=useState({identifier:'',password:'',fullName:'',phone:'',email:''});
+ const [mode,setMode]=useState('login'),[values,setValues]=useState({identifier:'',password:'',confirmPassword:'',fullName:'',phone:'',email:''});
  const [busy,setBusy]=useState(false),[error,setError]=useState(null),[notice,setNotice]=useState('');
  const register=mode==='register',forgot=mode==='forgot';
- function changeMode(value){setMode(value);flow.reset();setError(null);setNotice('');setValues(s=>({...s,password:'',identifier:value==='forgot'?'':s.identifier}));}
+ function changeMode(value){setMode(value);flow.reset();setError(null);setNotice('');setValues(s=>({...s,password:'',confirmPassword:'',identifier:value==='forgot'?'':s.identifier}));}
  function set(key,value){setValues(s=>({...s,[key]:value}));flow.reset();setError(null);setNotice('');}
  const registration=()=>({fullName:values.fullName,phone:values.phone,email:values.email||null,password:values.password});
  async function requestCode(){const r=await api(register?'/auth/register/otp':'/auth/forgot-password/otp',{method:'POST',body:register?registration():{identifier:values.identifier}});flow.received(r.data);}
  async function run(fn){setBusy(true);setError(null);setNotice('');try{await fn();}catch(e){setError(e);}finally{setBusy(false);}}
- async function submit(e){e.preventDefault();await run(async()=>{
+ async function submit(e){e.preventDefault();
+  if((register||forgot)&&values.password!==values.confirmPassword){setError(new Error(forgot?'Mật khẩu mới và xác nhận mật khẩu không khớp.':'Mật khẩu và xác nhận mật khẩu không khớp.'));return;}
+  await run(async()=>{
   if(mode==='login'){const r=await api('/auth/login',{method:'POST',body:{identifier:values.identifier,password:values.password}});login(r.data);navigate('/');return;}
   if(!flow.challenge){await requestCode();return;}
-  if(register){await api('/auth/register',{method:'POST',body:{...registration(),...flow.proof()}});setValues(s=>({...s,identifier:s.phone,password:''}));}
-  else{await api('/auth/reset-password',{method:'POST',body:{identifier:values.identifier,newPassword:values.password,...flow.proof()}});setValues(s=>({...s,password:''}));}
+  if(register){await api('/auth/register',{method:'POST',body:{...registration(),...flow.proof()}});setValues(s=>({...s,identifier:s.phone,password:'',confirmPassword:''}));}
+  else{await api('/auth/reset-password',{method:'POST',body:{identifier:values.identifier,newPassword:values.password,...flow.proof()}});setValues(s=>({...s,password:'',confirmPassword:''}));}
   setMode('login');flow.reset();setNotice(register?'Đăng ký thành công. Vui lòng đăng nhập.':'Đã đặt lại mật khẩu. Vui lòng đăng nhập bằng mật khẩu mới.');
  });}
  return <>
@@ -50,6 +52,7 @@ export function AuthForm(){
     <Field label="Email / Gmail"><input required type="email" maxLength={200} autoComplete="email" value={values.email} onChange={e=>set('email',e.target.value)}/></Field>
    </>:<Field label={forgot?'Email / Gmail đã đăng ký':'Số điện thoại hoặc email'}><input required type={forgot?'email':'text'} autoComplete="username" value={values.identifier} onChange={e=>set('identifier',e.target.value)}/></Field>}
    <Field label={forgot?'Mật khẩu mới':'Mật khẩu'} hint={mode!=='login'?'Ít nhất 8 ký tự, tối đa 72 byte UTF-8.':undefined}><input required type="password" minLength={mode==='login'?1:8} autoComplete={mode==='login'?'current-password':'new-password'} value={values.password} onChange={e=>set('password',e.target.value)}/></Field>
+   {(register||forgot)&&<Field label={forgot?'Xác nhận mật khẩu mới':'Xác nhận mật khẩu'}><input required type="password" minLength={8} autoComplete="new-password" value={values.confirmPassword} onChange={e=>set('confirmPassword',e.target.value)}/></Field>}
    {mode!=='login'&&<OtpFields flow={flow} busy={busy} resend={()=>run(requestCode)}/>}
    <ErrorBox error={error}/>{notice&&<div className="notice success" role="status">{notice}</div>}
    <Submit busy={busy}>{mode==='login'?'Đăng nhập':!flow.challenge?(register?'Đăng ký tài khoản':'Đặt lại mật khẩu'):register?'Xác nhận đăng ký':'Xác nhận đặt lại mật khẩu'}</Submit>
@@ -60,18 +63,19 @@ export function AuthForm(){
 }
 
 export function PasswordChange({user,logout}){
- const flow=useOtp(),[currentPassword,setCurrent]=useState(''),[newPassword,setNew]=useState('');
+ const flow=useOtp(),[currentPassword,setCurrent]=useState(''),[newPassword,setNew]=useState(''),[confirmPassword,setConfirm]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(null);
  useEffect(()=>{flow.reset();},[user.email,user.phone]);
  async function run(fn){setBusy(true);setError(null);try{await fn();}catch(e){setError(e);}finally{setBusy(false);}}
  async function requestCode(){const r=await api('/users/me/password/otp',{method:'POST',body:{currentPassword}});flow.received(r.data);}
- return <form onSubmit={e=>{e.preventDefault();run(async()=>{
+ return <form onSubmit={e=>{e.preventDefault();if(newPassword!==confirmPassword){setError(new Error('Mật khẩu mới và xác nhận mật khẩu không khớp.'));return;}run(async()=>{
   if(!flow.challenge){await requestCode();return;}
   await api('/users/me/password',{method:'POST',body:{currentPassword,newPassword,...flow.proof()}});await logout('Đã đổi mật khẩu thành công. Vui lòng đăng nhập lại.');
  });}}><fieldset disabled={busy} className="auth-fields">
   <p>{user.email?`Mã OTP sẽ được gửi đến ${user.email}.`:'Tài khoản chưa có email. Vui lòng cập nhật email trong hồ sơ trước.'}</p>
   <Field label="Mật khẩu hiện tại"><input required type="password" autoComplete="current-password" value={currentPassword} onChange={e=>{setCurrent(e.target.value);flow.reset();}}/></Field>
-  <Field label="Mật khẩu mới" hint="Ít nhất 8 ký tự, tối đa 72 byte UTF-8."><input required type="password" minLength={8} autoComplete="new-password" value={newPassword} onChange={e=>setNew(e.target.value)}/></Field>
+  <Field label="Mật khẩu mới" hint="Ít nhất 8 ký tự, tối đa 72 byte UTF-8."><input required type="password" minLength={8} autoComplete="new-password" value={newPassword} onChange={e=>{setNew(e.target.value);setError(null);}}/></Field>
+  <Field label="Xác nhận mật khẩu mới"><input required type="password" minLength={8} autoComplete="new-password" value={confirmPassword} onChange={e=>{setConfirm(e.target.value);setError(null);}}/></Field>
   <OtpFields flow={flow} busy={busy} resend={()=>run(requestCode)}/>
   <ErrorBox error={error}/><Submit busy={busy} disabled={busy||!user.email}>{flow.challenge?'Xác nhận đổi mật khẩu':'Đổi mật khẩu'}</Submit>
  </fieldset></form>;
