@@ -24,6 +24,7 @@
     "test:otp:ui": "npm run build && node tests/ui-otp.mjs",
     "email:check": "node scripts/check-email.js",
     "test:mobile": "node --test tests/mobile-api.test.js",
+    "db:migrate:services": "node scripts/migrate-services.js",
     "db:migrate:avatar": "node scripts/migrate-avatar.js",
     "db:migrate": "npm run db:migrate:otp && npm run db:migrate:payments && npm run db:migrate:services && npm run db:migrate:avatar"
   },
