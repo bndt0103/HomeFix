@@ -37,6 +37,18 @@ Nếu chưa có phiên online thì bỏ qua thông báo không tìm thấy phiê
 
 Xem [chạy online](CHAY_ONLINE_DEMO.md), [cấu hình thanh toán](THANH_TOAN.md) và [tham chiếu API](API_ThamChieu.md).
 
+## OTP qua Gmail
+
+OTP được gửi từ Gmail bằng App Password, không dùng mật khẩu đăng nhập Gmail. Mỗi địa chỉ nhận chỉ được tạo tối đa 3 mã trong một giờ và phải chờ 90 giây trước khi gửi lại. Mã có hiệu lực 5 phút và chỉ dùng một lần. Các yêu cầu gửi được xếp hàng trong backend để tránh mở nhiều kết nối SMTP cùng lúc.
+
+Kiểm tra cấu hình mà không gửi email:
+
+    powershell
+    cd SRC
+    npm.cmd run email:check
+
+Nếu lệnh kiểm tra thành công nhưng không thấy email, kiểm tra thư Spam/Promotions và chờ hết cooldown. Không bấm gửi lại liên tục; sau khi đổi Gmail App Password cần khởi động lại backend. Nếu Gmail vẫn chặn gửi, dùng một nhà cung cấp email transactional đã cấu hình trong OTP_EMAIL_PROVIDER và không đưa khóa API lên GitHub.
+
 ## Kiểm chứng bản gộp
 
 Kiểm thử trên database riêng: migration danh mục bảo toàn dữ liệu và chạy lặp; cài mới; nghiệp vụ COD/ngân hàng; URL web/Android; giao diện tìm kiếm, sửa dịch vụ phổ biến, thanh toán và giữ focus qua lần tự cập nhật. Cách tạo môi trường kiểm thử ở hướng dẫn thanh toán. Không chạy kiểm thử tạo đơn vào database dùng chung của nhóm.

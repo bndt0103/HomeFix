@@ -148,3 +148,5 @@ Dịch vụ có thêm isPopular (boolean); ADMIN có thể đặt khi POST /api/
 | POST | /api/payment-requests/:id/decision | KT | decision Approved/Rejected, expectedVersion; duyệt cần receivedAmount + bankReference, từ chối cần reason |
 
 Các POST chọn phương thức, gửi chứng từ và quyết định kế toán cần Idempotency-Key UUID. Gửi lại đúng request dùng cùng key; thao tác mới dùng key mới. Khi KH duyệt nghiệm thu, gửi paymentMethod COD/BANK và bankAccountId nếu BANK. Ảnh chuyển khoản dùng purpose PaymentProof tại /api/uploads, có orderId; chỉ KH sở hữu ảnh và KT xem được ảnh. Gửi chứng từ không tự đánh dấu đã thanh toán. Xem [quy trình thanh toán](THANH_TOAN.md).
+
+OTP gửi qua Gmail được giới hạn ở mức 3 mã/giờ cho mỗi địa chỉ, cooldown 90 giây và tối đa 10 yêu cầu/15 phút cho một địa chỉ IP. Mã hết hạn sau 5 phút, dùng một lần và bị khóa sau 5 lần nhập sai.

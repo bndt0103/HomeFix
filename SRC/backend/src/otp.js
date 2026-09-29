@@ -16,8 +16,8 @@ export async function issueOtp({purpose,destination,binding,deliver=true}) {
  await transaction(null,async t=>{
   await q('DELETE dbo.AuthOtp WHERE createdAt<DATEADD(day,-1,SYSUTCDATETIME())',{},t);
   const recent=await one('SELECT COUNT(*) n,MAX(createdAt) lastSent FROM dbo.AuthOtp WHERE destination=@destination AND createdAt>DATEADD(hour,-1,SYSUTCDATETIME())',{destination},t);
-  if(recent.n>=5 || recent.lastSent && Date.now()-recent.lastSent.getTime()<60000)
-   fail(429,'OTP_RATE_LIMITED','Chờ ít nhất 60 giây trước khi gửi lại; tối đa 5 mã mỗi giờ cho một địa chỉ nhận.');
+  if(recent.n>=3 || recent.lastSent && Date.now()-recent.lastSent.getTime()<90000)
+   fail(429,'OTP_RATE_LIMITED','Chờ ít nhất 90 giây trước khi gửi lại; tối đa 3 mã mỗi giờ cho một địa chỉ nhận.');
   await q('UPDATE dbo.AuthOtp SET consumed=1 WHERE destination=@destination AND purpose=@purpose',{destination,purpose},t);
   await q('INSERT dbo.AuthOtp(id,purpose,channel,destination,binding,codeHash,expiresAt) VALUES(@id,@purpose,@channel,@destination,@binding,@hash,DATEADD(minute,5,SYSUTCDATETIME()))',{id,purpose,channel:'email',destination,binding,hash:codeHash(id,code)},t);
  });
@@ -28,7 +28,7 @@ export async function issueOtp({purpose,destination,binding,deliver=true}) {
   await q('UPDATE dbo.AuthOtp SET consumed=1 WHERE id=@id',{id});
   fail(503,'OTP_DELIVERY_FAILED','Chưa gửi được email OTP. Vui lòng thử lại sau.');
  }
- return {challengeId:id,expiresIn:300,retryAfter:60,message:'Nếu thông tin hợp lệ, mã OTP sẽ được gửi đến email của bạn. Mã có hiệu lực 5 phút.'};
+ return {challengeId:id,expiresIn:300,retryAfter:90,message:'Nếu thông tin hợp lệ, mã OTP sẽ được gửi đến email của bạn. Mã có hiệu lực 5 phút.'};
 }
 
 // Persist failed attempts even when verification fails; consume and mutate together.

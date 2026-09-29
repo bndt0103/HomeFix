@@ -1,5 +1,15 @@
 import nodemailer from 'nodemailer';
 
+// Serialize Gmail sends in one API process so repeated clicks cannot open
+// several SMTP connections at once. The database rate limit remains the
+// authoritative limit across multiple API processes.
+let gmailSendQueue=Promise.resolve();
+const queuedGmailSend=operation=>{
+ const next=gmailSendQueue.then(operation,operation);
+ gmailSendQueue=next.catch(()=>{});
+ return next;
+};
+
 // Gmail app passwords may be copied with grouping spaces from Google's screen.
 const gmailPassword=env=>(env.GMAIL_APP_PASSWORD||'').replace(/\s/g,'');
 export const emailProvider=(env=process.env)=>(env.OTP_EMAIL_PROVIDER||'resend').trim().toLowerCase();
@@ -28,12 +38,14 @@ export async function deliverOtp(destination, code, {env=process.env, fetcher=fe
  const text=`HomeFix: Mã xác thực của bạn là ${code}. Hết hạn sau 5 phút. Không chia sẻ mã này.`;
  const message={to:[destination],subject:'HomeFix - Mã xác thực OTP',text};
  if(emailProvider(env)==='gmail') {
-  const transport=gmailTransport(env,createTransport);
-  try {
-   // Always use the authenticated Gmail account as sender; ignore any old Resend From.
-   const result=await transport.sendMail({...message,from:{name:'HomeFix',address:env.GMAIL_USER.trim()}});
-   if(!result.accepted?.some(address=>String(address).toLowerCase()===destination.toLowerCase()))throw new Error('OTP_DELIVERY_FAILED');
-  } finally {transport.close();}
+  await queuedGmailSend(async()=>{
+   const transport=gmailTransport(env,createTransport);
+   try {
+    // Always use the authenticated Gmail account as sender; ignore any old Resend From.
+    const result=await transport.sendMail({...message,from:{name:'HomeFix',address:env.GMAIL_USER.trim()}});
+    if(!result.accepted?.some(address=>String(address).toLowerCase()===destination.toLowerCase()))throw new Error('OTP_DELIVERY_FAILED');
+   } finally {transport.close();}
+  });
   return;
  }
  const response=await fetcher('https://api.resend.com/emails',{
