@@ -1,4 +1,7 @@
+import {noPaymentDue} from './payment-status';
+import {AttentionDot} from './attention';
 import React,{useEffect,useRef,useState} from 'react';
+import {Banknote,Landmark} from 'lucide-react';
 import {api,upload,uuid} from './api';
 import {useApp,useData,useAction,Field,Modal,Submit,ErrorBox,Loading,Badge,money,date} from './shared';
 import './payments.css';
@@ -6,8 +9,8 @@ import './payments.css';
 export function PaymentMethodFields({method,bankAccountId,onChange}){
  const options=useData('/payment-options');
  return <div className="payment-methods"><h3>Phương thức thanh toán</h3>
-  <label className={'payment-option '+(method==='COD'?'selected':'')}><input type="radio" name="paymentMethod" checked={method==='COD'} onChange={()=>onChange('COD','')}/><span><b>Tiền mặt</b><small>Giao đủ tiền cho KTV sau nghiệm thu.</small></span></label>
-  <label className={'payment-option '+(method==='BANK'?'selected':'')}><input type="radio" name="paymentMethod" checked={method==='BANK'} onChange={()=>onChange('BANK','')}/><span><b>Chuyển khoản ngân hàng</b><small>Chuyển vào tài khoản HomeFix và chờ kế toán xác nhận.</small></span></label>
+  <label className={'payment-option '+(method==='COD'?'selected':'')}><span className="payment-option-icon" aria-hidden="true"><Banknote size={25} strokeWidth={1.8}/></span><span className="payment-option-copy"><b>Tiền mặt</b><small>Giao đủ tiền cho KTV sau nghiệm thu.</small></span><input type="radio" name="paymentMethod" checked={method==='COD'} onChange={()=>onChange('COD','')}/></label>
+  <label className={'payment-option '+(method==='BANK'?'selected':'')}><span className="payment-option-icon" aria-hidden="true"><Landmark size={25} strokeWidth={1.8}/></span><span className="payment-option-copy"><b>Chuyển khoản ngân hàng</b><small>Chuyển vào tài khoản HomeFix và chờ kế toán xác nhận.</small></span><input type="radio" name="paymentMethod" checked={method==='BANK'} onChange={()=>onChange('BANK','')}/></label>
   <ErrorBox error={options.error}/>
   {method==='BANK'&&(options.loading?<Loading/>:<>
    <Field label="Ngân hàng / tài khoản nhận tiền"><select required value={bankAccountId} onChange={e=>onChange('BANK',e.target.value)}><option value="">Chọn tài khoản HomeFix</option>{options.data?.accounts.map(a=><option key={a.id} value={a.id}>{a.bankName} · {a.accountNumber} · {a.accountHolder}</option>)}</select></Field>
@@ -31,6 +34,7 @@ export function PaymentPanel({order,onRefresh}){
  useEffect(()=>{details.reload();},[order.version]);
  const data=details.data,request=data?.requests.find(r=>r.isActive),last=data?.requests[0];
  const done=()=>{setModal(null);details.reload();onRefresh();};
+ if(noPaymentDue(order))return <div className="payment-panel"><Badge value="Paid"/><p>Không phát sinh chi phí cần thanh toán. Bạn không cần chuyển khoản hoặc trả tiền mặt.</p></div>;
  return <div className="payment-panel"><ErrorBox error={details.error}/>
   <div className="row space"><b>{(data?.method||order.paymentMethod)==='BANK'?'Chuyển khoản ngân hàng':'Tiền mặt'}</b><Badge value={data?.receipt?'Paid':request?.status||'Unpaid'}/></div>
   {data?.receipt?<p>Đã ghi nhận đủ {money(data.receipt.amount)} lúc {date(data.receipt.paidAt)}. {data.receipt.method==='BANK'?'Kế toán đã kiểm tra tiền thực nhận. Không cần trả thêm tiền mặt.':'Kỹ thuật viên đã xác nhận nhận tiền mặt.'}</p>:<>
@@ -42,7 +46,7 @@ export function PaymentPanel({order,onRefresh}){
    </>}
    {user.role==='KH'&&order.paymentStatus!=='Paid'&&<div className="actions">
     {request?.status!=='PendingReview'&&<button className="btn" onClick={()=>setModal('method')}>{request?'Đổi phương thức / tài khoản':'Chọn phương thức thanh toán'}</button>}
-    {['AwaitingTransfer','Rejected'].includes(request?.status)&&<button className="btn primary" onClick={()=>setModal('proof')}>{request.status==='Rejected'?'Gửi lại chứng từ':'Tôi đã chuyển khoản'}</button>}
+    {['AwaitingTransfer','Rejected'].includes(request?.status)&&<button className="btn primary" onClick={()=>setModal('proof')}><AttentionDot />{request.status==='Rejected'?'Gửi lại chứng từ':'Tôi đã chuyển khoản'}</button>}
    </div>}
   </>}
   {data?.requests.length>0&&<details className="payment-history"><summary>Lịch sử yêu cầu chuyển khoản</summary>{data.requests.map(r=><div key={r.id}><span>{r.transferContent} · {date(r.createdAt)}</span> <Badge value={r.status==='Confirmed'?'Paid':r.status}/>{r.reason&&<p>{r.reason}</p>}</div>)}</details>}

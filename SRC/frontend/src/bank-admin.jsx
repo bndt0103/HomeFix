@@ -1,3 +1,4 @@
+import {AttentionDot} from './attention';
 import React,{useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {api,uuid} from './api';
@@ -28,7 +29,7 @@ function BankAccountForm({banks,onClose,onDone}){
 export function BankPaymentQueue(){
  const requests=useData('/bank-payment-requests',10000),[selected,setSelected]=useState(null);
  return <Card title="Xác minh tiền chuyển khoản"><p>Đối chiếu sao kê ngân hàng trước khi duyệt. Ảnh khách gửi không tự chứng minh HomeFix đã nhận tiền.</p><ErrorBox error={requests.error}/>
-  {requests.loading?<Loading/>:!requests.data?.length?<p>Chưa có chứng từ cần xử lý.</p>:<div className="table-wrap"><table><thead><tr><th>Đơn / khách hàng</th><th>Tài khoản nhận</th><th>Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{requests.data.map(r=><tr key={r.id}><td><Link to={'/orders/'+r.orderId}>{code(r.orderId)}</Link><small>{r.customerName}</small></td><td>{r.bankName}<small>{r.accountNumber}</small></td><td>{money(r.amount)}<small>{r.transferContent}</small></td><td><Badge value={r.status==='Confirmed'?'Paid':r.status}/></td><td><button className="btn small" onClick={()=>setSelected(r)}>Xem chứng từ</button></td></tr>)}</tbody></table></div>}
+  {requests.loading?<Loading/>:!requests.data?.length?<p>Chưa có chứng từ cần xử lý.</p>:<div className="table-wrap"><table><thead><tr><th>Đơn / khách hàng</th><th>Tài khoản nhận</th><th>Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{requests.data.map(r=><tr key={r.id}><td><Link to={'/orders/'+r.orderId}>{code(r.orderId)}</Link><small>{r.customerName}</small></td><td>{r.bankName}<small>{r.accountNumber}</small></td><td>{money(r.amount)}<small>{r.transferContent}</small></td><td><Badge value={r.status==='Confirmed'?'Paid':r.status}/></td><td><button className="btn small" onClick={()=>setSelected(r)}><AttentionDot show={r.status==='PendingReview'}/>Xem chứng từ</button></td></tr>)}</tbody></table></div>}
   {selected&&<BankReview request={selected} onClose={()=>setSelected(null)} onDone={()=>{setSelected(null);requests.reload();}}/>}
  </Card>;
 }

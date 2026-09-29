@@ -10,7 +10,9 @@ export async function api(path,{method='GET',body,key,blob=false,signal}={}){
  const headers={};if(token)headers.Authorization='Bearer '+token;if(body&&!(body instanceof FormData))headers['Content-Type']='application/json';if(key)headers['Idempotency-Key']=key;
  let r;try{r=await fetch(baseUrl()+path,{method,headers,body:body instanceof FormData?body:body?JSON.stringify(body):undefined,signal});}catch(e){if(e.name==='AbortError')throw e;throw new Error('Không kết nối được máy chủ. Kiểm tra mạng và địa chỉ API trong Cài đặt kết nối.');}
  if(!r.ok){const data=await r.json().catch(()=>({}));if(r.status===401&&token){setSession('');onUnauthorized();}const e=new Error(data.error?.message||'Không thể xử lý yêu cầu.');e.status=r.status;e.code=data.error?.code;e.details=data.error?.details;e.requestId=data.requestId;throw e;}
- return blob?r.blob():r.json();
+ const result=await (blob?r.blob():r.json());
+ if(!['GET','HEAD'].includes(method.toUpperCase()))window.dispatchEvent(new Event('homefix:changed'));
+ return result;
 }
 export async function upload(file,purpose,orderId){const body=new FormData();body.set('file',file);body.set('purpose',purpose);if(orderId)body.set('orderId',String(orderId));return (await api('/uploads',{method:'POST',body})).data;}
 // getRandomValues also works on HTTP LAN addresses used for classroom demos.
