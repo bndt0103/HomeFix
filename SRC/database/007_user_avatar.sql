@@ -1,4 +1,5 @@
-ALTER TABLE dbo.NguoiDung ADD avatarUrl nvarchar(500) NULL;
+IF COL_LENGTH('dbo.NguoiDung','avatarUrl') IS NULL
+ ALTER TABLE dbo.NguoiDung ADD avatarUrl nvarchar(500) NULL;
 GO
 DECLARE @sql nvarchar(max)='';
 SELECT @sql=@sql+'ALTER TABLE dbo.TepDinhKem DROP CONSTRAINT '+QUOTENAME(name)+';'
