@@ -22,7 +22,7 @@ test('OTP registration, recovery and password change against SQL Server',async t
   await master.request().query(`ALTER DATABASE [${config.database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${config.database}]`);
   await master.close();
  });
- for(const file of ['001_schema.sql','004_auth_otp.sql']){
+ for(const file of ['001_schema.sql','004_auth_otp.sql','007_user_avatar.sql']){
   const source=await fs.readFile(new URL('../database/'+file,import.meta.url),'utf8');
   for(const batch of source.split(/^GO\s*$/m).filter(s=>s.trim()))await q(batch);
  }
