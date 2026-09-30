@@ -22,7 +22,7 @@ financeRouter.post('/settlements/:id/confirm', roles('KT'), wrap(async (req, res
   const r = await transaction(req.user, t => idempotent(t, req, b, async () => { const r = new sql.Request(t); r.input('SettlementId', sql.Int, sid).input('ActorId', sql.Int, req.user.id).input('ExpectedVersion', sql.Binary(8), Buffer.from(b.expectedVersion, 'base64')); await r.execute('dbo.sp_DoiSoatCOD'); return one('SELECT * FROM dbo.DoiSoat WHERE id=@id', { id: sid }, t); })); ok(res, r.data);
 }));
 financeRouter.get('/technicians/me/wallet', roles('KTV'), wrap(async (req, res) => { const k = await one('SELECT balance,version FROM dbo.KyThuatVien WHERE id=@id', { id: req.user.id }); ok(res, { ...k, transactions: await q('SELECT * FROM dbo.GiaoDichVi WHERE technicianId=@id ORDER BY id DESC', { id: req.user.id }) }); }));
-financeRouter.get('/technicians/me/income', roles('KTV'), wrap(async (req, res) => ok(res, await one('SELECT COALESCE(SUM(a.inspectionFee+a.laborFee-s.commissionAmount),0) income,COALESCE(SUM(a.materialTotal),0) materialReimbursement,COUNT(*) completedOrders FROM dbo.ThanhToan p JOIN dbo.PhieuNghiemThu a ON a.id=p.acceptanceId JOIN dbo.DoiSoat s ON s.paymentId=p.id WHERE s.technicianId=@id', { id: req.user.id }))));
+financeRouter.get('/technicians/me/income', roles('KTV'), wrap(async (req, res) => ok(res, await one('SELECT COALESCE(SUM(a.inspectionFee+a.laborFee-s.commissionAmount),0) income,COALESCE(SUM(a.materialTotal),0) materialReimbursement,COUNT(*) completedOrders FROM dbo.ThanhToan p JOIN dbo.PhieuNghiemThu a ON a.id=p.acceptanceId JOIN dbo.DoiSoat s ON s.paymentId=p.id WHERE s.technicianId=@id AND (@today=0 OR CONVERT(date,DATEADD(hour,7,p.paidAt))=CONVERT(date,DATEADD(hour,7,SYSUTCDATETIME())))', { id: req.user.id, today: req.query.today === '1' ? 1 : 0 }))));
 financeRouter.get('/wallet-requests', roles('KTV', 'KT'), wrap(async (req, res) => ok(res, await q(`SELECT w.*,n.fullName technicianName FROM dbo.YeuCauVi w JOIN dbo.NguoiDung n ON n.id=w.technicianId ${req.user.role === 'KTV' ? 'WHERE technicianId=@id' : ''} ORDER BY w.id DESC`, { id: req.user.id }))));
 financeRouter.post('/wallet-requests', roles('KTV'), wrap(async (req, res) => {
   const b = z.strictObject({ type: z.enum(['Deposit', 'Withdrawal']), amount: money.refine(s => Number(s) > 0), note: str(5, 1000), proofId: z.number().int().positive().optional() }).parse(req.body);
@@ -38,3 +38,13 @@ financeRouter.post('/wallet-requests/:id/decision', roles('KT'), wrap(async (req
   })); ok(res, r.data);
 }));
 financeRouter.post('/wallet-requests/:id/cancel', roles('KTV'), wrap(async (req, res) => { const wid = id(req.params.id), b = z.strictObject({ expectedVersion: versionSchema }).parse(req.body); const w = await transaction(req.user, async t => { const w = await one('SELECT * FROM dbo.YeuCauVi WHERE id=@id AND technicianId=@uid', { id: wid, uid: req.user.id }, t); checkVersion(w, b.expectedVersion); state(w, 'Pending'); await q("UPDATE dbo.YeuCauVi SET status='Cancelled' WHERE id=@id", { id: wid }, t); return one('SELECT * FROM dbo.YeuCauVi WHERE id=@id', { id: wid }, t); }); ok(res, w); }));
+
+financeRouter.get('/technicians/me/wallet-transactions', roles('KTV'), wrap(async (req, res) => {
+ const direction=z.enum(['all','in','out']).parse(req.query.direction||'all');
+ const month=z.string().regex(/^$|^\d{4}-(0[1-9]|1[0-2])$/).parse(req.query.month||'');
+ const limit=z.coerce.number().int().min(1).max(10000).parse(req.query.limit||20);
+ ok(res,await q(`SELECT TOP (@limit) w.*,s.orderId,s.commissionRatePercent,s.commissionAmount FROM dbo.GiaoDichVi w
+ LEFT JOIN dbo.DoiSoat s ON w.referenceType='Settlement' AND w.referenceId=s.id
+ WHERE w.technicianId=@id AND (@direction='all' OR (@direction='in' AND w.amount>0) OR (@direction='out' AND w.amount<0))
+ AND (@month='' OR CONVERT(char(7),DATEADD(hour,7,w.createdAt),126)=@month) ORDER BY w.id DESC`,{id:req.user.id,direction,month,limit}));
+}));

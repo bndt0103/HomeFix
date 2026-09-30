@@ -38,9 +38,27 @@ export function Modal({ title, children, onClose }) {
     }, []);
     return <div className="modal-backdrop"><section ref={dialog} className="modal" role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button ref={close} type="button" className="icon-btn" onClick={onClose} aria-label="Đóng"><X /></button></header>{children}</section></div>;
 }
-export function useData(path, interval = 0) { const [data, setData] = useState(null), [meta, setMeta] = useState(null), [error, setError] = useState(null), [loading, setLoading] = useState(true), [tick, setTick] = useState(0); const reload = () => setTick(t => t + 1); useEffect(() => { if (!path) { setLoading(false); return; } const c = new AbortController(); let alive = true; const load = async () => { try { const r = await api(path, { signal: c.signal }); if (alive) { setData(r.data); setMeta(r.meta); setError(null); } } catch (e) { if (alive && e.name !== 'AbortError') setError(e); } finally { if (alive) setLoading(false); } }; load(); const timer = interval ? setInterval(load, interval) : null; return () => { alive = false; c.abort(); if (timer) clearInterval(timer); }; }, [path, tick, interval]); return { data, meta, error, loading, reload, setData }; }
+export function useData(path, interval = 0) {
+ const [data,setData]=useState(null),[meta,setMeta]=useState(null),[error,setError]=useState(null),[loading,setLoading]=useState(true),[tick,setTick]=useState(0);
+ const reload=()=>setTick(t=>t+1);
+ useEffect(()=>{
+  if(!path){setLoading(false);return;}
+  const c=new AbortController();let alive=true,running=false,again=false;
+  const load=async()=>{
+   if(running){again=true;return;}running=true;
+   try{const r=await api(path,{signal:c.signal});if(alive){setData(r.data);setMeta(r.meta);setError(null);}}
+   catch(e){if(alive&&e.name!=='AbortError')setError(e);}
+   finally{running=false;if(alive){setLoading(false);if(again){again=false;load();}}}
+  };
+  load();const timer=interval?setInterval(load,interval):null;
+  const visible=()=>{if(document.visibilityState==='visible')load();};
+  window.addEventListener('focus',load);window.addEventListener('homefix:changed',load);document.addEventListener('visibilitychange',visible);
+  return ()=>{alive=false;c.abort();if(timer)clearInterval(timer);window.removeEventListener('focus',load);window.removeEventListener('homefix:changed',load);document.removeEventListener('visibilitychange',visible);};
+ },[path,tick,interval]);
+ return {data,meta,error,loading,reload,setData};
+}
 export function useAction() { const [busy, setBusy] = useState(false), [error, setError] = useState(null); const { toast } = useApp(); const busyRef = useRef(false); const run = async (fn, message = 'Đã cập nhật thành công.') => { if (busyRef.current) return; busyRef.current = true; setBusy(true); setError(null); try { const result = await fn(); if (message) toast(message); return result; } catch (e) { setError(e); return undefined; } finally { busyRef.current = false; setBusy(false); } }; return { busy, error, run, setError }; }
 export function Submit({ busy, children = 'Lưu thay đổi', ...rest }) { return <button className="btn primary" type="submit" disabled={busy} {...rest}>{busy ? <LoaderCircle size={17} className="spin" /> : <CheckCircle2 size={17} />} {busy ? 'Đang xử lý…' : children}</button>; }
-export function OrderCard({ order }) { const attention=useAttention(); return <Link className="order-card" to={'/orders/' + order.id}><div className="order-symbol"><Wrench size={23} /></div><div className="order-main"><div className="row wrap"><small>{code(order.id)}</small><AttentionDot show={attention.orderIds.includes(order.id)} label="Đơn cần bạn xử lý"/><Badge value={order.status} /></div><h3>{order.serviceName}</h3><p><MapPin size={14} />{order.address}</p><small><Clock size={13} /> {date(order.scheduledAt || order.createdAt)}</small></div><ChevronRight className="order-arrow" /></Link>; }
+export function OrderCard({ order }) { const { user } = useApp(); const attention=useAttention(); return <Link className="order-card" to={'/orders/' + order.id}><div className="order-symbol"><Wrench size={23} /></div><div className="order-main"><div className="row wrap"><small>{code(order.id)}</small><AttentionDot show={attention.orderIds.includes(order.id)} label="Đơn cần bạn xử lý"/><Badge value={order.status} /></div><h3>{order.serviceName}</h3><p><MapPin size={14} />{order.address}</p><small><Clock size={13} /> {date(order.scheduledAt || order.createdAt)}</small></div>{user.role==='KH'&&order.status==='ChoDuyetSoBo'&&<span className="order-card-cta pending">Xem và chấp nhận báo giá sơ bộ</span>}{user.role === 'KTV' && !['HoanThanh', 'Huy'].includes(order.status) && <span className={'order-card-cta ' + (order.status === 'ChoNhan' ? 'pending' : '')}>{order.status === 'ChoNhan' ? 'Xem và phản hồi đơn' : 'Tiếp tục cập nhật tiến độ'}</span>}<ChevronRight className="order-arrow" /></Link>; }
 export function ProtectedImage({ id, alt = 'Ảnh đính kèm' }) { const [url, setUrl] = useState(''); useEffect(() => { let alive = true, objectUrl; api('/uploads/' + id, { blob: true }).then(blob => { objectUrl = URL.createObjectURL(blob); if (alive) setUrl(objectUrl); else URL.revokeObjectURL(objectUrl); }).catch(() => { }); return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); }; }, [id]); return url ? <a href={url} target="_blank" rel="noreferrer"><img src={url} alt={alt} /></a> : <span className="image-placeholder">Đang tải ảnh…</span>; }
 export function MoneyBreakdown({ value }) { return <div className="money-lines"><div><span>Phí kiểm tra</span><b>{money(value.inspectionFee)}</b></div><div><span>Tiền công</span><b>{money(value.laborFee)}</b></div>{value.materialTotal !== undefined && <div><span>Vật tư được duyệt</span><b>{money(value.materialTotal)}</b></div>}<div className="total"><span>Tổng cộng</span><strong>{money(value.total)}</strong></div></div>; }

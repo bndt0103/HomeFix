@@ -13,6 +13,8 @@
     "start": "node backend/src/server.js",
     "online:setup": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-tunnel.ps1",
     "online": "node scripts/start-online.js",
+    "online:status": "node scripts/start-online.js --status",
+    "online:check-db": "node scripts/check-online-db.js",
     "online:stop": "node scripts/start-online.js --stop",
     "db:init": "node scripts/init-db.js",
     "test": "node --test --test-concurrency=1 tests/*.test.js",
@@ -28,7 +30,15 @@
     "db:migrate:avatar": "node scripts/migrate-avatar.js",
     "db:migrate:account-locks": "node scripts/migrate-account-locks.js",
     "db:migrate:policies": "node scripts/migrate-policy-proposals.js",
-    "db:migrate": "npm run db:migrate:otp && npm run db:migrate:payments && npm run db:migrate:services && npm run db:migrate:avatar && npm run db:migrate:account-locks && npm run db:migrate:policies"
+    "db:migrate": "npm run db:migrate:otp && npm run db:migrate:payments && npm run db:migrate:services && npm run db:migrate:avatar && npm run db:migrate:account-locks && npm run db:migrate:technician-ui && npm run db:migrate:policies && npm run db:migrate:customer-location",
+    "db:migrate:customer-location": "node scripts/migrate-customer-location.js",
+    "db:migrate:technician-ui": "node scripts/migrate-technician-ui.js",
+    "test:customer-location": "node --test tests/customer-location.test.js",
+    "test:attention": "node tests/ui-attention.mjs && node tests/ui-attention-flow.mjs",
+    "test:director": "node --test tests/director-reports.test.js",
+    "test:director:ui": "node tests/ui-director.mjs",
+    "test:screen-tv": "node --test tests/screen-tv.test.js",
+    "test:screen-tv:ui": "node tests/ui-screen-tv.mjs"
   },
   "engines": {
     "node": ">=22.12"

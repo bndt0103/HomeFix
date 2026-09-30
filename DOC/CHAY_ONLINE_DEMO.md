@@ -11,7 +11,7 @@ npm.cmd run online:setup
 npm.cmd run online
 ```
 
-Lệnh đầu tải cloudflared bản Windows x64 từ kho phát hành chính thức Cloudflare và kiểm tra SHA256; chỉ cần thực hiện khi chưa cài. Lệnh sau build giao diện, chạy backend trên `127.0.0.1:3001`, kết nối database trong `backend/.env`, tạo tunnel và kiểm tra URL HTTPS.
+Lệnh đầu tải cloudflared bản Windows x64 từ kho phát hành chính thức Cloudflare và kiểm tra SHA256; chỉ cần thực hiện khi chưa cài. Lệnh sau kiểm tra cấu trúc database cho phiên bản hiện tại, build lại giao diện mới nhất, chạy backend trên `127.0.0.1:3001`, kết nối database trong `backend/.env`, tạo tunnel và kiểm tra URL HTTPS.
 
 Chờ dòng `HOMEFIX ONLINE: https://...trycloudflare.com`. Sao chép **toàn bộ URL thực tế** cho nhóm. URL cũng được lưu tại `SRC/online-url.txt` khi kiểm tra kết nối thành công. Nếu không có dòng này thì chưa xác nhận được website online.
 
@@ -25,7 +25,7 @@ Giữ terminal chạy; nhấn Ctrl+C để dừng backend online và tunnel. URL
 
 ## Một database chung
 
-Cấu hình máy chủ hiện tại:
+Ví dụ cấu hình máy chủ (giá trị thực tế lấy từ `SRC/backend/.env`):
 
 ```dotenv
 DB_SERVER=localhost\SQLEXPRESS
@@ -35,7 +35,7 @@ DB_AUTH=windows
 
 Chế độ online giữ nguyên `.env`, chỉ đặt cổng 3001 và địa chỉ lắng nghe cho tiến trình online. Web local cổng 3000 có thể chạy cùng lúc; nếu vừa sửa `.env`, phải khởi động lại web local để nó nhận database mới. Cả hai chỉ dùng chung dữ liệu khi cùng trỏ đến đúng instance/database.
 
-Trong SSMS, kết nối `localhost\SQLEXPRESS`, mở `HomeFix_Final`. Có thể xem đơn mới bằng:
+Trong SSMS, kết nối đúng `DB_SERVER` và mở đúng `DB_NAME` trong `.env`. Có thể xem đơn mới bằng:
 
 ```sql
 USE HomeFix_Final;
@@ -93,6 +93,28 @@ Script kiểm thử hiện dùng Microsoft Edge trên Windows và tài khoản m
 
 Tài liệu chính thức: [Cloudflare Quick Tunnels](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/), [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/). Quick Tunnel dành cho thử nghiệm, không có cam kết uptime.
 
-## Thanh to?n sau nghi?m thu
+## Cập nhật bản mới và kiểm tra phiên online
 
-B?n c?p nh?t h? tr? ti?n m?t v? chuy?n kho?n qua t?i kho?n HomeFix do qu?n tr? vi?n c?u h?nh. Xem [h??ng d?n thanh to?n, x?c minh v? ??i so?t](THANH_TOAN.md). M?y ch? ?? c?i tr??c b?n n?y c?n ch?y `npm.cmd run db:migrate:payments` r?i kh?i ??ng l?i server.
+Sau khi nhận mã nguồn mới, chạy trong `SRC`:
+
+```powershell
+npm.cmd run online:stop
+npm.cmd run online:check-db
+npm.cmd run online
+```
+
+Nếu chưa có phiên online, bỏ qua thông báo của lệnh dừng. Nếu kiểm tra database báo thiếu cột hoặc bảng, chạy đúng các lệnh migration được in ra rồi chạy online lại. Các migration bổ sung cấu trúc, giữ dữ liệu hiện có; không chạy lại `db:init` để cập nhật. Launcher sẽ dừng trước khi công khai đường dẫn nếu thiếu cấu trúc cần thiết.
+
+Kiểm tra phiên ở terminal khác:
+
+```powershell
+npm.cmd run online:status
+```
+
+Lệnh này kiểm tra phiên của đúng dự án và kết nối HTTPS tới API. Chỉ chia sẻ URL khi có dòng `HOMEFIX ONLINE`. Android nhập dòng `API Android` vào Cài đặt kết nối. Khi chạy lại tunnel, cần cập nhật URL mới trên Android; không cần build lại APK chỉ vì đổi URL.
+
+Giao diện KTV, bản đồ, hồ sơ đăng ký, lịch sử ví và báo cáo dùng chung mã nguồn với bản local. GPS trên web cần HTTPS và người dùng cấp quyền vị trí; bấm Cho phép trên thiết bị. Bản đồ cần kết nối Google Maps. Chức năng gọi/SMS mở ứng dụng tương ứng trên điện thoại.
+
+## Thanh toán sau nghiệm thu
+
+Hỗ trợ tiền mặt và chuyển khoản qua tài khoản HomeFix do quản trị viên cấu hình. Xem [hướng dẫn thanh toán, xác minh và đối soát](THANH_TOAN.md). Máy chủ cài bản cũ cần migration thanh toán; kiểm tra database sẽ hướng dẫn lệnh còn thiếu.

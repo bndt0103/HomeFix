@@ -114,3 +114,19 @@ ordersRouter.post('/assignments/:id/decision', roles('KTV'), wrap(async (req, re
 }));
 ordersRouter.patch('/technicians/me/location', roles('KTV'), wrap(async (req, res) => { const b = z.strictObject({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180), accuracyMeters: z.number().min(0).max(100000) }).parse(req.body); await transaction(req.user, t => q('UPDATE dbo.KyThuatVien SET latitude=@latitude,longitude=@longitude,accuracyMeters=@accuracyMeters,positionUpdatedAt=SYSUTCDATETIME() WHERE id=@id', { ...b, id: req.user.id }, t)); ok(res, { updated: true }); }));
 ordersRouter.get('/orders/:id/technician-location', roles('KH', 'DPV'), wrap(async (req, res) => { const o = await getOrder(id(req.params.id), req.user); ok(res, !o.assignedTechnicianId || ['HoanThanh', 'Huy'].includes(o.status) ? null : await one('SELECT latitude,longitude,accuracyMeters,positionUpdatedAt FROM dbo.KyThuatVien WHERE id=@id', { id: o.assignedTechnicianId })); }));
+
+// Customer GPS belongs to the order, separate from the technician's location.
+ordersRouter.get('/orders/:id/customer-location',roles('KH','KTV','DPV'),wrap(async(req,res)=>{
+ const o=await getOrder(id(req.params.id),req.user);
+ ok(res,['HoanThanh','Huy'].includes(o.status)?null:await one('SELECT latitude,longitude,accuracyMeters,positionUpdatedAt FROM dbo.ViTriKhachHang WHERE orderId=@id',{id:o.id})||null);
+}));
+ordersRouter.patch('/orders/:id/customer-location',roles('KH'),wrap(async(req,res)=>{
+ const oid=id(req.params.id),b=z.strictObject({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180),accuracyMeters:z.number().min(0).max(100000)}).parse(req.body);
+ const location=await transaction(req.user,async t=>{
+  const o=await getOrder(oid,req.user,t);
+  if(['HoanThanh','Huy'].includes(o.status))fail(409,'ORDER_CLOSED','Đơn đã kết thúc, không thể cập nhật vị trí.');
+  if(await one('SELECT orderId FROM dbo.ViTriKhachHang WHERE orderId=@id',{id:oid},t))await q('UPDATE dbo.ViTriKhachHang SET latitude=@latitude,longitude=@longitude,accuracyMeters=@accuracyMeters,positionUpdatedAt=SYSUTCDATETIME() WHERE orderId=@id',{...b,id:oid},t);
+  else await q('INSERT dbo.ViTriKhachHang(orderId,latitude,longitude,accuracyMeters) VALUES(@id,@latitude,@longitude,@accuracyMeters)',{...b,id:oid},t);
+  return one('SELECT latitude,longitude,accuracyMeters,positionUpdatedAt FROM dbo.ViTriKhachHang WHERE orderId=@id',{id:oid},t);
+ });ok(res,location);
+}));
