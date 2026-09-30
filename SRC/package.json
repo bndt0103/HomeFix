@@ -27,7 +27,8 @@
     "db:migrate:services": "node scripts/migrate-services.js",
     "db:migrate:avatar": "node scripts/migrate-avatar.js",
     "db:migrate:account-locks": "node scripts/migrate-account-locks.js",
-    "db:migrate": "npm run db:migrate:otp && npm run db:migrate:payments && npm run db:migrate:services && npm run db:migrate:avatar && npm run db:migrate:account-locks"
+    "db:migrate:policies": "node scripts/migrate-policy-proposals.js",
+    "db:migrate": "npm run db:migrate:otp && npm run db:migrate:payments && npm run db:migrate:services && npm run db:migrate:avatar && npm run db:migrate:account-locks && npm run db:migrate:policies"
   },
   "engines": {
     "node": ">=22.12"
