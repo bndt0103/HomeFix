@@ -313,3 +313,226 @@ function Ticket({ id, onClose, onDone }) { const { user } = useApp(), r = useDat
 export function Applications() { const { user } = useApp(), r = useData(user.role === 'ADMIN' ? '/technician-applications' : '/technician-applications/me'), a = useAction(); const [form, setForm] = useState({ skillGroup: 'DienLanh', serviceArea: 'TP.HCM', experience: '' }), [selected, setSelected] = useState(null); return <><PageHead eyebrow="ĐỘI NGŨ HOMEFIX" title={user.role === 'ADMIN' ? 'Xét duyệt hồ sơ kỹ thuật viên' : 'Đăng ký cộng tác kỹ thuật viên'} text="Hồ sơ được quản trị viên kiểm tra trước khi cấp quyền nhận việc." /><ErrorBox error={r.error || a.error} />{user.role === 'KH' && !r.data?.some(x => x.status === 'Pending') && <Card title="Thông tin chuyên môn"><form onSubmit={e => { e.preventDefault(); a.run(async () => { await api('/technician-applications', { method: 'POST', body: form }); r.reload(); }); }}><div className="form-grid"><Field label="Chuyên môn chính"><select value={form.skillGroup} onChange={e => setForm({ ...form, skillGroup: e.target.value })}>{Object.entries(groups).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></Field><Field label="Khu vực phục vụ"><input required value={form.serviceArea} onChange={e => setForm({ ...form, serviceArea: e.target.value })} /></Field></div><Field label="Kinh nghiệm, chứng chỉ và phương tiện làm việc"><textarea required minLength={10} rows={4} value={form.experience} onChange={e => setForm({ ...form, experience: e.target.value })} /></Field><Submit busy={a.busy}>Gửi hồ sơ xét duyệt</Submit></form></Card>}<Card title="Hồ sơ đã gửi"><Table headers={['Người nộp', 'Chuyên môn', 'Kinh nghiệm', 'Trạng thái', '']} rows={r.data} render={h => <tr key={h.id}><td>{h.fullName || user.fullName}<small>{date(h.createdAt)}</small></td><td>{groups[h.skillGroup]}<small>{h.serviceArea}</small></td><td>{h.experience}</td><td><Badge value={h.status} /><small>{h.reason}</small></td><td>{user.role === 'ADMIN' && h.status === 'Pending' && <button className="btn small" onClick={() => setSelected(h)}>Xét duyệt</button>}</td></tr>} /></Card>{selected && <ApplicationDecision record={selected} onClose={() => setSelected(null)} onDone={() => { setSelected(null); r.reload(); }} />}</>; }
 function ApplicationDecision({ record, onClose, onDone }) { const a = useAction(), [decision, setDecision] = useState('Approved'), [reason, setReason] = useState(''); return <Modal title={'Xét hồ sơ ' + record.fullName} onClose={onClose}><form onSubmit={e => { e.preventDefault(); a.run(async () => { await api('/technician-applications/' + record.id + '/decision', { method: 'POST', body: { decision, expectedVersion: record.version, ...(reason ? { reason } : {}) } }); onDone(); }); }}><p>{record.experience}</p><Field label="Kết quả"><select value={decision} onChange={e => setDecision(e.target.value)}><option value="Approved">Duyệt thành kỹ thuật viên</option><option value="Rejected">Từ chối</option></select></Field><Field label="Lý do"><textarea required={decision === 'Rejected'} value={reason} onChange={e => setReason(e.target.value)} /></Field><small>Chỉ duyệt khi người nộp không còn đơn khách hàng đang mở. Người được duyệt cần đăng nhập lại và nạp ví trước khi nhận việc.</small><ErrorBox error={a.error} /><div className="form-actions"><Submit busy={a.busy}>Xác nhận kết quả</Submit></div></form></Modal>; }
 export function Reports() { const { user } = useApp(); const [range, setRange] = useState({ from: '', to: '' }), [query, setQuery] = useState(''); const summary = useData('/reports/summary' + query), techs = useData('/reports/technicians'), finance = useData(['GD', 'KT'].includes(user.role) ? '/reports/finance' + query : null), a = useAction(); async function download() { await a.run(async () => { const blob = await api('/reports/finance.csv' + query, { blob: true }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'HomeFix_BaoCaoThu.csv'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }, 'Đã tải báo cáo CSV.'); } const d = summary.data; return <><PageHead eyebrow="SỐ LIỆU HOẠT ĐỘNG" title="Báo cáo HomeFix" text="Giá trị đơn đã thu và hoa hồng đã đối soát là hai chỉ số riêng. Chưa bao gồm chi phí vận hành." >{user.role !== 'DPV' && <button className="btn primary" onClick={download}><Download size={17} /> Xuất CSV</button>}</PageHead><form className="filter-bar" onSubmit={e => { e.preventDefault(); const p = new URLSearchParams(); if (range.from) p.set('from', new Date(range.from + 'T00:00:00').toISOString()); if (range.to) { const end = new Date(range.to + 'T00:00:00'); end.setDate(end.getDate() + 1); p.set('to', end.toISOString()); } setQuery(p.size ? '?' + p : ''); }}><Field label="Từ ngày"><input type="date" value={range.from} onChange={e => setRange({ ...range, from: e.target.value })} /></Field><Field label="Đến hết ngày"><input type="date" value={range.to} onChange={e => setRange({ ...range, to: e.target.value })} /></Field><button className="btn" type="submit">Áp dụng</button></form><ErrorBox error={summary.error || finance.error || a.error} />{d && <><div className="stat-grid"><Stat label="Đơn được tạo trong kỳ" value={d.totalOrders} /><Stat label="Giá trị đơn đã thu" value={money(d.gmv)} icon={Wallet} /><Stat label="Hoa hồng đã đối soát" value={money(d.commissionRevenue)} icon={ShieldCheck} /><Stat label="Đánh giá trung bình" value={d.averageRating ? Number(d.averageRating).toFixed(1) + '/5' : 'Chưa có'} icon={Star} /></div><Card title="Giá trị thu theo ngày">{d.trend?.length ? <div className="bar-chart">{d.trend.map(item => <div className="bar-row" key={item.day}><span>{item.day}</span><div><i style={{ width: Math.max(3, Number(item.amount) / Math.max(...d.trend.map(x => Number(x.amount)), 1) * 100) + '%' }} /></div><b>{money(item.amount)}</b></div>)}</div> : <Empty title="Chưa có khoản thu trong kỳ" />}</Card></>}<Card title="Hiệu suất kỹ thuật viên (toàn bộ thời gian)"><Table headers={['Kỹ thuật viên', 'Chuyên môn', 'Đơn đã thu', 'Điểm đánh giá', 'Trạng thái']} rows={techs.data} render={t => <tr key={t.id}><td>{t.fullName}</td><td>{groups[t.skillGroup]}</td><td>{t.completedOrders}</td><td>{t.averageRating ? Number(t.averageRating).toFixed(1) : 'Chưa có'}</td><td><Badge value={t.availability} /></td></tr>} /></Card>{user.role !== 'DPV' && <Card title="Các khoản thu trong kỳ"><Table headers={['Đơn', 'Thợ thực hiện', 'Khoản đã thu', 'Hoa hồng', 'Đối soát']} rows={finance.data} render={f => <tr key={f.id}><td>{code(f.orderId)}<small>{date(f.paidAt)}</small></td><td>{f.technicianName}</td><td>{money(f.amount)}<small>{f.method === 'BANK' ? 'Chuyển khoản' : 'Tiền mặt'}</small></td><td>{money(f.commissionAmount)}</td><td><Badge value={f.settlementStatus} /></td></tr>} /></Card>}</>; }
+
+/* ============================
+   BẢNG ĐIỀU PHỐI – DPV
+   ============================ */
+function QuickAssignModal({ order, onClose, onDone }) {
+  const techs = useData('/technicians/available?orderId=' + order.id);
+  const a = useAction();
+  const [selected, setSelected] = useState(null);
+  const assign = () => a.run(async () => {
+    await api('/orders/' + order.id + '/assignments', { method: 'POST', body: { technicianId: selected, expectedVersion: order.version } });
+    onDone();
+  }, 'Đã gửi lệnh nhận việc thành công.');
+  return (
+    <Modal title={'Phân công nhanh · ' + code(order.id)} onClose={onClose}>
+      <p style={{ color: '#5f6368', marginBottom: '8px' }}><b>{order.serviceName}</b> — {order.address}</p>
+      <ErrorBox error={techs.error || a.error} />
+      {techs.loading ? <Loading /> : !techs.data?.length
+        ? <Empty title="Không có kỹ thuật viên phù hợp" text="Không có KTV sẵn sàng đúng chuyên môn và khu vực cho đơn này." />
+        : <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+            {techs.data.map(t => (
+              <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', border: '1px solid ' + (selected === t.id ? '#116a4e' : '#e0e0e0'), borderRadius: '8px', cursor: 'pointer', background: selected === t.id ? '#f0faf5' : '#fff', transition: 'all .15s' }}>
+                <input type="radio" name="tech" value={t.id} checked={selected === t.id} onChange={() => setSelected(t.id)} style={{ accentColor: '#116a4e' }} />
+                <div style={{ flex: 1 }}>
+                  <b style={{ display: 'block' }}>{t.fullName}</b>
+                  <small style={{ color: '#5f6368' }}>{groups[t.skillGroup]} · {t.serviceArea}</small>
+                </div>
+                <span className="badge green">Sẵn sàng</span>
+              </label>
+            ))}
+          </div>
+      }
+      <div className="form-actions">
+        <button className="btn" type="button" onClick={onClose}>Hủy</button>
+        <Submit busy={a.busy} disabled={!selected} onClick={assign}>Giao việc</Submit>
+      </div>
+    </Modal>
+  );
+}
+
+function AssignmentHistoryTab() {
+  const [filter, setFilter] = useState({ status: '', page: 1 });
+  const q = new URLSearchParams();
+  if (filter.status) q.set('status', filter.status);
+  q.set('page', filter.page); q.set('pageSize', 15);
+  const r = useData('/assignments/history?' + q.toString());
+  const set = (k, v) => setFilter(s => ({ ...s, [k]: v, page: k === 'page' ? v : 1 }));
+  return <>
+    <div className="filter-bar" style={{ marginBottom: '12px' }}>
+      <Field label="Trạng thái lệnh">
+        <select value={filter.status} onChange={e => set('status', e.target.value)}>
+          <option value="">Tất cả</option>
+          <option value="Accepted">Đã nhận</option>
+          <option value="Rejected">Từ chối</option>
+          <option value="Expired">Hết hạn</option>
+          <option value="Pending">Đang chờ</option>
+        </select>
+      </Field>
+    </div>
+    <ErrorBox error={r.error} />
+    {r.loading ? <Loading /> : <Card>
+      <Table
+        headers={['Lệnh', 'Đơn dịch vụ', 'Kỹ thuật viên', 'Thời điểm giao', 'Hết hạn lúc', 'Kết quả']}
+        rows={r.data}
+        render={a => <tr key={a.id}>
+          <td><b style={{ color: '#116a4e' }}>LDP-{String(a.id).padStart(4, '0')}</b></td>
+          <td><Link className="text-link" to={'/orders/' + a.orderId}>{code(a.orderId)}</Link></td>
+          <td>{a.technicianName || '—'}</td>
+          <td>{date(a.createdAt)}</td>
+          <td>{date(a.expiresAt)}</td>
+          <td><Badge value={a.status} />{a.reason && <small style={{ display: 'block', color: '#d93025' }}>{a.reason}</small>}</td>
+        </tr>}
+      />
+    </Card>}
+    <div className="pagination">
+      <button className="btn" disabled={filter.page === 1} onClick={() => set('page', filter.page - 1)}>Trang trước</button>
+      <span>Trang {filter.page}</span>
+      <button className="btn" disabled={!r.data || r.data.length < 15} onClick={() => set('page', filter.page + 1)}>Trang sau</button>
+    </div>
+  </>;
+}
+
+export function DispatchBoard() {
+  const [tab, setTab] = useState('board');
+  const pendingOrders = useData('/orders?status=ChoPhanCong&pageSize=50', 15000);
+  const waitingOrders = useData('/orders?status=ChoTiepNhan&pageSize=50', 15000);
+  const allTechs = useData('/technicians', 15000);
+  const [assignTarget, setAssignTarget] = useState(null);
+
+  const reload = () => { pendingOrders.reload(); waitingOrders.reload(); allTechs.reload(); };
+
+  const ready = allTechs.data?.filter(t => t.availability === 'SanSang') || [];
+  const busy = allTechs.data?.filter(t => t.availability === 'DangBan') || [];
+  const off = allTechs.data?.filter(t => t.availability === 'TamBan') || [];
+
+  return <>
+    <PageHead eyebrow="ĐIỀU PHỐI VIÊN" title="Bảng điều phối HomeFix" text="Theo dõi đơn cần phân công và trạng thái kỹ thuật viên theo thời gian thực.">
+      <button className="btn" onClick={reload}><RefreshCw size={16} /> Cập nhật</button>
+      <Link className="btn primary" to="/orders"><Plus size={17} /> Xem tất cả đơn</Link>
+    </PageHead>
+
+    {/* KPIs nhanh */}
+    <div className="stat-grid" style={{ marginBottom: '24px' }}>
+      <div className="stat-card" style={{ borderLeft: '3px solid #fbbc04' }}>
+        <div className="stat-label">Chờ tiếp nhận<ChartNoAxesCombined size={19} /></div>
+        <strong style={{ color: '#fbbc04' }}>{waitingOrders.data?.length ?? '…'}</strong>
+        <small>Cần lập báo giá sơ bộ</small>
+      </div>
+      <div className="stat-card" style={{ borderLeft: '3px solid #d93025' }}>
+        <div className="stat-label">Chờ phân công<Users size={19} /></div>
+        <strong style={{ color: '#d93025' }}>{pendingOrders.data?.length ?? '…'}</strong>
+        <small>Cần chỉ định KTV ngay</small>
+      </div>
+      <div className="stat-card" style={{ borderLeft: '3px solid #116a4e' }}>
+        <div className="stat-label">KTV sẵn sàng<CheckCircle2 size={19} /></div>
+        <strong style={{ color: '#116a4e' }}>{ready.length}</strong>
+        <small>Có thể nhận việc ngay</small>
+      </div>
+      <div className="stat-card" style={{ borderLeft: '3px solid #1a73e8' }}>
+        <div className="stat-label">KTV đang làm việc<UserCircle size={19} /></div>
+        <strong style={{ color: '#1a73e8' }}>{busy.length}</strong>
+        <small>{off.length} người tạm nghỉ</small>
+      </div>
+    </div>
+
+    <div className="tabs" style={{ marginBottom: '20px' }}>
+      <button className={tab === 'board' ? 'active' : ''} onClick={() => setTab('board')}>
+        Bảng điều phối
+        {(pendingOrders.data?.length || 0) > 0 && <AttentionDot show />}
+      </button>
+      <button className={tab === 'techs' ? 'active' : ''} onClick={() => setTab('techs')}>Danh sách KTV</button>
+      <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>Lịch sử lệnh</button>
+    </div>
+
+    {tab === 'board' && <>
+      {/* Đơn chờ phân công */}
+      <Card title={`Đơn chờ phân công (${pendingOrders.data?.length ?? 0})`}>
+        <ErrorBox error={pendingOrders.error} />
+        {pendingOrders.loading ? <Loading /> :
+          <Table
+            headers={['Mã đơn', 'Dịch vụ', 'Khách hàng', 'Địa chỉ', 'Lịch hẹn', 'Thao tác']}
+            rows={pendingOrders.data}
+            empty="Không có đơn nào đang chờ phân công."
+            render={o => <tr key={o.id}>
+              <td><b style={{ color: '#116a4e' }}>{code(o.id)}</b></td>
+              <td>{o.serviceName}<small>{groups[o.serviceGroup]}</small></td>
+              <td>{o.contactName}<small>{o.contactPhone}</small></td>
+              <td><small>{o.address}</small></td>
+              <td>{date(o.scheduledAt)}</td>
+              <td>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button className="btn small primary" onClick={() => setAssignTarget(o)}>
+                    <AttentionDot /> Phân công nhanh
+                  </button>
+                  <Link className="btn small" to={'/orders/' + o.id}>Chi tiết</Link>
+                </div>
+              </td>
+            </tr>}
+          />
+        }
+      </Card>
+
+      {/* Đơn chờ tiếp nhận */}
+      <Card title={`Đơn chờ tiếp nhận (${waitingOrders.data?.length ?? 0})`} style={{ marginTop: '16px' }}>
+        <ErrorBox error={waitingOrders.error} />
+        {waitingOrders.loading ? <Loading /> :
+          <Table
+            headers={['Mã đơn', 'Dịch vụ', 'Khách hàng', 'Địa chỉ', 'Ngày tạo', 'Thao tác']}
+            rows={waitingOrders.data}
+            empty="Không có đơn nào đang chờ tiếp nhận."
+            render={o => <tr key={o.id}>
+              <td><b>{code(o.id)}</b></td>
+              <td>{o.serviceName}<small>{groups[o.serviceGroup]}</small></td>
+              <td>{o.contactName}<small>{o.contactPhone}</small></td>
+              <td><small>{o.address}</small></td>
+              <td>{date(o.createdAt)}</td>
+              <td><Link className="btn small primary" to={'/orders/' + o.id}><AttentionDot /> Lập báo giá</Link></td>
+            </tr>}
+          />
+        }
+      </Card>
+    </>}
+
+    {tab === 'techs' && <Card title="Danh sách kỹ thuật viên">
+      <ErrorBox error={allTechs.error} />
+      {allTechs.loading ? <Loading /> : <>
+        {Object.entries(groups).map(([gk, gname]) => {
+          const list = (allTechs.data || []).filter(t => t.skillGroup === gk);
+          if (!list.length) return null;
+          return <div key={gk} style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#5f6368', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {gname}
+              <span style={{ fontWeight: 'normal', textTransform: 'none', letterSpacing: 0 }}>
+                — {list.filter(t => t.availability === 'SanSang').length} sẵn sàng / {list.length}
+              </span>
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+              {list.map(t => (
+                <div key={t.id} style={{ padding: '12px 14px', border: '1px solid ' + (t.availability === 'SanSang' ? '#c8e6c9' : t.availability === 'DangBan' ? '#bbdefb' : '#eee'), borderRadius: '8px', background: t.availability === 'SanSang' ? '#f1fdf4' : t.availability === 'DangBan' ? '#e8f4fd' : '#fafafa' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <b style={{ fontSize: '14px' }}>{t.fullName}</b>
+                    <Badge value={t.availability} />
+                  </div>
+                  <small style={{ color: '#5f6368' }}>{t.serviceArea || 'TP.HCM'}</small>
+                </div>
+              ))}
+            </div>
+          </div>;
+        })}
+      </>}
+    </Card>}
+
+    {tab === 'history' && <AssignmentHistoryTab />}
+
+    {assignTarget && (
+      <QuickAssignModal
+        order={assignTarget}
+        onClose={() => setAssignTarget(null)}
+        onDone={() => { setAssignTarget(null); reload(); }}
+      />
+    )}
+  </>;
+}
+

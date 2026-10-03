@@ -83,7 +83,7 @@ ordersRouter.get('/technicians/available',roles('DPV'),wrap(async(req,res)=>{
  const order=await getOrder(id(req.query.orderId),req.user);const min=await setting(null,'minimumWallet','200000');
  ok(res,await q("SELECT k.id,n.fullName,k.skillGroup,k.serviceArea,k.availability,k.latitude,k.longitude,k.positionUpdatedAt FROM dbo.KyThuatVien k JOIN dbo.NguoiDung n ON n.id=k.id WHERE n.isActive=1 AND k.availability='SanSang' AND k.balance>=CAST(@min AS decimal(18,2)) AND k.skillGroup=@group AND NOT EXISTS(SELECT 1 FROM dbo.LenhDieuPhoi a WHERE a.technicianId=k.id AND a.isActive=1)",{min,group:order.serviceGroup}));
 }));
-ordersRouter.get('/technicians',roles('DPV'),wrap(async(req,res)=>ok(res,await q('SELECT k.id,n.fullName,k.skillGroup,k.serviceArea,k.availability FROM dbo.KyThuatVien k JOIN dbo.NguoiDung n ON n.id=k.id WHERE n.isActive=1'))));
+ordersRouter.get('/technicians',roles('DPV'),wrap(async(req,res)=>ok(res,await q("SELECT k.id,n.fullName,n.phone,k.skillGroup,k.serviceArea,k.availability,k.balance,k.latitude,k.longitude,k.positionUpdatedAt,(SELECT AVG(CAST(rating AS decimal(5,2))) FROM dbo.DanhGia WHERE technicianId=k.id) averageRating,(SELECT COUNT(*) FROM dbo.DonHang WHERE assignedTechnicianId=k.id AND status='HoanThanh') completedOrders FROM dbo.KyThuatVien k JOIN dbo.NguoiDung n ON n.id=k.id WHERE n.isActive=1"))));
 ordersRouter.post('/orders/:id/assignments',roles('DPV'),wrap(async(req,res)=>{
  const oid=id(req.params.id),b=z.strictObject({technicianId:z.number().int().positive(),expectedVersion:versionSchema}).parse(req.body);
  const a=await transaction(req.user,async t=>{const o=await getOrder(oid,req.user,t);checkVersion(o,b.expectedVersion);state(o,'ChoPhanCong');const k=await one('SELECT k.*,n.isActive FROM dbo.KyThuatVien k JOIN dbo.NguoiDung n ON n.id=k.id WHERE k.id=@id',{id:b.technicianId},t);
@@ -96,6 +96,12 @@ ordersRouter.post('/orders/:id/assignments',roles('DPV'),wrap(async(req,res)=>{
  });ok(res,a,201);
 }));
 ordersRouter.get('/technicians/me/assignments',roles('KTV'),wrap(async(req,res)=>ok(res,await q('SELECT a.*,d.serviceName,d.address,d.description FROM dbo.LenhDieuPhoi a JOIN dbo.DonHang d ON d.id=a.orderId WHERE a.technicianId=@id AND (a.isActive=1 OR a.status=@accepted) ORDER BY a.id DESC',{id:req.user.id,accepted:'Accepted'}))));
+ordersRouter.get('/assignments/history',roles('DPV','ADMIN'),wrap(async(req,res)=>{
+ const p=page(req);let where='1=1';const params={offset:(p.page-1)*p.pageSize,limit:p.pageSize};
+ if(req.query.status){where+=' AND a.status=@status';params.status=String(req.query.status);}
+ const rows=await q(`SELECT a.*,n.fullName technicianName FROM dbo.LenhDieuPhoi a LEFT JOIN dbo.NguoiDung n ON n.id=a.technicianId WHERE ${where} ORDER BY a.id DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,params);
+ ok(res,rows,200,p);
+}));
 ordersRouter.get('/assignments/:id',roles('KTV','DPV'),wrap(async(req,res)=>{const a=await one('SELECT * FROM dbo.LenhDieuPhoi WHERE id=@id',{id:id(req.params.id)});if(!a||(req.user.role==='KTV'&&a.technicianId!==req.user.id))fail(404,'NOT_FOUND','Không tìm thấy lệnh.');ok(res,a);}));
 ordersRouter.get('/orders/:id/assignments',roles('KTV','DPV'),wrap(async(req,res)=>{const oid=id(req.params.id);await getOrder(oid,req.user);ok(res,await q(`SELECT * FROM dbo.LenhDieuPhoi WHERE orderId=@id ${req.user.role==='KTV'?'AND technicianId=@uid':''} ORDER BY id DESC`,{id:oid,uid:req.user.id}));}));
 ordersRouter.post('/assignments/:id/decision',roles('KTV'),wrap(async(req,res)=>{
