@@ -44,8 +44,8 @@ try{
   await until(async()=>await page.getByRole('button',{name:'Đánh dấu đã đọc'}).count()===0);
   assert.equal(await page.locator('.notification-bell .attention-dot').count(),1,'Unread cleared must not clear outstanding work');
   if(role==='KT'){
-   await nav('/finance');await page.locator('.tabs').waitFor();
-   assert.equal(await page.locator('.tabs .attention-dot').count(),3);
+   await nav('/finance');await page.locator('.sidebar nav a[href="/finance?tab=revenue"]').waitFor();
+   assert.equal(await page.locator('.sidebar nav a[href^="/finance"] .attention-dot').count(),3);
    summary={...summary,finance:{settlements:0,bank:0,wallet:0}};
   }else{
    await nav('/orders/9');await page.getByRole('heading',{name:'Test repair'}).waitFor();
@@ -56,7 +56,7 @@ try{
   }
   await page.evaluate(()=>window.dispatchEvent(new Event('homefix:changed')));
   await until(async()=>await page.locator('.notification-bell .attention-dot').count()===0);
-  if(role==='KT')assert.equal(await page.locator('.tabs .attention-dot').count(),0);
+  if(role==='KT')assert.equal(await page.locator('.sidebar nav a[href^="/finance"] .attention-dot').count(),0);
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Mobile overflow');
   await page.close();

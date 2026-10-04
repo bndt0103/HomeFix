@@ -16,7 +16,7 @@ const urlFile=path.join(src,'online-url.txt');
 const controlPath='\\\\.\\pipe\\homefix-online-'+createHash('sha256').update(src.toLowerCase()).digest('hex').slice(0,16);
 const children=new Set();
 let control;
-let stopping=false,publicUrl='',dnsNotice=false;
+let stopping=false,publicUrl='',dnsNotice=false,onlineReady=false;
 
 function stop(code=0){
  if(stopping)return;
@@ -39,6 +39,15 @@ function launch(command,args,options={}){
   if(!stopping){console.error(`Dich vu online da dung (ma ${code}).`);stop(code||1);}
  });
  return child;
+}
+
+async function runStep(args, options={}){
+ await new Promise((resolve,reject)=>{
+  const child=spawn(process.execPath,args,{cwd:src,windowsHide:true,stdio:'inherit',...options});
+  children.add(child);
+  child.once('error',reject);
+  child.once('exit',code=>{children.delete(child);code===0?resolve():reject(new Error('Buoc chuan bi that bai. Xem thong bao phia tren.'));});
+ });
 }
 
 async function healthy(url){
@@ -72,13 +81,24 @@ async function healthy(url){
 }
 
 async function main(){
- if(process.argv.includes('--stop')){
-  await new Promise((resolve,reject)=>{
-   const client=net.connect(controlPath,()=>client.end('stop'));
-   client.once('error',()=>reject(new Error('Khong tim thay phien online cua du an nay.')));
-   client.once('close',resolve);
+ if(process.argv.includes('--stop')||process.argv.includes('--status')){
+  const command=process.argv.includes('--stop')?'stop':'status';
+  const state=await new Promise((resolve,reject)=>{
+   let reply='';
+   const client=net.connect(controlPath,()=>client.write(command));
+   client.setEncoding('utf8');
+   client.setTimeout(5000,()=>client.destroy(new Error('Phien online khong phan hoi.')));
+   client.on('data',data=>{reply+=data;});
+   client.once('error',error=>reject(new Error(error.code==='ENOENT'||error.code==='ECONNREFUSED'?'Khong tim thay phien online cua du an nay.':error.message)));
+   client.once('close',()=>resolve(reply));
   });
-  console.log('Da gui lenh dung HomeFix online.');
+  if(command==='stop')console.log('Da gui lenh dung HomeFix online.');
+  else {
+   const {ready,url}=JSON.parse(state);
+   if(!ready)console.log('HomeFix dang khoi dong, chua san sang chia se link.');
+   else if(await healthy(url))console.log(`HOMEFIX ONLINE: ${url}\nAPI Android: ${url}/api`);
+   else throw new Error('Phien online con chay nhung HTTPS khong phan hoi. Kiem tra mang hoac khoi dong lai.');
+  }
   return;
  }
  if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('ONLINE_PORT phai tu 1024 den 65535.');
@@ -88,9 +108,13 @@ async function main(){
   control=net.createServer(socket=>{
    let command='';socket.setEncoding('utf8');
    socket.setTimeout(2000,()=>socket.destroy());
-   socket.on('data',data=>{command+=data;if(command.length>20)socket.destroy();});
+   socket.on('data',data=>{
+    command+=data;
+    if(command==='status')socket.end(JSON.stringify({ready:onlineReady,url:onlineReady?publicUrl:''}));
+    else if(command==='stop'){socket.end();stop();}
+    else if(command.length>20)socket.destroy();
+   });
    socket.on('error',()=>{});
-   socket.on('end',()=>{socket.end();if(command==='stop')stop();});
   });
   control.once('error',()=>reject(new Error('Da co phien online. Chay npm.cmd run online:stop truoc.')));
   control.listen(controlPath,resolve);
@@ -101,15 +125,14 @@ async function main(){
   probe.once('error',()=>reject(new Error(`Cong ${port} dang ban. Dung phien online cu hoac doi ONLINE_PORT.`)));
   probe.listen(port,'127.0.0.1',()=>probe.close(resolve));
  });
+ // A previous forced shutdown can leave a dead URL on disk. We own the session now.
+ if(fs.existsSync(urlFile))fs.unlinkSync(urlFile);
+ console.log('Kiem tra database cho cac chuc nang hien tai...');
+ await runStep(['scripts/check-online-db.js']);
+ if(stopping)return;
  console.log('Build giao dien cho website chung...');
- await new Promise((resolve,reject)=>{
-  const build=spawn(process.execPath,[path.join(src,'node_modules/vite/bin/vite.js'),'build'],{
-   cwd:path.join(src,'frontend'),windowsHide:true,stdio:'inherit',
-   env:{...process.env,VITE_API_BASE_URL:'/api'}
-  });
-  children.add(build);
-  build.once('error',reject);
-  build.once('exit',code=>{children.delete(build);code===0?resolve():reject(new Error('Build giao dien that bai.'));});
+ await runStep([path.join(src,'node_modules/vite/bin/vite.js'),'build'],{
+  cwd:path.join(src,'frontend'),env:{...process.env,VITE_API_BASE_URL:'/api'}
  });
  if(stopping)return;
  const backend=launch(process.execPath,['backend/src/server.js'],{
@@ -137,8 +160,9 @@ async function main(){
  tunnel.stdout.on('data',observe);tunnel.stderr.on('data',observe);
  for(let attempt=0;attempt<60&&!stopping;attempt++){
   if(publicUrl&&await healthy(publicUrl)){
+   onlineReady=true;
    fs.writeFileSync(urlFile,publicUrl+'\n');
-   console.log(`\nHOMEFIX ONLINE: ${publicUrl}\nLink da luu tai SRC/online-url.txt.\nGui cung link nay cho KH, DPV va KTV. Tat ca dung database trong backend/.env.\nGiu may va terminal nay hoat dong. Ctrl+C de dung online.\n`);
+   console.log(`\nHOMEFIX ONLINE: ${publicUrl}\nAPI Android: ${publicUrl}/api\nLink da luu tai SRC/online-url.txt.\nGui cung link nay cho KH, DPV va KTV. Tat ca dung database trong backend/.env.\nGiu may va terminal nay hoat dong. Ctrl+C de dung online.\n`);
    return;
   }
   await delay(1500);

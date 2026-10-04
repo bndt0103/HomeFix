@@ -17,10 +17,12 @@ export async function attentionSummary(user){
   OR (d.status='DangXuLy' AND NOT EXISTS(SELECT 1 FROM dbo.DeXuatVatTu m WHERE m.orderId=d.id AND m.status='Pending'))
   OR (d.status='HoanThanh' AND COALESCE(d.paymentMethod,'COD')='COD' AND NOT EXISTS(SELECT 1 FROM dbo.ThanhToan p WHERE p.orderId=d.id))
  )`;
- const orders=condition?await q('SELECT d.id FROM dbo.DonHang d WHERE '+condition,{uid:user.id}):[];
+ const orders=condition?await q('SELECT d.id,d.status,d.serviceName FROM dbo.DonHang d WHERE '+condition+' ORDER BY d.id DESC',{uid:user.id}):[];
  const finance=user.role==='KT'?await one(`SELECT
   (SELECT COUNT(*) FROM dbo.DoiSoat WHERE status='Pending') settlements,
   (SELECT COUNT(*) FROM dbo.YeuCauThanhToan WHERE isActive=1 AND status='PendingReview') bank,
   (SELECT COUNT(*) FROM dbo.YeuCauVi WHERE status='Pending') wallet`):{settlements:0,bank:0,wallet:0};
- return {unread:Number(unread.n),orderIds:orders.map(o=>o.id),finance};
+ const support=user.role==='CSKH'?await one("SELECT COUNT(*) n FROM dbo.YeuCauHoTro WHERE status IN('Open','InProgress') AND (assignedTo IS NULL OR assignedTo=@uid)",{uid:user.id}):{n:0};
+ const applications=user.role==='ADMIN'?await one("SELECT COUNT(*) n FROM dbo.HoSoKTV WHERE status='Pending'"):{n:0};
+ return {unread:Number(unread.n),orderIds:orders.map(o=>o.id),orders,finance,support:Number(support.n),applications:Number(applications.n)};
 }

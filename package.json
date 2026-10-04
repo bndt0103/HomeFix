@@ -1,0 +1,11 @@
+{
+  "name": "homefix-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "start npm run dev:backend && start npm run dev:frontend",
+    "dev:backend": "cd SRC/backend && npm run dev",
+    "dev:frontend": "cd SRC/frontend && npm run dev",
+    "install:all": "cd SRC/backend && npm install && cd ../frontend && npm install"
+  }
+}

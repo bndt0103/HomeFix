@@ -1,3 +1,4 @@
+import { reportsRouter, sendReportNotifications } from './reports.js';
 import {paymentsRouter} from './payments.js';
 import express from 'express'; import cors from 'cors'; import helmet from 'helmet'; import fs from 'node:fs'; import path from 'node:path'; import crypto from 'node:crypto'; import { ZodError } from 'zod';
 import { config, backendDir } from './config.js'; import { pool, close } from './db.js'; import { ok, wrap } from './common.js'; import { authRouter } from './auth.js'; import { ordersRouter, expireAssignments } from './orders.js'; import { quotesRouter } from './quotes.js'; import { uploadsRouter, publicUploadsRouter } from './uploads.js'; import { financeRouter } from './finance.js'; import { adminRouter, publicServices } from './admin.js'; import { supportRouter } from './support.js';
@@ -14,6 +15,7 @@ app.use(helmet({
             scriptSrc: ["'self'"],
             connectSrc: ["'self'"],
             upgradeInsecureRequests: null,
+            frameSrc: ["'self'", 'https://www.google.com'],
             frameAncestors: null
         }
     },
@@ -24,7 +26,7 @@ app.use((req, res, next) => cors({ origin: (origin, cb) => { const self = `${req
 app.use(express.json({ limit: '256kb' }));
 app.get('/api/health', wrap(async (req, res) => { await pool(); ok(res, { status: 'ok' }); }));
 app.get('/api/services', publicServices);
-app.use('/api', publicUploadsRouter, authRouter, ordersRouter, quotesRouter, uploadsRouter, financeRouter, adminRouter, supportRouter, paymentsRouter);
+app.use('/api', publicUploadsRouter, authRouter, ordersRouter, quotesRouter, uploadsRouter, financeRouter, adminRouter, supportRouter, paymentsRouter, reportsRouter);
 app.use('/api', (req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Không tìm thấy API.' }, requestId: req.requestId }));
 const dist = path.resolve(backendDir, '../frontend/dist'); app.use(express.static(dist, { index: false }));
 app.get(/.*/, (req, res) => { const index = path.join(dist, 'index.html'); if (fs.existsSync(index)) res.sendFile(index); else res.status(503).type('text').send('HomeFix API đang chạy. Build frontend bằng npm run build để mở website tại đây.'); });
@@ -44,5 +46,6 @@ app.use((err, req, res, next) => {
 await pool(); await expireAssignments();
 const server = app.listen(config.port, process.env.HOST || '0.0.0.0', () => console.log(`HomeFix running at http://localhost:${config.port}`));
 let sweeping = false; const interval = setInterval(async () => { if (sweeping) return; sweeping = true; try { await expireAssignments(); } catch (e) { console.error('Assignment sweep:', e.message); } finally { sweeping = false; } }, 10000); interval.unref();
-async function shutdown() { clearInterval(interval); server.close(async () => { await close(); process.exit(0) }); }
+let reporting = false; const reportInterval = setInterval(async () => { if (reporting) return; reporting = true; try { await sendReportNotifications(); } catch (e) { console.error('Report monitoring:', e.message); } finally { reporting = false; } }, 60000); reportInterval.unref();
+async function shutdown() { clearInterval(reportInterval); clearInterval(interval); server.close(async () => { await close(); process.exit(0) }); }
 process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
