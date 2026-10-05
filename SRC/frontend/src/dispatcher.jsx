@@ -35,9 +35,13 @@ import {
   Radio,
   Compass,
   Check,
-  X
+  X,
+  Copy,
+  ExternalLink,
+  UploadCloud,
+  Maximize2
 } from 'lucide-react';
-import { api, uuid } from './api';
+import { api, upload, uuid } from './api';
 import {
   useApp,
   useData,
@@ -327,12 +331,50 @@ export function RemoteDiagnostics() {
   const orderFiles = useData(currentOrder ? `/orders/${currentOrder.id}/attachments` : null);
   const faultPhotos = (orderFiles.data || []).filter(f => f.purpose === 'OrderFault');
 
-  // Trạng thái Video Call
+  // Trạng thái Video Call & Tải ảnh
   const [isCalling, setIsCalling] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [snapshotTaken, setSnapshotTaken] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const copyInviteLink = (type = 'all') => {
+    if (!currentOrder) return;
+    const orderUrl = `${window.location.origin}/orders/${currentOrder.id}`;
+    const jitsiUrl = `https://meet.jit.si/HomeFix-Order-${currentOrder.id}`;
+    let text = '';
+    if (type === 'video') {
+      text = `HomeFix: Kính gửi quý khách ${currentOrder.contactName}, vui lòng tham gia phòng Video Call chẩn đoán sự cố cho đơn #${currentOrder.id} tại đường link: ${jitsiUrl}`;
+    } else if (type === 'upload') {
+      text = `HomeFix: Kính gửi quý khách ${currentOrder.contactName}, vui lòng truy cập liên kết sau để chụp và gửi thêm ảnh sự cố cho đơn #${currentOrder.id}: ${orderUrl}`;
+    } else {
+      text = `HomeFix: Kính gửi quý khách ${currentOrder.contactName}. Để chẩn đoán sự cố cho đơn #${currentOrder.id}, quý khách vui lòng vào phòng Video Call tại: ${jitsiUrl} hoặc gửi ảnh tại: ${orderUrl}`;
+    }
+    navigator.clipboard.writeText(text);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 3000);
+  };
+
+  const handleDpvUploadPhotos = async (e) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (!selectedFiles.length || !currentOrder) return;
+    setIsUploading(true);
+    try {
+      for (const f of selectedFiles) {
+        await upload(f, 'OrderFault', currentOrder.id);
+      }
+      await orderFiles.reload();
+      alert(`Đã tải thành công ${selectedFiles.length} ảnh sự cố vào hồ sơ đơn hàng!`);
+    } catch (err) {
+      alert('Lỗi tải ảnh: ' + (err.message || 'Không thể tải ảnh.'));
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Đếm thời gian gọi khi đang gọi
   useEffect(() => {
@@ -417,8 +459,37 @@ export function RemoteDiagnostics() {
           {/* CỘT 1: THƯ VIỆN ẢNH & THÔNG TIN SỰ CỐ */}
           <div className="dpv-panel">
             <div className="dpv-panel-head">
-              <span>Ảnh & Video sự cố khách gửi</span>
-              <Camera size={16} style={{ color: '#64748b' }} />
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Camera size={16} style={{ color: '#116a4e' }} />
+                <span>Ảnh sự cố ({faultPhotos.length})</span>
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  className="icon-btn small"
+                  onClick={() => orderFiles.reload()}
+                  title="Tải lại danh sách ảnh mới nhất"
+                  style={{ padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff' }}
+                >
+                  <RefreshCw size={13} />
+                </button>
+                <button
+                  className="btn small"
+                  disabled={isUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Điều phối viên tải thêm ảnh sự cố từ Zalo/SMS vào hồ sơ"
+                  style={{ padding: '3px 8px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <UploadCloud size={13} /> {isUploading ? 'Đang tải...' : 'Tải ảnh'}
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  multiple
+                  accept="image/jpeg,image/png"
+                  style={{ display: 'none' }}
+                  onChange={handleDpvUploadPhotos}
+                />
+              </div>
             </div>
             <div className="dpv-panel-body">
               {/* Thông tin đơn hàng */}
@@ -447,6 +518,19 @@ export function RemoteDiagnostics() {
                 </div>
               </div>
 
+              {/* Nút sao chép liên kết cho khách gửi ảnh */}
+              <div style={{ marginBottom: '12px' }}>
+                <button
+                  className="btn small full"
+                  onClick={() => copyInviteLink('upload')}
+                  style={{ fontSize: '12px', background: copiedLink ? '#ecfdf5' : '#f8fafc', color: copiedLink ? '#047857' : '#334155', border: '1px dashed #94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  title="Sao chép đường link gửi cho khách qua Zalo/SMS để khách bấm vào gửi ảnh trực tiếp"
+                >
+                  {copiedLink ? <Check size={13} /> : <Copy size={13} />}
+                  {copiedLink ? 'Đã chép link gửi ảnh!' : 'Sao chép link cho khách gửi ảnh'}
+                </button>
+              </div>
+
               {/* Ảnh sự cố từ khách hàng */}
               {orderFiles.loading && (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '13px' }}>Đang tải ảnh...</div>
@@ -454,8 +538,8 @@ export function RemoteDiagnostics() {
               {!orderFiles.loading && faultPhotos.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '24px 16px', border: '2px dashed #e2e8f0', borderRadius: '10px', color: '#94a3b8' }}>
                   <Camera size={28} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.4 }} />
-                  <p style={{ margin: 0, fontSize: '13px' }}>Khách chưa tải ảnh sự cố lên</p>
-                  <small>Yêu cầu khách chụp ảnh qua Video Call</small>
+                  <p style={{ margin: 0, fontSize: '13px' }}>Chưa có ảnh sự cố</p>
+                  <small>Gửi link cho khách chụp ảnh hoặc DPV tải ảnh từ Zalo</small>
                 </div>
               )}
               {faultPhotos.length > 0 && (
@@ -496,62 +580,69 @@ export function RemoteDiagnostics() {
                   </span>
                 )}
               </span>
-              {/* Nút gọi điện thoại trực tiếp (tel:) */}
-              {!isCalling && currentOrder.contactPhone && (
-                <a
-                  href={`tel:${currentOrder.contactPhone}`}
-                  title={`Gọi trực tiếp ${currentOrder.contactName}: ${currentOrder.contactPhone}`}
-                  style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#116a4e', fontWeight: 600, textDecoration: 'none', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '4px 10px' }}
-                >
-                  <Phone size={13} /> {currentOrder.contactPhone}
-                </a>
+              {isCalling ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    className="btn small"
+                    onClick={() => copyInviteLink('video')}
+                    style={{ background: copiedLink ? '#f0fdf4' : '#fff', color: copiedLink ? '#15803d' : '#334155', border: '1px solid #cbd5e1', fontSize: '11.5px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    title="Sao chép link phòng gọi để gửi cho khách"
+                  >
+                    {copiedLink ? <Check size={12} /> : <Copy size={12} />} {copiedLink ? 'Đã chép link' : 'Gửi link cho khách'}
+                  </button>
+                  <a
+                    href={`https://meet.jit.si/HomeFix-Order-${currentOrder.id}#config.prejoinPageEnabled=false&userInfo.displayName=${encodeURIComponent('Điều Phối Viên HomeFix')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn small"
+                    style={{ background: '#fff', border: '1px solid #cbd5e1', fontSize: '11.5px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+                    title="Mở phòng gọi trong cửa sổ tab mới"
+                  >
+                    <ExternalLink size={12} /> Tab riêng
+                  </a>
+                  <button
+                    className="btn danger small"
+                    onClick={() => setIsCalling(false)}
+                    style={{ padding: '3px 8px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    title="Kết thúc phiên gọi"
+                  >
+                    <PhoneOff size={12} /> Tắt
+                  </button>
+                </div>
+              ) : (
+                currentOrder.contactPhone && (
+                  <a
+                    href={`tel:${currentOrder.contactPhone}`}
+                    title={`Gọi trực tiếp ${currentOrder.contactName}: ${currentOrder.contactPhone}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#116a4e', fontWeight: 600, textDecoration: 'none', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '4px 10px' }}
+                  >
+                    <Phone size={13} /> {currentOrder.contactPhone}
+                  </a>
+                )
               )}
             </div>
 
-            <div className="dpv-video-screen">
-              <div className="dpv-video-feed">
+            <div className="dpv-video-screen" style={{ height: '100%', minHeight: '480px' }}>
+              <div className="dpv-video-feed" style={{ height: '100%' }}>
                 {isCalling ? (
-                  <div style={{ textAlign: 'center', width: '100%', height: '100%', position: 'relative' }}>
-                    {/* Mô phỏng khung hình camera từ khách hàng */}
-                    <img
-                      src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80"
-                      alt="Khách hàng đang quay thiết bị"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }}
-                    />
-                    <div style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(0,0,0,0.65)', padding: '5px 12px', borderRadius: '8px', fontSize: '12px', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-                      Camera: <b>{currentOrder.contactName}</b>
-                    </div>
-                    {/* Ảnh chụp nháy thành công */}
-                    {snapshotTaken && (
-                      <div style={{ position: 'absolute', inset: 0, border: '4px solid #10b981', borderRadius: '4px', pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ background: 'rgba(16,185,129,0.9)', color: '#fff', padding: '6px 16px', borderRadius: '8px', fontWeight: 600, fontSize: '13px' }}>📸 Đã chụp ảnh!</span>
-                      </div>
-                    )}
-                    {/* Màn hình PIP góc của Điều phối viên */}
-                    <div className="dpv-video-pip">
-                      {isVideoOff ? (
-                        <div style={{ width: '100%', height: '100%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <VideoOff size={20} style={{ color: '#64748b' }} />
-                        </div>
-                      ) : (
-                        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #1e3a8a, #1e293b)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px', fontWeight: 600, flexDirection: 'column', gap: '4px' }}>
-                          <Users size={18} />
-                          <span>Điều Phối Viên</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <iframe
+                    src={`https://meet.jit.si/HomeFix-Order-${currentOrder.id}#config.prejoinPageEnabled=false&config.disableDeepLinking=true&userInfo.displayName=${encodeURIComponent('Điều Phối Viên HomeFix')}`}
+                    style={{ width: '100%', height: '100%', border: 'none', minHeight: '480px', background: '#090d16' }}
+                    allow="camera; microphone; fullscreen; display-capture; autoplay"
+                    title={`HomeFix Video Call - Đơn #${currentOrder.id}`}
+                  />
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '24px 20px' }}>
+                  <div style={{ textAlign: 'center', padding: '24px 20px', maxWidth: '380px' }}>
                     <div style={{ width: 68, height: 68, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 0 0 8px rgba(16,185,129,0.12)' }}>
                       <Video size={30} style={{ color: '#10b981' }} />
                     </div>
-                    <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: '#f1f5f9' }}>Sẵn sàng gọi Video Call cho khách</h3>
-                    <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#94a3b8' }}>
-                      <b style={{ color: '#e2e8f0' }}>{currentOrder.contactName}</b>
+                    <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: '#f1f5f9' }}>Video Call trực tuyến với khách</h3>
+                    <p style={{ margin: '0 0 4px', fontSize: '13px', color: '#94a3b8' }}>
+                      Khách hàng: <b style={{ color: '#e2e8f0' }}>{currentOrder.contactName}</b> ({currentOrder.contactPhone})
                     </p>
-                    <p style={{ margin: '0 0 20px', fontSize: '12px', color: '#64748b' }}>{currentOrder.contactPhone}</p>
+                    <small style={{ display: 'block', color: '#64748b', marginBottom: '18px', lineHeight: '1.4' }}>
+                      Gọi video 2 chiều để quan sát thiết bị, chẩn đoán nguyên nhân rò rỉ, tiếng kêu hoặc hướng dẫn thao tác an toàn.
+                    </small>
                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
                       <a
                         href={`tel:${currentOrder.contactPhone}`}
@@ -563,31 +654,19 @@ export function RemoteDiagnostics() {
                       <button className="btn primary" onClick={() => setIsCalling(true)} style={{ gap: '8px' }}>
                         <Video size={15} /> Bắt đầu Video Call
                       </button>
+                      <button
+                        className="btn small"
+                        onClick={() => copyInviteLink('video')}
+                        style={{ background: '#1e293b', color: copiedLink ? '#34d399' : '#e2e8f0', border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        title="Sao chép link phòng gọi video để gửi qua Zalo/SMS cho khách"
+                      >
+                        {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+                        {copiedLink ? 'Đã chép link gọi!' : 'Sao chép link gọi gửi khách'}
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Toolbar điều khiển cuộc gọi */}
-              {isCalling && (
-                <div className="dpv-video-controls">
-                  <button className={`dpv-call-btn ${isMuted ? 'active' : ''}`} onClick={() => setIsMuted(!isMuted)} title={isMuted ? 'Bật micro' : 'Tắt micro'}>
-                    {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
-                  </button>
-                  <button className={`dpv-call-btn ${isVideoOff ? 'active' : ''}`} onClick={() => setIsVideoOff(!isVideoOff)} title={isVideoOff ? 'Bật camera' : 'Tắt camera'}>
-                    {isVideoOff ? <VideoOff size={18} /> : <Video size={18} />}
-                  </button>
-                  <button className="dpv-call-btn" onClick={() => { setSnapshotTaken(true); setTimeout(() => setSnapshotTaken(false), 2000); }} title="Chụp ảnh hiện trường">
-                    <Camera size={18} />
-                  </button>
-                  <button className="dpv-call-btn" title="Chia sẻ màn hình / sơ đồ kỹ thuật">
-                    <Share2 size={18} />
-                  </button>
-                  <button className="dpv-call-btn danger" onClick={() => setIsCalling(false)} title="Kết thúc cuộc gọi">
-                    <PhoneOff size={18} />
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
