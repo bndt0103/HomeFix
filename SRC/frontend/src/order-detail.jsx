@@ -2,7 +2,7 @@ import { RouteMap } from './route-map';
 import { ContactActions, PhotoPicker, PhotoPreview, SignaturePad } from './technician-ui';
 import {noPaymentDue,displayPaymentStatus} from './payment-status';
 import {AttentionDot} from './attention';
-import React, { useEffect, useRef, useState } from 'react'; import { Link, useParams, useNavigate } from 'react-router-dom'; import { ArrowLeft, ArrowRight, MapPin, Phone, Clock, Plus, Trash2, RefreshCw, ShieldCheck, CheckCircle2, Receipt, Navigation, Star } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react'; import { Link, useParams, useNavigate } from 'react-router-dom'; import { ArrowLeft, ArrowRight, MapPin, Phone, Clock, Plus, Trash2, RefreshCw, ShieldCheck, CheckCircle2, Receipt, Navigation, Star, Video, Camera, ExternalLink } from 'lucide-react';
 import { PaymentPanel, PaymentMethodFields } from './payments-ui';
 import { api, upload, uuid } from './api'; import { useApp, useData, useAction, PageHead, Card, Field, ErrorBox, Loading, Empty, Submit, Badge, money, date, code, labels, ProtectedImage, MoneyBreakdown, Modal } from './shared';
 export function OrderDetail() {
@@ -31,9 +31,31 @@ export function OrderDetail() {
         {actions.length > 0 && <div className="next-action"><div><ShieldCheck size={23} /><div><b>Bước tiếp theo</b><small>{o.status === 'ChoNhan' ? 'Phản hồi trước khi lệnh hết hạn.' : 'Thực hiện khi đã kiểm tra thông tin công việc.'}</small></div></div><div className="actions">{actions.map(([type, title], i) => <button key={type} className={'btn ' + (i === actions.length - 1 ? 'primary' : '')} onClick={() => open(type)}><AttentionDot />{title} <ArrowRight size={16} /></button>)}</div></div>}
         {o.status === 'ChoNhan' && assignment?.status === 'Pending' && (dispatcher || currentTech) && <Countdown value={assignment.expiresAt} dispatcher={dispatcher} />}
         {customer && o.status === 'ChoDuyetSoBo' && preliminary && <Card title="Báo giá sơ bộ cần bạn xác nhận" className="highlight"><p>{preliminary.diagnosis}</p><MoneyBreakdown value={preliminary} /><div className="actions"><button className="btn danger" onClick={() => open('reject-preliminary', preliminary)}>Từ chối báo giá</button><button className="btn primary" onClick={() => open('approve-preliminary', preliminary)}><AttentionDot />Đồng ý báo giá</button></div></Card>}
+        {customer && ['ChoTiepNhan', 'ChoDuyetSoBo', 'ChoPhanCong', 'DaTiepNhan', 'DangXuLy'].includes(o.status) && (
+            <Card title="Chẩn đoán từ xa cùng Điều phối viên" className="highlight">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+                    <div style={{ flex: '1 1 300px' }}>
+                        <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#116a4e' }}>
+                            📹 Kết nối trực tiếp với Điều phối viên kỹ thuật HomeFix
+                        </p>
+                        <small style={{ color: '#4b5563', display: 'block', lineHeight: '1.4' }}>
+                            Quý khách có thể gọi Video Call để quay trực tiếp thiết bị hỏng, hoặc tải thêm hình ảnh sự cố để Điều phối viên chẩn đoán chính xác nhất.
+                        </small>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button className="btn primary" onClick={() => open('videocall')} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Video size={16} /> Tham gia Video Call
+                        </button>
+                        <button className="btn" onClick={() => open('add-fault-photo')} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Camera size={16} /> Gửi thêm ảnh lỗi
+                        </button>
+                    </div>
+                </div>
+            </Card>
+        )}
         {customer && o.status === 'DangXuLy' && material?.status === 'Pending' && <div className="notice warning"><ShieldCheck /><div>Thợ đề xuất vật tư phát sinh. Xem chi tiết bên dưới rồi duyệt hoặc từ chối.</div></div>}
         {customer && o.status === 'ChoNghiemThu' && acceptance?.status === 'Pending' && <div className="notice warning"><ShieldCheck /><div>Thợ đã gửi phiếu nghiệm thu. Hãy kiểm tra thiết bị và xác nhận ở phần nghiệm thu bên dưới.</div></div>}
-        <div className="two-column order-layout"><div>{(currentTech || customer) && o.assignedTechnicianId && !['HoanThanh', 'Huy'].includes(o.status) && <RouteMap key={o.id} order={o} technician={currentTech} />}<Card title="Thông tin dịch vụ"><div className="detail-facts"><div><MapPin /><p><small>Địa chỉ thực hiện</small><b>{o.address}</b></p></div><div><Clock /><p><small>Thời gian hẹn</small><b>{date(o.scheduledAt)}</b></p></div><div><Phone /><p><small>Khách hàng</small><b>{o.contactName} · <a href={'tel:' + o.contactPhone}>{o.contactPhone}</a></b></p></div></div><div className="divider" />{currentTech && <ContactActions phone={o.contactPhone} />}<h3>Mô tả tình trạng</h3><p className="pre-wrap">{o.description}</p>{o.technicianName && <p><b>Kỹ thuật viên:</b> {o.technicianName}</p>}{files.data?.some(f => f.purpose === 'OrderFault') && <div className="image-grid">{files.data.filter(f => f.purpose === 'OrderFault').map(f => <ProtectedImage key={f.id} id={f.id} alt="Ảnh lỗi thiết bị" />)}</div>}{files.data?.some(f => f.purpose === 'MaterialEvidence') && <><h3>Ảnh hiện trạng / vật tư</h3><div className="image-grid">{files.data.filter(f => f.purpose === 'MaterialEvidence').map(f => <ProtectedImage key={f.id} id={f.id} alt="Ảnh vật tư đề xuất" />)}</div></>}{currentTech && !['HoanThanh', 'Huy'].includes(o.status) && <button className="btn" onClick={() => open('location')}><Navigation size={17} /> Cập nhật vị trí hiện tại</button>}</Card>
+        <div className="two-column order-layout"><div>{(currentTech || customer) && o.assignedTechnicianId && !['HoanThanh', 'Huy'].includes(o.status) && <RouteMap key={o.id} order={o} technician={currentTech} />}<Card title="Thông tin dịch vụ"><div className="detail-facts"><div><MapPin /><p><small>Địa chỉ thực hiện</small><b>{o.address}</b></p></div><div><Clock /><p><small>Thời gian hẹn</small><b>{date(o.scheduledAt)}</b></p></div><div><Phone /><p><small>Khách hàng</small><b>{o.contactName} · <a href={'tel:' + o.contactPhone}>{o.contactPhone}</a></b></p></div></div><div className="divider" />{currentTech && <ContactActions phone={o.contactPhone} />}<h3>Mô tả tình trạng</h3><p className="pre-wrap">{o.description}</p>{o.technicianName && <p><b>Kỹ thuật viên:</b> {o.technicianName}</p>}{files.data?.some(f => f.purpose === 'OrderFault') && <div className="image-grid">{files.data.filter(f => f.purpose === 'OrderFault').map(f => <ProtectedImage key={f.id} id={f.id} alt="Ảnh lỗi thiết bị" />)}</div>}{(customer || dispatcher) && !['HoanThanh', 'Huy'].includes(o.status) && <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}><button className="btn small" onClick={() => open('add-fault-photo')} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Camera size={13} /> {customer ? 'Gửi thêm ảnh sự cố cho DPV' : 'Tải thêm ảnh sự cố vào đơn'}</button><button className="btn small primary" onClick={() => open('videocall')} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Video size={13} /> Video Call chẩn đoán</button></div>}{files.data?.some(f => f.purpose === 'MaterialEvidence') && <><h3>Ảnh hiện trạng / vật tư</h3><div className="image-grid">{files.data.filter(f => f.purpose === 'MaterialEvidence').map(f => <ProtectedImage key={f.id} id={f.id} alt="Ảnh vật tư đề xuất" />)}</div></>}{currentTech && !['HoanThanh', 'Huy'].includes(o.status) && <button className="btn" onClick={() => open('location')}><Navigation size={17} /> Cập nhật vị trí hiện tại</button>}</Card>
             {preliminary && !(customer && o.status === 'ChoDuyetSoBo') && <Card title="Báo giá sơ bộ"><Badge value={preliminary.status} /><p>{preliminary.diagnosis}</p><MoneyBreakdown value={preliminary} />{preliminary.reason && <p>Lý do: {preliminary.reason}</p>}</Card>}
             {materials.data?.map(m => <Card key={m.id} title={'Đề xuất vật tư · Phiên bản ' + m.revision}><div className="row space"><Badge value={m.status} /><small>{date(m.createdAt)}</small></div>{m.note && <p>{m.note}</p>}<div className="table-wrap"><table><thead><tr><th>Vật tư</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>{m.items?.map(item => <tr key={item.id}><td><b>{item.name}</b><small>Bảo hành {item.warrantyMonths} tháng</small></td><td>{Number(item.quantity)} {item.unit}</td><td>{money(item.unitPrice)}</td><td>{money(item.lineTotal)}</td></tr>)}</tbody></table></div><div className="row space total-line"><b>Tổng vật tư</b><strong>{money(m.total)}</strong></div>{m.reason && <p>Lý do: {m.reason}</p>}{currentTech && m.status === 'Pending' && <div className="material-waiting"><div className="notice warning"><Clock size={20} /><div><b>Đang chờ khách duyệt</b><p>Đã gửi lúc {date(m.createdAt)}. Chỉ thay vật tư sau khi khách đồng ý.</p></div></div><ContactActions phone={o.contactPhone} reminder /></div>}{customer && m.status === 'Pending' && o.status === 'DangXuLy' && <div className="actions"><button className="btn danger" onClick={() => open('reject-material', m)}>Từ chối</button><button className="btn primary" onClick={() => open('approve-material', m)}><AttentionDot />Đồng ý thay vật tư</button></div>}</Card>)}
             {acceptances.data?.map(a => <Card key={a.id} title={'Phiếu nghiệm thu · Phiên bản ' + a.revision}><Badge value={a.status} /><h3>Nguyên nhân</h3><p className="pre-wrap">{a.cause}</p><h3>Biện pháp xử lý</h3><p className="pre-wrap">{a.solution}</p>{user.role !== 'KT' && <div className="image-grid">{a.photos?.map(p => <ProtectedImage key={p.id} id={p.id} alt="Ảnh sau sửa chữa" />)}</div>}<MoneyBreakdown value={a} />{a.proposedPaymentMethod && <p>Thanh toán dự kiến: {a.proposedPaymentMethod === 'BANK' ? 'Chuyển khoản' : 'Tiền mặt'}</p>}{a.signatureId && user.role !== 'KT' && <><h3>Chữ ký khách hàng</h3><div className="image-grid"><ProtectedImage id={a.signatureId} alt="Chữ ký trên phiếu nghiệm thu" /></div></>}{a.reason && <p>Lý do yêu cầu sửa lại: {a.reason}</p>}{customer && a.status === 'Pending' && o.status === 'ChoNghiemThu' && <div className="actions"><button className="btn danger" onClick={() => open('reject-acceptance', a)}>Yêu cầu xử lý lại</button><button className="btn primary" onClick={() => open('approve-acceptance', a)}><AttentionDot />Xác nhận nghiệm thu</button></div>}</Card>)}
@@ -52,12 +74,20 @@ function Countdown({ value, dispatcher }) {
  return <div className={'notice '+(left<120?'error assignment-urgent':'info')}><span className={'assignment-clock ' + (left < 120 ? 'urgent' : '')} aria-label={'Còn ' + time}>{time}</span><div><b>{left===0?'Lệnh nhận việc đã hết hạn':dispatcher?'Chờ kỹ thuật viên nhận việc · Còn '+time:'Vui lòng nhận hoặc từ chối công việc trong '+time}</b><p>{dispatcher?'Nếu kỹ thuật viên không phản hồi đúng hạn, đơn sẽ được chuyển về chờ phân công để bạn chọn kỹ thuật viên khác.':left===0?'Hệ thống đang cập nhật lại lệnh. Bạn không thể nhận lệnh đã hết hạn.':'Hãy kiểm tra địa chỉ và nội dung công việc trước khi phản hồi.'}</p></div></div>;
 }
 
-const titles = { preliminary: 'Lập báo giá sơ bộ', assign: 'Phân công kỹ thuật viên', receive: 'Phản hồi lệnh công việc', progress: 'Cập nhật tiến độ', material: 'Đề xuất thay vật tư', acceptance: 'Lập phiếu nghiệm thu', cod: 'Xác nhận thu tiền mặt', review: 'Đánh giá dịch vụ', support: 'Gửi yêu cầu hỗ trợ', cancel: 'Hủy yêu cầu dịch vụ', note: 'Ghi chú điều phối', location: 'Cập nhật vị trí', 'approve-preliminary': 'Đồng ý báo giá', 'reject-preliminary': 'Từ chối báo giá', 'approve-material': 'Duyệt vật tư phát sinh', 'reject-material': 'Từ chối vật tư', 'approve-acceptance': 'Xác nhận nghiệm thu', 'reject-acceptance': 'Yêu cầu xử lý lại' };
+const titles = { preliminary: 'Lập báo giá sơ bộ', assign: 'Phân công kỹ thuật viên', receive: 'Phản hồi lệnh công việc', progress: 'Cập nhật tiến độ', material: 'Đề xuất thay vật tư', acceptance: 'Lập phiếu nghiệm thu', cod: 'Xác nhận thu tiền mặt', review: 'Đánh giá dịch vụ', support: 'Gửi yêu cầu hỗ trợ', cancel: 'Hủy yêu cầu dịch vụ', note: 'Ghi chú điều phối', location: 'Cập nhật vị trí', 'approve-preliminary': 'Đồng ý báo giá', 'reject-preliminary': 'Từ chối báo giá', 'approve-material': 'Duyệt vật tư phát sinh', 'reject-material': 'Từ chối vật tư', 'approve-acceptance': 'Xác nhận nghiệm thu', 'reject-acceptance': 'Yêu cầu xử lý lại', videocall: 'Phòng Video Call chẩn đoán trực tuyến', 'add-fault-photo': 'Tải thêm ảnh sự cố gửi Điều phối viên' };
 function ActionModal({ modal, order, config, next, onClose, onDone }) {
     const a = useAction(), { type, record, expectedVersion } = modal; const [form, setForm] = useState({ diagnosis: '', reason: '', technicianId: '', decision: record?.decision || 'Accepted', reasonChoice: '', cause: '', solution: '', note: '', rating: '5', comment: '', ticketType: 'Complaint', description: '', visibility: 'Internal', confirmed: false, paymentMethod: record?.proposedPaymentMethod || 'COD', bankAccountId: '' }); const [items, setItems] = useState([{ name: '', quantity: '1', unit: 'cái', unitPrice: '', warrantyMonths: 0 }]), [files, setFiles] = useState([]); const [preview, setPreview] = useState(false), [capturedSignature,setCapturedSignature] = useState(null); const approvedMaterials = useData(type === 'acceptance' ? '/orders/' + order.id + '/material-quotes' : null); const uploadCache = useRef(new Map()), keyRef = useRef(uuid()); const candidates = useData(type === 'assign' ? '/technicians/available?orderId=' + order.id : null); const set = (k, v) => setForm(s => ({ ...s, [k]: v })); const rejection = type.startsWith('reject-');
     async function fileIds(purpose) { const ids = []; for (const f of files) { if (!uploadCache.current.has(f)) uploadCache.current.set(f, (await upload(f, purpose, order.id)).id); ids.push(uploadCache.current.get(f)); } return ids; }
     async function submit(e) {
         e.preventDefault(); await a.run(async () => {
+            if (type === 'videocall') { onClose(); return; }
+            if (type === 'add-fault-photo') {
+                if (!files.length) throw new Error('Vui lòng chọn hoặc chụp ít nhất 1 ảnh sự cố.');
+                await fileIds('OrderFault');
+                alert('Đã gửi ảnh sự cố thành công cho Điều phối viên!');
+                onDone();
+                return;
+            }
             if (type === 'acceptance' && !files.length) throw new Error('Cần ít nhất một ảnh thành phẩm.');
             if (type === 'approve-acceptance' && config?.signatureRequired && !files.length && !record?.signatureId) throw new Error('Vui lòng ký xác nhận hoặc chọn ảnh chữ ký.');
             if (type === 'receive' && form.decision === 'Rejected' && (!form.reasonChoice || (form.reasonChoice === 'Lý do khác' && form.reason.trim().length < 5))) throw new Error('Chọn lý do từ chối; lý do khác cần ít nhất 5 ký tự.');
@@ -94,6 +124,42 @@ function ActionModal({ modal, order, config, next, onClose, onDone }) {
         {type === 'review' && <><Field label="Mức độ hài lòng"><select value={form.rating} onChange={e => set('rating', e.target.value)}>{[5, 4, 3, 2, 1].map(n => <option key={n} value={n}>{'★'.repeat(n)} · {n} sao</option>)}</select></Field><Field label="Nhận xét của bạn"><textarea maxLength={1500} value={form.comment} onChange={e => set('comment', e.target.value)} /></Field></>}
         {type === 'support' && <><Field label="Loại yêu cầu"><select value={form.ticketType} onChange={e => set('ticketType', e.target.value)}><option value="Complaint">Khiếu nại / hỗ trợ</option><option value="Warranty">Yêu cầu bảo hành vật tư</option></select></Field><Field label="Mô tả yêu cầu"><textarea required minLength={10} maxLength={2000} value={form.description} onChange={e => set('description', e.target.value)} rows={4} /></Field><small>Khiếu nại trong 7 ngày từ nghiệm thu; bảo hành được kiểm tra theo vật tư còn hạn.</small></>}
         {type === 'note' && <><Field label="Nội dung"><textarea required value={form.note} onChange={e => set('note', e.target.value)} /></Field><Field label="Phạm vi xem"><select value={form.visibility} onChange={e => set('visibility', e.target.value)}><option value="Internal">Nội bộ điều phối / CSKH</option><option value="Customer">Khách hàng có thể xem</option></select></Field></>}
+        {type === 'videocall' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                        <b style={{ color: '#116a4e', fontSize: '13.5px' }}>Phòng gọi Video Call đơn #{order.id}</b>
+                        <small style={{ display: 'block', color: '#64748b' }}>Cho phép trình duyệt truy cập Camera & Micro để đàm thoại với Điều phối viên.</small>
+                    </div>
+                    <a
+                        href={`https://meet.jit.si/HomeFix-Order-${order.id}#config.prejoinPageEnabled=false&userInfo.displayName=${encodeURIComponent(order.contactName + ' (Khách hàng)')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn small"
+                        style={{ display: 'flex', alignItems: 'center', gap: '5px', textDecoration: 'none' }}
+                        title="Mở tab riêng để xem toàn màn hình hoặc xoay ngang điện thoại"
+                    >
+                        <ExternalLink size={13} /> Mở tab riêng
+                    </a>
+                </div>
+                <div style={{ width: '100%', height: '500px', borderRadius: '10px', overflow: 'hidden', background: '#090d16', border: '1px solid #1e293b' }}>
+                    <iframe
+                        src={`https://meet.jit.si/HomeFix-Order-${order.id}#config.prejoinPageEnabled=false&config.disableDeepLinking=true&userInfo.displayName=${encodeURIComponent(order.contactName + ' (Khách hàng)')}`}
+                        style={{ width: '100%', height: '100%', border: 'none' }}
+                        allow="camera; microphone; fullscreen; display-capture; autoplay"
+                        title={`HomeFix Video Call Đơn #${order.id}`}
+                    />
+                </div>
+            </div>
+        )}
+        {type === 'add-fault-photo' && (
+            <>
+                <div className="notice info">
+                    Quý khách chụp rõ vị trí hỏng hóc, thiết bị rò rỉ, mã lỗi màn hình,... để Điều phối viên chẩn đoán chính xác nguyên nhân.
+                </div>
+                {fileInput('Chọn hoặc chụp ảnh sự cố (tối đa 5 ảnh/lần)', true)}
+            </>
+        )}
         {type === 'location' && <p>Cho phép lấy vị trí khi ứng dụng đang mở. Vị trí này chỉ hiển thị cho khách của đơn đang phục vụ và điều phối viên.</p>}
-        <div className="form-actions"><button type="button" className="btn" disabled={a.busy} onClick={onClose}>Quay lại</button><Submit busy={a.busy} className={'btn ' + (type === 'receive' && form.decision === 'Rejected' ? 'reject-order' : 'primary')} disabled={a.busy || (type === 'receive' && (new Date(order.currentAssignment.expiresAt).getTime() <= Date.now() || (form.decision === 'Rejected' && (!form.reasonChoice || (form.reasonChoice === 'Lý do khác' && form.reason.trim().length < 5)))))}>{type === 'receive' ? (form.decision === 'Rejected' ? 'Xác nhận từ chối' : 'Xác nhận nhận đơn') : type === 'material' ? 'Gửi khách hàng duyệt' : type === 'acceptance' ? 'Gửi phiếu nghiệm thu' : 'Xác nhận'}</Submit></div></form></Modal>;
+        <div className="form-actions"><button type="button" className="btn" disabled={a.busy} onClick={onClose}>{type === 'videocall' ? 'Đóng phòng gọi' : 'Quay lại'}</button>{type !== 'videocall' && <Submit busy={a.busy} className={'btn ' + (type === 'receive' && form.decision === 'Rejected' ? 'reject-order' : 'primary')} disabled={a.busy || (type === 'receive' && (new Date(order.currentAssignment.expiresAt).getTime() <= Date.now() || (form.decision === 'Rejected' && (!form.reasonChoice || (form.reasonChoice === 'Lý do khác' && form.reason.trim().length < 5)))))}>{type === 'receive' ? (form.decision === 'Rejected' ? 'Xác nhận từ chối' : 'Xác nhận nhận đơn') : type === 'material' ? 'Gửi khách hàng duyệt' : type === 'acceptance' ? 'Gửi phiếu nghiệm thu' : type === 'add-fault-photo' ? 'Gửi ảnh sự cố' : 'Xác nhận'}</Submit>}</div></form></Modal>;
 }

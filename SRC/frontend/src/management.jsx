@@ -1,9 +1,10 @@
 import {MonitoringSettings,ReportOverview,CashflowChart,useReportData} from './report-widgets';
+import { AttentionDot } from './attention';
 import { ReportWorkspace, csvDownload } from './reports-ui';
 import { ApplicationWizard } from './application-wizard';
 import { WalletHistory } from './wallet-history';
 import { BankAccounts, BankPaymentQueue } from './bank-admin';
-import React, { useEffect, useRef, useState } from 'react'; import { Link, useLocation, useParams } from 'react-router-dom'; import { Plus, Pencil, CheckCircle2, Wallet, ArrowDownToLine, ArrowUpFromLine, RefreshCw, Download, Star, ShieldCheck, Users, ChartNoAxesCombined, Lock, ChevronRight, Search, UserCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react'; import { Link, useLocation, useParams } from 'react-router-dom'; import { Plus, Pencil, CheckCircle2, Wallet, ArrowDownToLine, ArrowUpFromLine, RefreshCw, Download, Star, ShieldCheck, Users, ChartNoAxesCombined, Lock, ChevronRight, Search, UserCircle, AlertTriangle, MessageSquare, ClipboardCheck, ThumbsDown, History } from 'lucide-react';
 import { api, upload, uuid } from './api'; import { useApp, useData, useAction, PageHead, Card, Field, ErrorBox, Loading, Empty, Submit, Badge, money, date, code, labels, roleNames, groups, Modal, ProtectedImage } from './shared'; import { Stat } from './pages';
 function Table({ headers, rows, render, empty = 'Chưa có dữ liệu' }) { return rows?.length ? <div className="table-wrap"><table><thead><tr>{headers.map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map(render)}</tbody></table></div> : <Empty title={empty} />; }
 function AdminOrders() {
@@ -397,8 +398,869 @@ function WalletRequest({ type, balance, onTypeChange, onClose, onDone }) {
  {type === 'Deposit' && <Field label="Ảnh chứng từ"><input required type="file" accept="image/png,image/jpeg" onChange={e => {setFile(e.target.files[0]);proof.current=null;}} /></Field>}
  <ErrorBox error={a.error} /><div className="form-actions"><button className="btn" type="button" disabled={a.busy} onClick={onClose}>Quay lại</button><Submit busy={a.busy}>Gửi yêu cầu</Submit></div></form></Modal>;
 }
-export function Support() { const { user } = useApp(), r = useData('/support/tickets', 15000); const [selected, setSelected] = useState(null); return <><PageHead eyebrow="CHĂM SÓC KHÁCH HÀNG" title={user.role === 'KH' ? 'Yêu cầu hỗ trợ của tôi' : 'Tiếp nhận & xử lý hỗ trợ'} text={user.role === 'KH' ? 'Mở đơn dịch vụ và chọn “Gửi yêu cầu hỗ trợ” để tạo phiếu.' : 'Kiểm tra lịch sử đơn trước khi cập nhật hướng xử lý.'}>{user.role === 'KH' && <Link className="btn primary" to="/orders">Chọn đơn cần hỗ trợ</Link>}</PageHead><ErrorBox error={r.error} />{r.loading ? <Loading /> : <Card><Table headers={['Phiếu', 'Nội dung', 'Trạng thái', 'Cập nhật', '']} rows={r.data} render={t => <tr key={t.id}><td><b>HT-{t.id}</b><small>{t.type === 'Warranty' ? 'Bảo hành' : 'Khiếu nại / hỗ trợ'}</small><Link to={'/orders/' + t.orderId}>{code(t.orderId)}</Link></td><td><b>{t.customerName}</b><small>{t.description}</small></td><td><Badge value={t.status} /></td><td>{date(t.updatedAt)}</td><td><button className="btn small" onClick={() => setSelected(t.id)}>Chi tiết</button></td></tr>} /></Card>}{selected && <Ticket id={selected} onClose={() => setSelected(null)} onDone={() => { setSelected(null); r.reload(); }} />}</>; }
-function Ticket({ id, onClose, onDone }) { const { user } = useApp(), r = useData('/support/tickets/' + id), a = useAction(), [status, setStatus] = useState('InProgress'), [resolution, setResolution] = useState(''); return <Modal title={'Yêu cầu HT-' + id} onClose={onClose}><ErrorBox error={r.error || a.error} />{r.data && <><p className="pre-wrap">{r.data.description}</p><Badge value={r.data.status} /><div className="timeline">{r.data.history.map(h => <div key={h.id}><span /><section><b>{labels[h.status]}</b><p>{h.note}</p><small>{h.actorName} · {date(h.createdAt)}</small></section></div>)}</div>{user.role === 'CSKH' && ['Open', 'InProgress'].includes(r.data.status) && <form onSubmit={e => { e.preventDefault(); a.run(async () => { await api('/support/tickets/' + id, { method: 'PATCH', body: { status, resolution, expectedVersion: r.data.version } }); onDone(); }); }}><Field label="Trạng thái xử lý"><select value={status} onChange={e => setStatus(e.target.value)}><option value="InProgress">Đang xử lý</option><option value="Resolved">Đã giải quyết</option><option value="Rejected">Từ chối có lý do</option></select></Field><Field label="Kết quả / hướng xử lý"><textarea required minLength={5} value={resolution} onChange={e => setResolution(e.target.value)} /></Field><Submit busy={a.busy}>Cập nhật phiếu</Submit></form>}</>}</Modal>; }
+/* ================================================================
+   MODULE CSKH — CHĂM SÓC KHÁCH HÀNG
+   Screens: Dashboard | Ticket List | Create Complaint | Create Warranty | Ticket Detail
+   ================================================================ */
+
+// ── Shared helpers ────────────────────────────────────────────────
+const TICKET_TYPE_LABELS = { Complaint: 'Khiếu nại', Warranty: 'Bảo hành' };
+const PRIORITY_LABELS = { Low: 'Thấp', Medium: 'Trung bình', High: 'Cao', Urgent: 'Khẩn cấp' };
+const CONTACT_TYPE_LABELS = { Call: 'Cuộc gọi', Chat: 'Tin nhắn/Chat', Internal: 'Ghi chú nội bộ', Meeting: 'Gặp trực tiếp' };
+
+function StarRow({ rating }) {
+  return (
+    <span style={{ color: '#f59e0b', letterSpacing: '1px' }}>
+      {[1,2,3,4,5].map(i => <Star key={i} size={13} fill={i <= rating ? '#f59e0b' : 'none'} />)}
+    </span>
+  );
+}
+
+// ── Screen 1: Dashboard CSKH ──────────────────────────────────────
+function CSKHDashboard({ onNavigate }) {
+  const r = useData('/support/summary', 30000);
+  const d = r.data;
+  return (
+    <>
+      <PageHead eyebrow="CHĂM SÓC KHÁCH HÀNG" title="Tổng quan CSKH" text="Theo dõi phiếu hỗ trợ, khiếu nại và đánh giá chất lượng dịch vụ.">
+        <button className="btn primary" onClick={() => onNavigate('create-complaint')}>
+          <Plus size={16} /> Lập phiếu khiếu nại
+        </button>
+        <button className="btn" onClick={() => onNavigate('create-warranty')}>
+          <ShieldCheck size={16} /> Lập phiếu bảo hành
+        </button>
+      </PageHead>
+      <ErrorBox error={r.error} />
+      {r.loading ? <Loading /> : d && (
+        <>
+          <div className="stat-grid">
+            <div className="stat" style={{ cursor: 'pointer' }} onClick={() => onNavigate('tickets', { status: 'Open' })}>
+              <span><AlertTriangle size={20} style={{ color: '#ef4444' }} /></span>
+              <div><b>{d.openComplaints}</b><small>Khiếu nại đang mở</small></div>
+            </div>
+            <div className="stat" style={{ cursor: 'pointer' }} onClick={() => onNavigate('tickets', { type: 'Warranty' })}>
+              <span><ShieldCheck size={20} style={{ color: '#3b82f6' }} /></span>
+              <div><b>{d.openWarranties}</b><small>Phiếu bảo hành đang mở</small></div>
+            </div>
+            <div className="stat">
+              <span><ThumbsDown size={20} style={{ color: '#f59e0b' }} /></span>
+              <div><b>{d.lowReviewsCount}</b><small>Đánh giá kém (≤3 sao)</small></div>
+            </div>
+            <div className="stat">
+              <span><Star size={20} style={{ color: '#10b981' }} /></span>
+              <div><b>{d.averageRating}/5</b><small>Điểm đánh giá TB ({d.totalReviewsCount} đánh giá)</small></div>
+            </div>
+          </div>
+          <div className="two-column">
+            <Card title="Phiếu hỗ trợ cần xử lý">
+              {d.recentTickets?.length ? (
+                <div className="timeline">
+                  {d.recentTickets.map(t => (
+                    <div key={t.id} style={{ display: 'flex', gap: '10px', padding: '10px 0', borderBottom: '1px solid #f1f3f4' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: t.status === 'Open' ? '#ef4444' : t.status === 'InProgress' ? '#f59e0b' : '#10b981', flexShrink: 0, marginTop: '5px' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                          <b style={{ fontSize: '13px' }}>HT-{t.id} · {TICKET_TYPE_LABELS[t.type] || t.type}</b>
+                          <Badge value={t.status} />
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#5f6368', marginTop: '2px' }}>{t.customerName} — {code(t.orderId)}</div>
+                        <div style={{ fontSize: '12px', color: '#5f6368' }}>{t.serviceName}</div>
+                      </div>
+                      <button className="btn small" onClick={() => onNavigate('ticket-detail', { id: t.id })}>Xem</button>
+                    </div>
+                  ))}
+                </div>
+              ) : <Empty title="Không có phiếu cần xử lý" text="Tất cả phiếu đã được giải quyết." />}
+              <button className="btn" style={{ marginTop: '12px', width: '100%' }} onClick={() => onNavigate('tickets')}>Xem tất cả phiếu hỗ trợ</button>
+            </Card>
+            <Card title="Đánh giá kém gần đây">
+              {d.recentLowReviews?.length ? (
+                <div>
+                  {d.recentLowReviews.map(rv => (
+                    <div key={rv.id} style={{ padding: '10px 0', borderBottom: '1px solid #f1f3f4' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <b style={{ fontSize: '13px' }}>{rv.customerName}</b>
+                        <StarRow rating={rv.rating} />
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#5f6368', marginTop: '2px' }}>{rv.serviceName} · KTV: {rv.technicianName}</div>
+                      {rv.comment && <p style={{ fontSize: '12px', margin: '4px 0 0', color: '#374151', fontStyle: 'italic' }}>"{rv.comment}"</p>}
+                      <button className="btn small" style={{ marginTop: '6px' }} onClick={() => onNavigate('create-complaint-from-review', { orderId: rv.orderId })}>Lập phiếu khiếu nại</button>
+                    </div>
+                  ))}
+                </div>
+              ) : <Empty title="Chưa có đánh giá kém" text="Không có đánh giá ≤3 sao gần đây." />}
+              <button className="btn" style={{ marginTop: '12px', width: '100%' }} onClick={() => onNavigate('reviews')}>Xem tất cả đánh giá</button>
+            </Card>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ── Screen 2: Danh sách phiếu hỗ trợ ─────────────────────────────
+function CSKHTicketList({ onNavigate }) {
+  const [filter, setFilter] = useState({ type: 'All', status: 'All', q: '', page: 1 });
+  const [selectedId, setSelectedId] = useState(null);
+  const qp = new URLSearchParams();
+  if (filter.type !== 'All') qp.set('type', filter.type);
+  if (filter.status !== 'All') qp.set('status', filter.status);
+  if (filter.q) qp.set('q', filter.q);
+  qp.set('page', filter.page); qp.set('pageSize', 15);
+  const r = useData('/support/tickets?' + qp.toString(), 20000);
+  const set = (k, v) => setFilter(s => ({ ...s, [k]: v, page: k === 'page' ? v : 1 }));
+  return (
+    <>
+      <PageHead eyebrow="CHĂM SÓC KHÁCH HÀNG" title="Danh sách phiếu hỗ trợ" text="Tất cả phiếu khiếu nại và bảo hành. Nhấn vào hàng để xem chi tiết và cập nhật.">
+        <button className="btn primary" onClick={() => onNavigate('create-complaint')}><Plus size={16} /> Khiếu nại</button>
+        <button className="btn" onClick={() => onNavigate('create-warranty')}><ShieldCheck size={16} /> Bảo hành</button>
+        <button className="btn" onClick={() => onNavigate('dashboard')}><History size={16} /> Dashboard</button>
+      </PageHead>
+      <div className="filter-bar">
+        <Field label="Tìm kiếm"><input type="search" placeholder="Mã phiếu, đơn, tên KH..." value={filter.q} onChange={e => set('q', e.target.value)} /></Field>
+        <Field label="Loại phiếu"><select value={filter.type} onChange={e => set('type', e.target.value)}>
+          <option value="All">Tất cả</option>
+          <option value="Complaint">Khiếu nại</option>
+          <option value="Warranty">Bảo hành</option>
+        </select></Field>
+        <Field label="Trạng thái"><select value={filter.status} onChange={e => set('status', e.target.value)}>
+          <option value="All">Tất cả</option>
+          <option value="Open">Mới tiếp nhận</option>
+          <option value="InProgress">Đang xử lý</option>
+          <option value="Resolved">Đã giải quyết</option>
+          <option value="Rejected">Từ chối</option>
+        </select></Field>
+        <button className="btn" onClick={() => setFilter({ type: 'All', status: 'All', q: '', page: 1 })}><RefreshCw size={14} /> Đặt lại</button>
+      </div>
+      <ErrorBox error={r.error} />
+      {r.loading ? <Loading /> : (
+        <Card>
+          <Table
+            headers={['Phiếu', 'Khách hàng & Đơn', 'Nội dung', 'KTV', 'Trạng thái', 'Cập nhật', '']}
+            rows={r.data}
+            empty="Không tìm thấy phiếu nào."
+            render={t => (
+              <tr key={t.id}>
+                <td>
+                  <b>HT-{t.id}</b>
+                  <small style={{ display: 'block' }}>
+                    <span className={t.type === 'Warranty' ? 'badge green' : 'badge amber'}>{TICKET_TYPE_LABELS[t.type]}</span>
+                  </small>
+                </td>
+                <td>
+                  <b>{t.customerName}</b>
+                  <small><Link to={'/orders/' + t.orderId}>{code(t.orderId)}</Link></small>
+                  <small>{t.customerPhone}</small>
+                </td>
+                <td style={{ maxWidth: '220px' }}>
+                  <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: '12px' }}>{t.description}</span>
+                </td>
+                <td>{t.technicianName || '—'}</td>
+                <td><Badge value={t.status} /></td>
+                <td>{date(t.updatedAt || t.createdAt)}</td>
+                <td>
+                  <button className="btn small primary" onClick={() => setSelectedId(t.id)}>Chi tiết</button>
+                </td>
+              </tr>
+            )}
+          />
+        </Card>
+      )}
+      <div className="pagination">
+        <button className="btn" disabled={filter.page === 1} onClick={() => set('page', filter.page - 1)}>Trang trước</button>
+        <span>Trang {filter.page}{r.meta?.total ? ` / ${Math.ceil(r.meta.total / 15)} (${r.meta.total} phiếu)` : ''}</span>
+        <button className="btn" disabled={!r.data || r.data.length < 15} onClick={() => set('page', filter.page + 1)}>Trang sau</button>
+      </div>
+      {selectedId && (
+        <CSKHTicketDetail
+          id={selectedId}
+          onClose={() => setSelectedId(null)}
+          onDone={() => { setSelectedId(null); r.reload(); }}
+        />
+      )}
+    </>
+  );
+}
+
+// ── Screen 3: Tạo phiếu khiếu nại ────────────────────────────────
+function CSKHCreateComplaint({ onBack, prefillOrderId }) {
+  const { toast } = useApp();
+  const a = useAction();
+  const [searchFields, setSearchFields] = useState({ orderId: prefillOrderId ? String(prefillOrderId) : '', phone: '', name: '' });
+  const [searchQ, setSearchQ] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [form, setForm] = useState({ description: '', category: '', priority: 'Medium', initialAction: '' });
+  const debounceRef = useRef(null);
+
+  useEffect(() => {
+    if (prefillOrderId) runSearch(String(prefillOrderId));
+  }, []);
+
+  const runSearch = async q => {
+    if (!q || !q.trim()) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const res = await api('/support/orders/search?q=' + encodeURIComponent(q.trim()));
+      setSearchResults(res.data || []);
+    } catch { setSearchResults([]); }
+    finally { setSearching(false); }
+  };
+
+  const handleFieldSearch = (field, value) => {
+    setSearchFields(s => ({ ...s, [field]: value }));
+    setSelectedOrder(null);
+    clearTimeout(debounceRef.current);
+    if (!value || !value.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      setSearchQ(value);
+      runSearch(value);
+    }, 300);
+  };
+
+  const doFieldSearch = field => {
+    clearTimeout(debounceRef.current);
+    const v = searchFields[field];
+    setSearchQ(v);
+    runSearch(v);
+  };
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+    await a.run(async () => {
+      await api('/support/tickets', {
+        method: 'POST',
+        body: {
+          orderId: selectedOrder.id,
+          type: 'Complaint',
+          description: form.description,
+          category: form.category || undefined,
+          priority: form.priority || undefined,
+          initialAction: form.initialAction || undefined
+        }
+      });
+      toast('Đã tạo phiếu khiếu nại thành công.');
+      onBack();
+    });
+  };
+
+  return (
+    <>
+      <PageHead eyebrow="CHĂM SÓC KHÁCH HÀNG" title="Tiếp nhận & Tạo phiếu khiếu nại" text="Tìm đơn hàng theo mã đơn, số điện thoại hoặc tên khách hàng, sau đó điền thông tin khiếu nại.">
+        <button className="btn" onClick={onBack}>← Quay lại</button>
+      </PageHead>
+
+      <Card title="Bước 1 — Tìm & chọn đơn hàng">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '4px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Mã đơn</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                placeholder="VD: HF-00012"
+                value={searchFields.orderId}
+                onChange={e => handleFieldSearch('orderId', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('orderId')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('orderId')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Số điện thoại</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="tel"
+                placeholder="VD: 0912345678"
+                value={searchFields.phone}
+                onChange={e => handleFieldSearch('phone', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('phone')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('phone')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Tên khách hàng</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                placeholder="VD: Nguyễn Văn A"
+                value={searchFields.name}
+                onChange={e => handleFieldSearch('name', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('name')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('name')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+        </div>
+        {searching && <Loading />}
+        {!searching && searchResults.length > 0 && !selectedOrder && (
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', marginTop: '8px' }}>
+            {searchResults.map(o => (
+              <div
+                key={o.id}
+                onClick={() => { setSelectedOrder(o); setSearchResults([]); }}
+                style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f3f4', transition: 'background .15s' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
+                onMouseLeave={e => e.currentTarget.style.background = ''}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span><b>{code(o.id)}</b> — {o.contactName}</span>
+                  <Badge value={o.status} />
+                </div>
+                <small style={{ color: '#6b7280' }}>{o.serviceName} · {o.contactPhone}</small>
+                {o.activeTicketsCount > 0 && <small style={{ color: '#ef4444', display: 'block' }}>⚠ Đang có {o.activeTicketsCount} phiếu hỗ trợ mở</small>}
+              </div>
+            ))}
+          </div>
+        )}
+        {!searching && searchResults.length === 0 && searchQ && !selectedOrder && (
+          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>Không tìm thấy đơn hàng phù hợp.</div>
+        )}
+        {selectedOrder && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 14px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <b>{code(selectedOrder.id)}</b> — {selectedOrder.contactName}
+                <small style={{ display: 'block', color: '#6b7280' }}>{selectedOrder.serviceName} · {selectedOrder.contactPhone}</small>
+                {selectedOrder.technicianName && <small style={{ display: 'block', color: '#6b7280' }}>KTV: {selectedOrder.technicianName}</small>}
+                {selectedOrder.activeTicketsCount > 0 && <small style={{ display: 'block', color: '#ef4444', marginTop: '4px' }}>⚠ Đã có {selectedOrder.activeTicketsCount} phiếu hỗ trợ đang mở cho đơn này</small>}
+              </div>
+              <button className="btn small" onClick={() => { setSelectedOrder(null); setSearchResults([]); setSearchFields({ orderId: '', phone: '', name: '' }); }}>Đổi đơn</button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {selectedOrder && (
+        <Card title="Bước 2 — Thông tin khiếu nại">
+          <form onSubmit={handleSubmit}>
+            <Field label="Danh mục khiếu nại" hint="Ví dụ: Thái độ KTV, Chất lượng sửa chữa, Báo giá sai, Không đến đúng hẹn...">
+              <input type="text" maxLength={80} placeholder="Nhập danh mục (không bắt buộc)" value={form.category} onChange={e => setForm(s => ({ ...s, category: e.target.value }))} />
+            </Field>
+            <Field label="Mức ưu tiên">
+              <select value={form.priority} onChange={e => setForm(s => ({ ...s, priority: e.target.value }))}>
+                {Object.entries(PRIORITY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </Field>
+            <Field label="Nội dung khiếu nại" hint="Mô tả chi tiết sự việc theo lời khách hàng (tối thiểu 10 ký tự).">
+              <textarea
+                required
+                minLength={10}
+                maxLength={2000}
+                rows={5}
+                placeholder="Khách hàng phản ánh..."
+                value={form.description}
+                onChange={e => setForm(s => ({ ...s, description: e.target.value }))}
+              />
+            </Field>
+            <Field label="Ghi chú tiếp nhận ban đầu" hint="Bước đã thực hiện, cam kết với khách, v.v. (không bắt buộc).">
+              <textarea
+                maxLength={1000}
+                rows={3}
+                placeholder="Đã hứa phản hồi trong vòng 24h..."
+                value={form.initialAction}
+                onChange={e => setForm(s => ({ ...s, initialAction: e.target.value }))}
+              />
+            </Field>
+            <ErrorBox error={a.error} />
+            <div className="form-actions">
+              <Submit busy={a.busy}>Lập phiếu khiếu nại</Submit>
+              <button type="button" className="btn" onClick={onBack}>Hủy</button>
+            </div>
+          </form>
+        </Card>
+      )}
+    </>
+  );
+}
+
+// ── Screen 4: Khởi tạo phiếu bảo hành ───────────────────────────
+function CSKHCreateWarranty({ onBack }) {
+  const { toast } = useApp();
+  const a = useAction();
+  const [searchFields, setSearchFields] = useState({ orderId: '', phone: '', name: '' });
+  const [searchQ, setSearchQ] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [warrantyInfo, setWarrantyInfo] = useState(null);
+  const [loadingInfo, setLoadingInfo] = useState(false);
+  const [form, setForm] = useState({ description: '', initialAction: '' });
+  const debounceRef = useRef(null);
+
+  const runSearch = async q => {
+    if (!q || !q.trim()) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const res = await api('/support/orders/search?q=' + encodeURIComponent(q.trim()));
+      setSearchResults(res.data || []);
+    } catch { setSearchResults([]); }
+    finally { setSearching(false); }
+  };
+
+  const selectOrder = async o => {
+    setSelectedOrder(o);
+    setSearchResults([]);
+    setLoadingInfo(true);
+    try {
+      const res = await api('/support/orders/' + o.id + '/warranty-info');
+      setWarrantyInfo(res.data);
+    } catch { setWarrantyInfo(null); }
+    finally { setLoadingInfo(false); }
+  };
+
+  const handleFieldSearch = (field, value) => {
+    setSearchFields(s => ({ ...s, [field]: value }));
+    setSelectedOrder(null);
+    setWarrantyInfo(null);
+    clearTimeout(debounceRef.current);
+    if (!value || !value.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      setSearchQ(value);
+      runSearch(value);
+    }, 300);
+  };
+
+  const doFieldSearch = field => {
+    clearTimeout(debounceRef.current);
+    const v = searchFields[field];
+    setSearchQ(v);
+    runSearch(v);
+  };
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+    await a.run(async () => {
+      await api('/support/tickets', {
+        method: 'POST',
+        body: { orderId: selectedOrder.id, type: 'Warranty', description: form.description, initialAction: form.initialAction || undefined }
+      });
+      toast('Đã khởi tạo phiếu bảo hành thành công.');
+      onBack();
+    });
+  };
+
+  const wi = warrantyInfo;
+  const serviceOk = wi?.isServiceWarrantyValid;
+  const materialOk = wi?.materials?.some(m => m.isUnderWarranty);
+  const canWarranty = serviceOk || materialOk;
+
+  return (
+    <>
+      <PageHead eyebrow="CHĂM SÓC KHÁCH HÀNG" title="Khởi tạo phiếu bảo hành dịch vụ" text="Tra cứu đơn và kiểm tra điều kiện bảo hành trước khi lập phiếu.">
+        <button className="btn" onClick={onBack}>← Quay lại</button>
+      </PageHead>
+
+      <Card title="Bước 1 — Tìm đơn hàng">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '4px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Mã đơn</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                placeholder="VD: HF-00012"
+                value={searchFields.orderId}
+                onChange={e => handleFieldSearch('orderId', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('orderId')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('orderId')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Số điện thoại</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="tel"
+                placeholder="VD: 0912345678"
+                value={searchFields.phone}
+                onChange={e => handleFieldSearch('phone', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('phone')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('phone')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Tên khách hàng</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                placeholder="VD: Nguyễn Văn A"
+                value={searchFields.name}
+                onChange={e => handleFieldSearch('name', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('name')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('name')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+        </div>
+        {searching && <Loading />}
+        {!searching && searchResults.length > 0 && !selectedOrder && (
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', marginTop: '8px' }}>
+            {searchResults.map(o => (
+              <div key={o.id} onClick={() => selectOrder(o)}
+                style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f3f4' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
+                onMouseLeave={e => e.currentTarget.style.background = ''}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span><b>{code(o.id)}</b> — {o.contactName}</span>
+                  <Badge value={o.status} />
+                </div>
+                <small style={{ color: '#6b7280' }}>{o.serviceName} · {o.contactPhone}</small>
+                {o.acceptanceDate && <small style={{ color: '#10b981', display: 'block' }}>✓ Đã nghiệm thu: {date(o.acceptanceDate)}</small>}
+              </div>
+            ))}
+          </div>
+        )}
+        {!searching && searchResults.length === 0 && searchQ && !selectedOrder && (
+          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>Không tìm thấy đơn hàng phù hợp.</div>
+        )}
+        {selectedOrder && (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 14px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div>
+                <b>{code(selectedOrder.id)}</b> — {selectedOrder.contactName} ({selectedOrder.contactPhone})
+                <small style={{ display: 'block', color: '#6b7280' }}>{selectedOrder.serviceName}</small>
+              </div>
+              <button className="btn small" onClick={() => { setSelectedOrder(null); setWarrantyInfo(null); setSearchResults([]); setSearchFields({ orderId: '', phone: '', name: '' }); }}>Đổi</button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {selectedOrder && (
+        <Card title="Bước 2 — Thông tin bảo hành">
+          {loadingInfo ? <Loading /> : wi ? (
+            <>
+              <div style={{ marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: '600', textTransform: 'uppercase', color: '#6b7280', marginBottom: '10px' }}>Điều kiện bảo hành</h3>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '200px', padding: '12px', background: serviceOk ? '#f0fdf4' : '#fef2f2', border: '1px solid ' + (serviceOk ? '#bbf7d0' : '#fecaca'), borderRadius: '8px' }}>
+                    <div style={{ fontWeight: '600', fontSize: '13px', color: serviceOk ? '#15803d' : '#dc2626' }}>
+                      {serviceOk ? '✓' : '✗'} Bảo hành tay nghề / dịch vụ
+                    </div>
+                    <small style={{ color: '#6b7280' }}>
+                      {wi.serviceWarrantyExpiresAt
+                        ? (serviceOk ? `Còn hạn đến ${date(wi.serviceWarrantyExpiresAt)}` : `Đã hết hạn (${date(wi.serviceWarrantyExpiresAt)})`)
+                        : 'Chưa nghiệm thu'}
+                    </small>
+                    <small style={{ display: 'block', color: '#9ca3af' }}>Tiêu chuẩn: 30 ngày kể từ nghiệm thu</small>
+                  </div>
+                  {wi.materials?.length > 0 && (
+                    <div style={{ flex: 1, minWidth: '200px', padding: '12px', background: materialOk ? '#f0fdf4' : '#fef2f2', border: '1px solid ' + (materialOk ? '#bbf7d0' : '#fecaca'), borderRadius: '8px' }}>
+                      <div style={{ fontWeight: '600', fontSize: '13px', color: materialOk ? '#15803d' : '#dc2626' }}>
+                        {materialOk ? '✓' : '✗'} Bảo hành vật tư / linh kiện
+                      </div>
+                      <div style={{ marginTop: '6px' }}>
+                        {wi.materials.map(m => (
+                          <div key={m.id} style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                            {m.name}: {m.isUnderWarranty ? <span style={{ color: '#15803d' }}>còn hạn đến {date(m.warrantyExpiresAt)}</span> : <span style={{ color: '#dc2626' }}>hết hạn</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {!canWarranty && (
+                  <div className="notice" style={{ marginTop: '12px', background: '#fef9c3', borderColor: '#fde68a' }}>
+                    <AlertTriangle size={16} /> Đơn này đã hết thời hạn bảo hành. CSKH vẫn có thể lập phiếu theo thẩm quyền.
+                  </div>
+                )}
+              </div>
+              {wi.existingTickets?.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <small style={{ fontWeight: '600', display: 'block', marginBottom: '6px', color: '#ef4444' }}>⚠ Phiếu hỗ trợ đã tồn tại cho đơn này:</small>
+                  {wi.existingTickets.map(t => (
+                    <span key={t.id} style={{ display: 'inline-block', marginRight: '8px', marginBottom: '4px' }}>
+                      <Badge value={t.status} /> HT-{t.id} ({TICKET_TYPE_LABELS[t.type]})
+                    </span>
+                  ))}
+                </div>
+              )}
+              <form onSubmit={handleSubmit}>
+                <Field label="Mô tả yêu cầu bảo hành" hint="Lỗi cụ thể, bộ phận, thời điểm xảy ra... (tối thiểu 10 ký tự).">
+                  <textarea required minLength={10} maxLength={2000} rows={5} placeholder="Khách phản ánh thiết bị lại hỏng sau khi sửa..." value={form.description} onChange={e => setForm(s => ({ ...s, description: e.target.value }))} />
+                </Field>
+                <Field label="Ghi chú tiếp nhận" hint="Không bắt buộc">
+                  <textarea maxLength={1000} rows={3} placeholder="Đã hẹn KTV kiểm tra lại vào..." value={form.initialAction} onChange={e => setForm(s => ({ ...s, initialAction: e.target.value }))} />
+                </Field>
+                <ErrorBox error={a.error} />
+                <div className="form-actions">
+                  <Submit busy={a.busy}>Lập phiếu bảo hành</Submit>
+                  <button type="button" className="btn" onClick={onBack}>Hủy</button>
+                </div>
+              </form>
+            </>
+          ) : <div className="notice" style={{ background: '#fef2f2' }}><AlertTriangle size={16} /> Không thể tra cứu thông tin bảo hành. Đơn có thể chưa nghiệm thu hoặc có lỗi kết nối.</div>}
+        </Card>
+      )}
+    </>
+  );
+}
+
+// ── Screen 5: Chi tiết phiếu + Cập nhật / Đóng / Hủy ─────────────
+function CSKHTicketDetail({ id, onClose, onDone }) {
+  const { user } = useApp();
+  const r = useData('/support/tickets/' + id);
+  const a = useAction();
+  const [noteForm, setNoteForm] = useState({ note: '', contactType: 'Call' });
+  const [statusForm, setStatusForm] = useState({ status: 'InProgress', resolution: '', actionType: '' });
+  const [tab, setTab] = useState('history');
+
+  const submitNote = async e => {
+    e.preventDefault();
+    await a.run(async () => {
+      await api('/support/tickets/' + id + '/notes', { method: 'POST', body: { note: noteForm.note, contactType: noteForm.contactType } });
+      setNoteForm(s => ({ ...s, note: '' }));
+      r.reload();
+    });
+  };
+
+  const submitStatus = async e => {
+    e.preventDefault();
+    await a.run(async () => {
+      await api('/support/tickets/' + id, {
+        method: 'PATCH',
+        body: { status: statusForm.status, resolution: statusForm.resolution, actionType: statusForm.actionType || undefined, expectedVersion: r.data.version }
+      });
+      onDone();
+    });
+  };
+
+  const t = r.data;
+  const canUpdate = user.role === 'CSKH' && t && ['Open', 'InProgress'].includes(t.status);
+
+  return (
+    <Modal title={`Phiếu HT-${id} — ${t ? TICKET_TYPE_LABELS[t.type] || t.type : '...'}`} onClose={onClose}>
+      <ErrorBox error={r.error || a.error} />
+      {r.loading ? <Loading /> : t && (
+        <>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px', padding: '12px', background: '#f8f9fa', borderRadius: '8px' }}>
+            <div style={{ flex: 1, minWidth: '180px' }}>
+              <small style={{ color: '#6b7280', display: 'block' }}>Khách hàng</small>
+              <b>{t.order?.customerName}</b>
+              <small style={{ display: 'block', color: '#6b7280' }}>{t.order?.customerPhone}</small>
+            </div>
+            <div style={{ flex: 1, minWidth: '180px' }}>
+              <small style={{ color: '#6b7280', display: 'block' }}>Đơn dịch vụ</small>
+              <Link to={'/orders/' + t.orderId}><b>{code(t.orderId)}</b></Link>
+              <small style={{ display: 'block', color: '#6b7280' }}>{t.order?.serviceName}</small>
+            </div>
+            <div style={{ flex: 1, minWidth: '140px' }}>
+              <small style={{ color: '#6b7280', display: 'block' }}>KTV thực hiện</small>
+              <b>{t.order?.technicianName || '—'}</b>
+              <small style={{ display: 'block', color: '#6b7280' }}>{t.order?.technicianPhone || ''}</small>
+            </div>
+            <div>
+              <small style={{ color: '#6b7280', display: 'block' }}>Trạng thái</small>
+              <Badge value={t.status} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '14px' }}>
+            <small style={{ fontWeight: '600', display: 'block', marginBottom: '4px', color: '#6b7280', textTransform: 'uppercase', fontSize: '11px' }}>Nội dung yêu cầu</small>
+            <p style={{ whiteSpace: 'pre-wrap', fontSize: '13px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '10px 12px', margin: 0 }}>{t.description}</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', borderBottom: '2px solid #e5e7eb' }}>
+            {[['history', <History key="h" size={14} />, 'Lịch sử'], ['note', <MessageSquare key="m" size={14} />, 'Ghi chú / Liên hệ'], canUpdate && ['update', <ClipboardCheck key="c" size={14} />, 'Cập nhật / Đóng phiếu']].filter(Boolean).map(([key, icon, label]) => (
+              <button key={key} onClick={() => setTab(key)}
+                style={{ padding: '7px 12px', fontSize: '12px', fontWeight: tab === key ? '700' : '400', color: tab === key ? '#2563eb' : '#6b7280', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid #2563eb' : '2px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '-2px' }}>
+                {icon}{label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'history' && (
+            <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+              {t.history?.length ? t.history.map(h => (
+                <div key={h.id} style={{ display: 'flex', gap: '10px', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3b82f6', flexShrink: 0, marginTop: '5px' }} />
+                  <div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <b style={{ fontSize: '12px' }}>{labels[h.status] || h.status}</b>
+                      <small style={{ color: '#6b7280' }}>{h.actorName} ({h.actorRole})</small>
+                    </div>
+                    <p style={{ fontSize: '12px', margin: '2px 0', whiteSpace: 'pre-wrap' }}>{h.note}</p>
+                    <small style={{ color: '#9ca3af' }}>{date(h.createdAt)}</small>
+                  </div>
+                </div>
+              )) : <Empty title="Chưa có lịch sử" />}
+            </div>
+          )}
+
+          {tab === 'note' && (
+            <form onSubmit={submitNote}>
+              <Field label="Loại tương tác">
+                <select value={noteForm.contactType} onChange={e => setNoteForm(s => ({ ...s, contactType: e.target.value }))}>
+                  {Object.entries(CONTACT_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </Field>
+              <Field label="Nội dung ghi chú / kết quả liên hệ" hint="Tối thiểu 3 ký tự">
+                <textarea required minLength={3} maxLength={2000} rows={4} value={noteForm.note} onChange={e => setNoteForm(s => ({ ...s, note: e.target.value }))} placeholder="Đã gọi cho khách, khách cho biết..." />
+              </Field>
+              <ErrorBox error={a.error} />
+              <Submit busy={a.busy}>Lưu ghi chú</Submit>
+            </form>
+          )}
+
+          {tab === 'update' && canUpdate && (
+            <form onSubmit={submitStatus}>
+              <Field label="Trạng thái mới">
+                <select value={statusForm.status} onChange={e => setStatusForm(s => ({ ...s, status: e.target.value }))}>
+                  <option value="InProgress">Đang xử lý (tiếp tục theo dõi)</option>
+                  <option value="Resolved">Đã giải quyết — Đóng phiếu</option>
+                  <option value="Rejected">Từ chối — Có lý do</option>
+                </select>
+              </Field>
+              <Field label="Phương án xử lý" hint="Không bắt buộc — ví dụ: Hẹn lịch KTV kiểm tra lại, Hoàn tiền một phần...">
+                <input type="text" maxLength={80} placeholder="Phương án cụ thể..." value={statusForm.actionType} onChange={e => setStatusForm(s => ({ ...s, actionType: e.target.value }))} />
+              </Field>
+              <Field label="Kết quả / Lý do" hint="Mô tả chi tiết. Sẽ gửi thông báo đến khách hàng (tối thiểu 5 ký tự).">
+                <textarea required minLength={5} maxLength={2000} rows={5} placeholder="Đã xác nhận với KTV... / Đã hoàn tiền... / Khiếu nại không có căn cứ vì..." value={statusForm.resolution} onChange={e => setStatusForm(s => ({ ...s, resolution: e.target.value }))} />
+              </Field>
+              <ErrorBox error={a.error} />
+              <div className="form-actions">
+                <Submit busy={a.busy}>Xác nhận cập nhật</Submit>
+              </div>
+            </form>
+          )}
+        </>
+      )}
+    </Modal>
+  );
+}
+
+// ── Screen: Danh sách đánh giá ────────────────────────────────────
+function CSKHReviews({ onBack }) {
+  const [filter, setFilter] = useState({ maxRating: '3', q: '', page: 1 });
+  const qp = new URLSearchParams();
+  if (filter.maxRating) qp.set('maxRating', filter.maxRating);
+  if (filter.q) qp.set('q', filter.q);
+  qp.set('page', filter.page); qp.set('pageSize', 15);
+  const r = useData('/support/reviews?' + qp.toString(), 20000);
+  const set = (k, v) => setFilter(s => ({ ...s, [k]: v, page: k === 'page' ? v : 1 }));
+  return (
+    <>
+      <PageHead eyebrow="CHĂM SÓC KHÁCH HÀNG" title="Đánh giá khách hàng" text="Theo dõi chất lượng phản hồi. Lọc nhanh đánh giá kém để chăm sóc kịp thời.">
+        <button className="btn" onClick={onBack}>← Quay lại</button>
+      </PageHead>
+      <div className="filter-bar">
+        <Field label="Tìm kiếm"><input type="search" placeholder="Tên KH, KTV, nội dung..." value={filter.q} onChange={e => set('q', e.target.value)} /></Field>
+        <Field label="Lọc theo sao">
+          <select value={filter.maxRating} onChange={e => set('maxRating', e.target.value)}>
+            <option value="">Tất cả đánh giá</option>
+            <option value="3">≤ 3 sao (đánh giá kém)</option>
+            <option value="2">≤ 2 sao</option>
+            <option value="1">1 sao</option>
+          </select>
+        </Field>
+      </div>
+      <ErrorBox error={r.error} />
+      {r.loading ? <Loading /> : (
+        <Card>
+          <Table
+            headers={['Đơn', 'Khách hàng', 'KTV', 'Đánh giá', 'Nhận xét', 'Ngày', '']}
+            rows={r.data}
+            empty="Không có đánh giá nào."
+            render={rv => (
+              <tr key={rv.id}>
+                <td><Link to={'/orders/' + rv.orderId}><b>{code(rv.orderId)}</b></Link></td>
+                <td>{rv.customerName}<small>{rv.customerPhone}</small></td>
+                <td>{rv.technicianName}</td>
+                <td><StarRow rating={rv.rating} /></td>
+                <td style={{ maxWidth: '200px' }}><span style={{ fontSize: '12px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{rv.comment || '—'}</span></td>
+                <td>{date(rv.createdAt)}</td>
+                <td><Link className="btn small" to={'/orders/' + rv.orderId}>Xem đơn</Link></td>
+              </tr>
+            )}
+          />
+        </Card>
+      )}
+      <div className="pagination">
+        <button className="btn" disabled={filter.page === 1} onClick={() => set('page', filter.page - 1)}>Trang trước</button>
+        <span>Trang {filter.page}{r.meta?.total ? ` / ${Math.ceil(r.meta.total / 15)} (${r.meta.total})` : ''}</span>
+        <button className="btn" disabled={!r.data || r.data.length < 15} onClick={() => set('page', filter.page + 1)}>Trang sau</button>
+      </div>
+    </>
+  );
+}
+
+// ── Root export: Support ──────────────────────────────────────────
+export function Support() {
+  const { user } = useApp();
+  const [screen, setScreen] = useState('dashboard');
+  const [screenProps, setScreenProps] = useState({});
+
+  if (user.role === 'KH') return <CSKHCustomerView />;
+
+  const navigate = (s, props = {}) => { setScreen(s); setScreenProps(props); };
+
+  if (screen === 'tickets') return <CSKHTicketList onNavigate={navigate} />;
+  if (screen === 'create-complaint' || screen === 'create-complaint-from-review')
+    return <CSKHCreateComplaint onBack={() => navigate('dashboard')} prefillOrderId={screenProps.orderId} />;
+  if (screen === 'create-warranty')
+    return <CSKHCreateWarranty onBack={() => navigate('dashboard')} />;
+  if (screen === 'reviews')
+    return <CSKHReviews onBack={() => navigate('dashboard')} />;
+  if (screen === 'ticket-detail')
+    return (
+      <>
+        <CSKHDashboard onNavigate={navigate} />
+        <CSKHTicketDetail id={screenProps.id} onClose={() => navigate('dashboard')} onDone={() => navigate('dashboard')} />
+      </>
+    );
+  return <CSKHDashboard onNavigate={navigate} />;
+}
+
+// ── Khách hàng xem phiếu của mình ────────────────────────────────
+function CSKHCustomerView() {
+  const r = useData('/support/tickets', 15000);
+  const [selectedId, setSelectedId] = useState(null);
+  return (
+    <>
+      <PageHead eyebrow="HỖ TRỢ KHÁCH HÀNG" title="Yêu cầu hỗ trợ của tôi" text='Mở đơn dịch vụ và chọn "Gửi yêu cầu hỗ trợ" để tạo phiếu mới.'>
+        <Link className="btn primary" to="/orders">Chọn đơn cần hỗ trợ</Link>
+      </PageHead>
+      <ErrorBox error={r.error} />
+      {r.loading ? <Loading /> : (
+        <Card>
+          <Table
+            headers={['Phiếu', 'Nội dung', 'Trạng thái', 'Cập nhật', '']}
+            rows={r.data}
+            empty="Bạn chưa có yêu cầu hỗ trợ nào."
+            render={t => (
+              <tr key={t.id}>
+                <td><b>HT-{t.id}</b><small style={{ display: 'block' }}>{TICKET_TYPE_LABELS[t.type] || t.type}</small><Link to={'/orders/' + t.orderId}>{code(t.orderId)}</Link></td>
+                <td><span style={{ fontSize: '12px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</span></td>
+                <td><Badge value={t.status} />{t.resolution && <small style={{ display: 'block', marginTop: '4px', color: '#6b7280' }}>{t.resolution.slice(0, 60)}...</small>}</td>
+                <td>{date(t.updatedAt || t.createdAt)}</td>
+                <td><button className="btn small" onClick={() => setSelectedId(t.id)}>Chi tiết</button></td>
+              </tr>
+            )}
+          />
+        </Card>
+      )}
+      {selectedId && (
+        <CSKHTicketDetail id={selectedId} onClose={() => setSelectedId(null)} onDone={() => { setSelectedId(null); r.reload(); }} />
+      )}
+    </>
+  );
+}
 export function Applications() { const { user } = useApp(), r = useData(user.role === 'ADMIN' ? '/technician-applications' : '/technician-applications/me'), a = useAction(); const [selected, setSelected] = useState(null); return <><PageHead eyebrow="ĐỘI NGŨ HOMEFIX" title={user.role === 'ADMIN' ? 'Xét duyệt hồ sơ kỹ thuật viên' : 'Đăng ký cộng tác kỹ thuật viên'} text="Hồ sơ được quản trị viên kiểm tra trước khi cấp quyền nhận việc." /><ErrorBox error={r.error || a.error} />{user.role === 'KH' && !r.data?.some(x => x.status === 'Pending') && <ApplicationWizard onDone={r.reload} />}<Card title="Hồ sơ đã gửi"><Table headers={['Người nộp', 'Chuyên môn', 'Kinh nghiệm', 'Trạng thái', '']} rows={r.data} render={h => <tr key={h.id}><td>{h.fullName || user.fullName}<small>{date(h.createdAt)}</small></td><td>{groups[h.skillGroup]}<small>{h.serviceArea}</small></td><td>{h.experience}</td><td><Badge value={h.status} /><small>{h.reason}</small></td><td>{user.role === 'ADMIN' && h.status === 'Pending' && <button className="btn small" onClick={() => setSelected(h)}>Xét duyệt</button>}</td></tr>} /></Card>{selected && <ApplicationDecision record={selected} onClose={() => setSelected(null)} onDone={() => { setSelected(null); r.reload(); }} />}</>; }
 function ApplicationDecision({ record, onClose, onDone }) { const a = useAction(), [decision, setDecision] = useState('Approved'), [reason, setReason] = useState(''); return <Modal title={'Xét hồ sơ ' + record.fullName} onClose={onClose}><form onSubmit={e => { e.preventDefault(); a.run(async () => { await api('/technician-applications/' + record.id + '/decision', { method: 'POST', body: { decision, expectedVersion: record.version, ...(reason ? { reason } : {}) } }); onDone(); }); }}><p>{record.experience}</p>{record.profileJson && <ApplicationProfile json={record.profileJson} />}{(record.frontDocumentId || record.backDocumentId) && <div className="image-grid">{record.frontDocumentId && <ProtectedImage id={record.frontDocumentId} alt="CCCD mặt trước" />}{record.backDocumentId && <ProtectedImage id={record.backDocumentId} alt="CCCD mặt sau" />}</div>}<Field label="Kết quả"><select value={decision} onChange={e => setDecision(e.target.value)}><option value="Approved">Duyệt thành kỹ thuật viên</option><option value="Rejected">Từ chối</option></select></Field><Field label="Lý do"><textarea required={decision === 'Rejected'} value={reason} onChange={e => setReason(e.target.value)} /></Field><small>Chỉ duyệt khi người nộp không còn đơn khách hàng đang mở. Người được duyệt cần đăng nhập lại và nạp ví trước khi nhận việc.</small><ErrorBox error={a.error} /><div className="form-actions"><Submit busy={a.busy}>Xác nhận kết quả</Submit></div></form></Modal>; }
 export function Reports() { return <ReportWorkspace finance={<FinancialReport />} />; }
@@ -411,4 +1273,226 @@ function FinancialBreakdown({ rows }) {
  const sum = (key, predicate = () => true) => rows.filter(predicate).reduce((total, row) => total + Number(row[key] || 0), 0);
  const collected=sum('amount'),commission=sum('commissionAmount'),materials=sum('materialTotal');
  return <div className="two-column"><Card title="Dòng tiền đã thu trong kỳ"><div className="money-lines"><div><span>Khách thanh toán tiền mặt</span><b>{money(sum('amount',r=>r.method==='COD'))}</b></div><div><span>Khách chuyển khoản về HomeFix</span><b>{money(sum('amount',r=>r.method==='BANK'))}</b></div><div className="total"><span>Tổng giá trị đơn đã thu</span><strong>{money(collected)}</strong></div></div><p>{rows.length} giao dịch thanh toán trong kỳ.</p></Card><Card title="Phân bổ doanh thu & chi phí dịch vụ"><div className="money-lines"><div><span>Vật tư được khách duyệt</span><b>{money(materials)}</b></div><div><span>Phí kiểm tra & tiền công</span><b>{money(sum('inspectionFee')+sum('laborFee'))}</b></div><div><span>Hoa hồng của HomeFix</span><b>{money(commission)}</b></div><div><span>Trong đó đã đối soát</span><b>{money(sum('commissionAmount',r=>r.settlementStatus==='Confirmed'))}</b></div><div className="total"><span>Phần thuộc KTV, gồm hoàn chi vật tư</span><strong>{money(collected-commission)}</strong></div></div><small>Chưa tính lợi nhuận ròng vì hệ thống chưa ghi nhận chi phí vận hành. Hoa hồng là khoản thu của HomeFix; không đồng nhất với toàn bộ tiền khách trả.</small></Card></div>;
+}
+
+/* ============================
+   BẢNG ĐIỀU PHỐI – DPV
+   ============================ */
+function QuickAssignModal({ order, onClose, onDone }) {
+  const techs = useData('/technicians/available?orderId=' + order.id);
+  const a = useAction();
+  const [selected, setSelected] = useState(null);
+  const assign = () => a.run(async () => {
+    await api('/orders/' + order.id + '/assignments', { method: 'POST', body: { technicianId: selected, expectedVersion: order.version } });
+    onDone();
+  }, 'Đã gửi lệnh nhận việc thành công.');
+  return (
+    <Modal title={'Phân công nhanh · ' + code(order.id)} onClose={onClose}>
+      <p style={{ color: '#5f6368', marginBottom: '8px' }}><b>{order.serviceName}</b> — {order.address}</p>
+      <ErrorBox error={techs.error || a.error} />
+      {techs.loading ? <Loading /> : !techs.data?.length
+        ? <Empty title="Không có kỹ thuật viên phù hợp" text="Không có KTV sẵn sàng đúng chuyên môn và khu vực cho đơn này." />
+        : <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+            {techs.data.map(t => (
+              <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', border: '1px solid ' + (selected === t.id ? '#116a4e' : '#e0e0e0'), borderRadius: '8px', cursor: 'pointer', background: selected === t.id ? '#f0faf5' : '#fff', transition: 'all .15s' }}>
+                <input type="radio" name="tech" value={t.id} checked={selected === t.id} onChange={() => setSelected(t.id)} style={{ accentColor: '#116a4e' }} />
+                <div style={{ flex: 1 }}>
+                  <b style={{ display: 'block' }}>{t.fullName}</b>
+                  <small style={{ color: '#5f6368' }}>{groups[t.skillGroup]} · {t.serviceArea}</small>
+                </div>
+                <span className="badge green">Sẵn sàng</span>
+              </label>
+            ))}
+          </div>
+      }
+      <div className="form-actions">
+        <button className="btn" type="button" onClick={onClose}>Hủy</button>
+        <Submit busy={a.busy} disabled={!selected} onClick={assign}>Giao việc</Submit>
+      </div>
+    </Modal>
+  );
+}
+
+function AssignmentHistoryTab() {
+  const [filter, setFilter] = useState({ status: '', page: 1 });
+  const q = new URLSearchParams();
+  if (filter.status) q.set('status', filter.status);
+  q.set('page', filter.page); q.set('pageSize', 15);
+  const r = useData('/assignments/history?' + q.toString());
+  const set = (k, v) => setFilter(s => ({ ...s, [k]: v, page: k === 'page' ? v : 1 }));
+  return <>
+    <div className="filter-bar" style={{ marginBottom: '12px' }}>
+      <Field label="Trạng thái lệnh">
+        <select value={filter.status} onChange={e => set('status', e.target.value)}>
+          <option value="">Tất cả</option>
+          <option value="Accepted">Đã nhận</option>
+          <option value="Rejected">Từ chối</option>
+          <option value="Expired">Hết hạn</option>
+          <option value="Pending">Đang chờ</option>
+        </select>
+      </Field>
+    </div>
+    <ErrorBox error={r.error} />
+    {r.loading ? <Loading /> : <Card>
+      <Table
+        headers={['Lệnh', 'Đơn dịch vụ', 'Kỹ thuật viên', 'Thời điểm giao', 'Hết hạn lúc', 'Kết quả']}
+        rows={r.data}
+        render={a => <tr key={a.id}>
+          <td><b style={{ color: '#116a4e' }}>LDP-{String(a.id).padStart(4, '0')}</b></td>
+          <td><Link className="text-link" to={'/orders/' + a.orderId}>{code(a.orderId)}</Link></td>
+          <td>{a.technicianName || '—'}</td>
+          <td>{date(a.createdAt)}</td>
+          <td>{date(a.expiresAt)}</td>
+          <td><Badge value={a.status} />{a.reason && <small style={{ display: 'block', color: '#d93025' }}>{a.reason}</small>}</td>
+        </tr>}
+      />
+    </Card>}
+    <div className="pagination">
+      <button className="btn" disabled={filter.page === 1} onClick={() => set('page', filter.page - 1)}>Trang trước</button>
+      <span>Trang {filter.page}</span>
+      <button className="btn" disabled={!r.data || r.data.length < 15} onClick={() => set('page', filter.page + 1)}>Trang sau</button>
+    </div>
+  </>;
+}
+
+export function DispatchBoard() {
+  const [tab, setTab] = useState('board');
+  const pendingOrders = useData('/orders?status=ChoPhanCong&pageSize=50', 15000);
+  const waitingOrders = useData('/orders?status=ChoTiepNhan&pageSize=50', 15000);
+  const allTechs = useData('/technicians', 15000);
+  const [assignTarget, setAssignTarget] = useState(null);
+
+  const reload = () => { pendingOrders.reload(); waitingOrders.reload(); allTechs.reload(); };
+
+  const ready = allTechs.data?.filter(t => t.availability === 'SanSang') || [];
+  const busy = allTechs.data?.filter(t => t.availability === 'DangBan') || [];
+  const off = allTechs.data?.filter(t => t.availability === 'TamBan') || [];
+
+  return <>
+    <PageHead eyebrow="ĐIỀU PHỐI VIÊN" title="Bảng điều phối HomeFix" text="Theo dõi đơn cần phân công và trạng thái kỹ thuật viên theo thời gian thực.">
+      <button className="btn" onClick={reload}><RefreshCw size={16} /> Cập nhật</button>
+      <Link className="btn primary" to="/orders"><Plus size={17} /> Xem tất cả đơn</Link>
+    </PageHead>
+
+    {/* KPIs nhanh */}
+    <div className="stat-grid" style={{ marginBottom: '24px' }}>
+      <div className="stat-card" style={{ borderLeft: '3px solid #fbbc04' }}>
+        <div className="stat-label">Chờ tiếp nhận<ChartNoAxesCombined size={19} /></div>
+        <strong style={{ color: '#fbbc04' }}>{waitingOrders.data?.length ?? '…'}</strong>
+        <small>Cần lập báo giá sơ bộ</small>
+      </div>
+      <div className="stat-card" style={{ borderLeft: '3px solid #d93025' }}>
+        <div className="stat-label">Chờ phân công<Users size={19} /></div>
+        <strong style={{ color: '#d93025' }}>{pendingOrders.data?.length ?? '…'}</strong>
+        <small>Cần chỉ định KTV ngay</small>
+      </div>
+      <div className="stat-card" style={{ borderLeft: '3px solid #116a4e' }}>
+        <div className="stat-label">KTV sẵn sàng<CheckCircle2 size={19} /></div>
+        <strong style={{ color: '#116a4e' }}>{ready.length}</strong>
+        <small>Có thể nhận việc ngay</small>
+      </div>
+      <div className="stat-card" style={{ borderLeft: '3px solid #1a73e8' }}>
+        <div className="stat-label">KTV đang làm việc<UserCircle size={19} /></div>
+        <strong style={{ color: '#1a73e8' }}>{busy.length}</strong>
+        <small>{off.length} người tạm nghỉ</small>
+      </div>
+    </div>
+
+    <div className="tabs" style={{ marginBottom: '20px' }}>
+      <button className={tab === 'board' ? 'active' : ''} onClick={() => setTab('board')}>
+        Bảng điều phối
+        {(pendingOrders.data?.length || 0) > 0 && <AttentionDot show />}
+      </button>
+      <button className={tab === 'techs' ? 'active' : ''} onClick={() => setTab('techs')}>Danh sách KTV</button>
+      <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>Lịch sử lệnh</button>
+    </div>
+
+    {tab === 'board' && <>
+      {/* Đơn chờ phân công */}
+      <Card title={`Đơn chờ phân công (${pendingOrders.data?.length ?? 0})`}>
+        <ErrorBox error={pendingOrders.error} />
+        {pendingOrders.loading ? <Loading /> :
+          <Table
+            headers={['Mã đơn', 'Dịch vụ', 'Khách hàng', 'Địa chỉ', 'Lịch hẹn', 'Thao tác']}
+            rows={pendingOrders.data}
+            empty="Không có đơn nào đang chờ phân công."
+            render={o => <tr key={o.id}>
+              <td><b style={{ color: '#116a4e' }}>{code(o.id)}</b></td>
+              <td>{o.serviceName}<small>{groups[o.serviceGroup]}</small></td>
+              <td>{o.contactName}<small>{o.contactPhone}</small></td>
+              <td><small>{o.address}</small></td>
+              <td>{date(o.scheduledAt)}</td>
+              <td>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button className="btn small primary" onClick={() => setAssignTarget(o)}>
+                    <AttentionDot /> Phân công nhanh
+                  </button>
+                  <Link className="btn small" to={'/orders/' + o.id}>Chi tiết</Link>
+                </div>
+              </td>
+            </tr>}
+          />
+        }
+      </Card>
+
+      {/* Đơn chờ tiếp nhận */}
+      <Card title={`Đơn chờ tiếp nhận (${waitingOrders.data?.length ?? 0})`} style={{ marginTop: '16px' }}>
+        <ErrorBox error={waitingOrders.error} />
+        {waitingOrders.loading ? <Loading /> :
+          <Table
+            headers={['Mã đơn', 'Dịch vụ', 'Khách hàng', 'Địa chỉ', 'Ngày tạo', 'Thao tác']}
+            rows={waitingOrders.data}
+            empty="Không có đơn nào đang chờ tiếp nhận."
+            render={o => <tr key={o.id}>
+              <td><b>{code(o.id)}</b></td>
+              <td>{o.serviceName}<small>{groups[o.serviceGroup]}</small></td>
+              <td>{o.contactName}<small>{o.contactPhone}</small></td>
+              <td><small>{o.address}</small></td>
+              <td>{date(o.createdAt)}</td>
+              <td><Link className="btn small primary" to={'/orders/' + o.id}><AttentionDot /> Lập báo giá</Link></td>
+            </tr>}
+          />
+        }
+      </Card>
+    </>}
+
+    {tab === 'techs' && <Card title="Danh sách kỹ thuật viên">
+      <ErrorBox error={allTechs.error} />
+      {allTechs.loading ? <Loading /> : <>
+        {Object.entries(groups).map(([gk, gname]) => {
+          const list = (allTechs.data || []).filter(t => t.skillGroup === gk);
+          if (!list.length) return null;
+          return <div key={gk} style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#5f6368', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {gname}
+              <span style={{ fontWeight: 'normal', textTransform: 'none', letterSpacing: 0 }}>
+                — {list.filter(t => t.availability === 'SanSang').length} sẵn sàng / {list.length}
+              </span>
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+              {list.map(t => (
+                <div key={t.id} style={{ padding: '12px 14px', border: '1px solid ' + (t.availability === 'SanSang' ? '#c8e6c9' : t.availability === 'DangBan' ? '#bbdefb' : '#eee'), borderRadius: '8px', background: t.availability === 'SanSang' ? '#f1fdf4' : t.availability === 'DangBan' ? '#e8f4fd' : '#fafafa' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <b style={{ fontSize: '14px' }}>{t.fullName}</b>
+                    <Badge value={t.availability} />
+                  </div>
+                  <small style={{ color: '#5f6368' }}>{t.serviceArea || 'TP.HCM'}</small>
+                </div>
+              ))}
+            </div>
+          </div>;
+        })}
+      </>}
+    </Card>}
+
+    {tab === 'history' && <AssignmentHistoryTab />}
+
+    {assignTarget && (
+      <QuickAssignModal
+        order={assignTarget}
+        onClose={() => setAssignTarget(null)}
+        onDone={() => { setAssignTarget(null); reload(); }}
+      />
+    )}
+  </>;
 }

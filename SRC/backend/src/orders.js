@@ -22,6 +22,30 @@ ordersRouter.get('/orders', roles('KH', 'KTV', 'DPV', 'CSKH', 'KT', 'ADMIN'), wr
     if (req.query.from) { where += ' AND d.createdAt>=@from'; params.from = new Date(req.query.from); }
     if (req.query.to) { where += ' AND d.createdAt<@to'; params.to = new Date(req.query.to); }
     if (req.query.paymentStatus === 'Paid') where += ' AND p.id IS NOT NULL'; else if (req.query.paymentStatus === 'Unpaid') where += ' AND p.id IS NULL';
+
+    if (req.query.phone) {
+        where += ' AND d.contactPhone LIKE @phone';
+        params.phone = `%${String(req.query.phone).trim()}%`;
+    }
+    if (req.query.orderId) {
+        const oIdStr = String(req.query.orderId).trim();
+        const clean = oIdStr.replace(/^HF-?/i, '').replace(/^#/, '').trim();
+        let numId = 0;
+        if (/^\d{1,8}$/.test(clean)) numId = parseInt(clean, 10);
+        where += " AND ((@numId > 0 AND d.id = @numId) OR CAST(d.id AS varchar) LIKE @orderIdPattern OR ('HF-' + RIGHT('000000' + CAST(d.id AS varchar), 6)) LIKE @orderIdPattern)";
+        params.numId = numId;
+        params.orderIdPattern = `%${oIdStr}%`;
+    }
+    if (req.query.q && !req.query.phone && !req.query.orderId) {
+        const qStr = String(req.query.q).trim();
+        const clean = qStr.replace(/^HF-?/i, '').replace(/^#/, '').trim();
+        let numId = 0;
+        if (/^\d{1,8}$/.test(clean)) numId = parseInt(clean, 10);
+        where += " AND ((@qNumId > 0 AND d.id = @qNumId) OR CAST(d.id AS varchar) LIKE @qPattern OR ('HF-' + RIGHT('000000' + CAST(d.id AS varchar), 6)) LIKE @qPattern OR d.contactPhone LIKE @qPattern OR d.contactName LIKE @qPattern)";
+        params.qNumId = numId;
+        params.qPattern = `%${qStr}%`;
+    }
+
     const total = await one(`SELECT COUNT(*) n FROM dbo.DonHang d LEFT JOIN dbo.ThanhToan p ON p.orderId=d.id WHERE ${where}`, params);
     const rows = await q(`SELECT d.*,CASE WHEN p.id IS NULL THEN 'Unpaid' ELSE 'Paid' END paymentStatus,n.fullName technicianName FROM dbo.DonHang d LEFT JOIN dbo.ThanhToan p ON p.orderId=d.id LEFT JOIN dbo.NguoiDung n ON n.id=d.assignedTechnicianId WHERE ${where} ORDER BY d.id DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`, params); ok(res, rows, 200, { ...p, total: total.n });
 }));
@@ -84,7 +108,7 @@ ordersRouter.get('/technicians/available', roles('DPV'), wrap(async (req, res) =
     const order = await getOrder(id(req.query.orderId), req.user); const min = await setting(null, 'minimumWallet', '200000');
     ok(res, await q("SELECT k.id,n.fullName,k.skillGroup,k.serviceArea,k.availability,k.latitude,k.longitude,k.positionUpdatedAt FROM dbo.KyThuatVien k JOIN dbo.NguoiDung n ON n.id=k.id WHERE n.isActive=1 AND n.role='KTV' AND k.availability='SanSang' AND k.balance>=CAST(@min AS decimal(18,2)) AND k.skillGroup=@group AND NOT EXISTS(SELECT 1 FROM dbo.LenhDieuPhoi a WHERE a.technicianId=k.id AND a.isActive=1)", { min, group: order.serviceGroup }));
 }));
-ordersRouter.get('/technicians', roles('DPV'), wrap(async (req, res) => ok(res, await q("SELECT k.id,n.fullName,k.skillGroup,k.serviceArea,k.availability FROM dbo.KyThuatVien k JOIN dbo.NguoiDung n ON n.id=k.id WHERE n.isActive=1 AND n.role='KTV'"))));
+ordersRouter.get('/technicians', roles('DPV'), wrap(async (req, res) => ok(res, await q("SELECT k.id,n.fullName,n.phone,k.skillGroup,k.serviceArea,k.availability,k.balance,k.latitude,k.longitude,k.positionUpdatedAt,(SELECT AVG(CAST(rating AS decimal(5,2))) FROM dbo.DanhGia WHERE technicianId=k.id) averageRating,(SELECT COUNT(*) FROM dbo.DonHang WHERE assignedTechnicianId=k.id AND status='HoanThanh') completedOrders FROM dbo.KyThuatVien k JOIN dbo.NguoiDung n ON n.id=k.id WHERE n.isActive=1 AND n.role='KTV'"))));
 ordersRouter.post('/orders/:id/assignments', roles('DPV'), wrap(async (req, res) => {
     const oid = id(req.params.id), b = z.strictObject({ technicianId: z.number().int().positive(), expectedVersion: versionSchema }).parse(req.body);
     const a = await transaction(req.user, async t => {
@@ -98,6 +122,12 @@ ordersRouter.post('/orders/:id/assignments', roles('DPV'), wrap(async (req, res)
     }); ok(res, a, 201);
 }));
 ordersRouter.get('/technicians/me/assignments', roles('KTV'), wrap(async (req, res) => ok(res, await q('SELECT a.*,d.serviceName,d.address,d.description FROM dbo.LenhDieuPhoi a JOIN dbo.DonHang d ON d.id=a.orderId WHERE a.technicianId=@id AND (a.isActive=1 OR a.status=@accepted) ORDER BY a.id DESC', { id: req.user.id, accepted: 'Accepted' }))));
+ordersRouter.get('/assignments/history', roles('DPV', 'ADMIN'), wrap(async (req, res) => {
+    const p = page(req); let where = '1=1'; const params = { offset: (p.page - 1) * p.pageSize, limit: p.pageSize };
+    if (req.query.status) { where += ' AND a.status=@status'; params.status = String(req.query.status); }
+    const rows = await q(`SELECT a.*,n.fullName technicianName FROM dbo.LenhDieuPhoi a LEFT JOIN dbo.NguoiDung n ON n.id=a.technicianId WHERE ${where} ORDER BY a.id DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`, params);
+    ok(res, rows, 200, p);
+}));
 ordersRouter.get('/assignments/:id', roles('KTV', 'DPV'), wrap(async (req, res) => { const a = await one('SELECT * FROM dbo.LenhDieuPhoi WHERE id=@id', { id: id(req.params.id) }); if (!a || (req.user.role === 'KTV' && a.technicianId !== req.user.id)) fail(404, 'NOT_FOUND', 'Không tìm thấy lệnh.'); ok(res, a); }));
 ordersRouter.get('/orders/:id/assignments', roles('KTV', 'DPV'), wrap(async (req, res) => { const oid = id(req.params.id); await getOrder(oid, req.user); ok(res, await q(`SELECT * FROM dbo.LenhDieuPhoi WHERE orderId=@id ${req.user.role === 'KTV' ? 'AND technicianId=@uid' : ''} ORDER BY id DESC`, { id: oid, uid: req.user.id })); }));
 ordersRouter.post('/assignments/:id/decision', roles('KTV'), wrap(async (req, res) => {
@@ -116,17 +146,17 @@ ordersRouter.patch('/technicians/me/location', roles('KTV'), wrap(async (req, re
 ordersRouter.get('/orders/:id/technician-location', roles('KH', 'DPV'), wrap(async (req, res) => { const o = await getOrder(id(req.params.id), req.user); ok(res, !o.assignedTechnicianId || ['HoanThanh', 'Huy'].includes(o.status) ? null : await one('SELECT latitude,longitude,accuracyMeters,positionUpdatedAt FROM dbo.KyThuatVien WHERE id=@id', { id: o.assignedTechnicianId })); }));
 
 // Customer GPS belongs to the order, separate from the technician's location.
-ordersRouter.get('/orders/:id/customer-location',roles('KH','KTV','DPV'),wrap(async(req,res)=>{
- const o=await getOrder(id(req.params.id),req.user);
- ok(res,['HoanThanh','Huy'].includes(o.status)?null:await one('SELECT latitude,longitude,accuracyMeters,positionUpdatedAt FROM dbo.ViTriKhachHang WHERE orderId=@id',{id:o.id})||null);
+ordersRouter.get('/orders/:id/customer-location', roles('KH', 'KTV', 'DPV'), wrap(async (req, res) => {
+    const o = await getOrder(id(req.params.id), req.user);
+    ok(res, ['HoanThanh', 'Huy'].includes(o.status) ? null : await one('SELECT latitude,longitude,accuracyMeters,positionUpdatedAt FROM dbo.ViTriKhachHang WHERE orderId=@id', { id: o.id }) || null);
 }));
-ordersRouter.patch('/orders/:id/customer-location',roles('KH'),wrap(async(req,res)=>{
- const oid=id(req.params.id),b=z.strictObject({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180),accuracyMeters:z.number().min(0).max(100000)}).parse(req.body);
- const location=await transaction(req.user,async t=>{
-  const o=await getOrder(oid,req.user,t);
-  if(['HoanThanh','Huy'].includes(o.status))fail(409,'ORDER_CLOSED','Đơn đã kết thúc, không thể cập nhật vị trí.');
-  if(await one('SELECT orderId FROM dbo.ViTriKhachHang WHERE orderId=@id',{id:oid},t))await q('UPDATE dbo.ViTriKhachHang SET latitude=@latitude,longitude=@longitude,accuracyMeters=@accuracyMeters,positionUpdatedAt=SYSUTCDATETIME() WHERE orderId=@id',{...b,id:oid},t);
-  else await q('INSERT dbo.ViTriKhachHang(orderId,latitude,longitude,accuracyMeters) VALUES(@id,@latitude,@longitude,@accuracyMeters)',{...b,id:oid},t);
-  return one('SELECT latitude,longitude,accuracyMeters,positionUpdatedAt FROM dbo.ViTriKhachHang WHERE orderId=@id',{id:oid},t);
- });ok(res,location);
+ordersRouter.patch('/orders/:id/customer-location', roles('KH'), wrap(async (req, res) => {
+    const oid = id(req.params.id), b = z.strictObject({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180), accuracyMeters: z.number().min(0).max(100000) }).parse(req.body);
+    const location = await transaction(req.user, async t => {
+        const o = await getOrder(oid, req.user, t);
+        if (['HoanThanh', 'Huy'].includes(o.status)) fail(409, 'ORDER_CLOSED', 'Đơn đã kết thúc, không thể cập nhật vị trí.');
+        if (await one('SELECT orderId FROM dbo.ViTriKhachHang WHERE orderId=@id', { id: oid }, t)) await q('UPDATE dbo.ViTriKhachHang SET latitude=@latitude,longitude=@longitude,accuracyMeters=@accuracyMeters,positionUpdatedAt=SYSUTCDATETIME() WHERE orderId=@id', { ...b, id: oid }, t);
+        else await q('INSERT dbo.ViTriKhachHang(orderId,latitude,longitude,accuracyMeters) VALUES(@id,@latitude,@longitude,@accuracyMeters)', { ...b, id: oid }, t);
+        return one('SELECT latitude,longitude,accuracyMeters,positionUpdatedAt FROM dbo.ViTriKhachHang WHERE orderId=@id', { id: oid }, t);
+    }); ok(res, location);
 }));

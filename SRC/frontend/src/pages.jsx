@@ -66,7 +66,82 @@ function ExecutivePolicy({ title, text }) { return <article><b>{title}</b><small
 function executiveMonths(trend) { const months = Array.from({ length: 6 }, (_, index) => { const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() - (5 - index)); return { key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`, label: `T${date.getMonth() + 1}`, revenue: 0, profit: 0 }; }); for (const item of trend) { const month = String(item.day || '').slice(0, 7), target = months.find(entry => entry.key === month); if (target) { target.revenue += Number(item.amount || 0); target.profit += Number(item.amount || 0) * .15; } } return months; }
 function ExecutiveChart({ rows, maximum }) { const points = key => rows.map((row, index) => `${20 + index * 88},${164 - row[key] / maximum * 130}`).join(' '); return <div className="executive-chart"><svg viewBox="0 0 480 190" preserveAspectRatio="none" aria-label="Biểu đồ doanh thu và lợi nhuận"><path className="chart-grid" d="M20 35H460M20 78H460M20 121H460M20 164H460" /><polyline className="chart-revenue" points={points('revenue')} /><polyline className="chart-profit" points={points('profit')} /></svg><div className="executive-chart-labels">{rows.map(row => <span key={row.key}>{row.label}</span>)}</div></div>; }
 export function PolicyApproval() { const { toast } = useApp(), r = useData('/director/policy-proposals', 5000), action = useAction(); const proposals = r.data || []; const [selectedId, setSelectedId] = useState(null), [note, setNote] = useState(''), [effectiveAt, setEffectiveAt] = useState('tomorrow'); useEffect(() => { if (!selectedId && proposals.length > 0) setSelectedId(proposals[0].id); }, [proposals, selectedId]); const selected = proposals.find(proposal => proposal.id === selectedId) || proposals[0]; const decide = async status => { if (['RevisionRequested', 'Rejected'].includes(status) && !note) { action.setError(new Error('Vui lòng nhập ý kiến phê duyệt / chỉ đạo.')); return; } await action.run(async () => { await api(`/director/policy-proposals/${selected.id}/decision`, { method: 'POST', body: { decision: status, note: note || undefined, effectiveAt, expectedVersion: selected.version } }); toast(status === 'Approved' ? `Đã phê duyệt ${selected.proposalCode}.` : status === 'RevisionRequested' ? `Đã gửi yêu cầu chỉnh sửa ${selected.proposalCode}.` : `Đã từ chối ${selected.proposalCode}.`); setNote(''); setSelectedId(null); await r.reload(); }, ''); }; return <div className="policy-approval"><div className="policy-heading"><div><div className="breadcrumb-text">HomeFix <span>›</span> Phê duyệt chính sách</div><h1>Phê duyệt chính sách & Bảng giá mới</h1><p>Xem xét các đề xuất điều chỉnh giá sản phẩm, chiết khấu và cơ chế thưởng cho kỹ thuật viên.</p></div></div><ErrorBox error={r.error || action.error} /><div className="policy-layout"><section className="policy-list"><h2>Danh sách đề xuất chờ duyệt</h2>{r.loading ? <Loading /> : proposals.length ? proposals.map(proposal => <button type="button" key={proposal.id} className={proposal.id === selected?.id ? 'selected' : ''} onClick={() => { setSelectedId(proposal.id); action.setError(null); }}><span>Chờ duyệt</span><b>{proposal.title}</b><small>{proposal.department}<em>{date(proposal.submittedAt)}</em></small><i>Đang chọn <ArrowRight size={13} /></i></button>) : <Empty title="Không còn đề xuất chờ duyệt" text="Các đề xuất mới sẽ xuất hiện tại đây." />}</section>{selected && <section className="policy-detail"><div className="policy-detail-head"><div><h2>Chi tiết đề xuất {selected.proposalCode}</h2><small>Bảng so sánh giá & chiết khấu</small></div><small>Ngày gửi: {date(selected.submittedAt)}</small></div><div className="policy-compare"><div className="policy-compare-head"><span>Hạng mục</span><span>Hiện tại</span><span>Đề xuất mới</span></div><div><b>Chiết khấu dịch vụ</b><span>{selected.currentDiscount != null ? selected.currentDiscount + '%' : '—'}</span><strong>{selected.proposedDiscount != null ? selected.proposedDiscount + '%' : '—'}</strong></div><div><b>Thưởng hiệu suất</b><span>{selected.currentBonus || '—'}</span><strong>{selected.proposedBonus || '—'}</strong></div></div><div className="policy-impact"><b>Dự báo tăng trưởng biên lợi nhuận ròng</b><p>{selected.impact}</p></div><div className="policy-readonly"><b>Ghi chú người đề xuất</b><p>{selected.reason}</p></div><label className="policy-note">Ý kiến phê duyệt / Chỉ đạo<textarea value={note} onChange={event => setNote(event.target.value)} placeholder="Nhập chỉ đạo hoặc yêu cầu chỉnh sửa chính sách..." disabled={action.busy} /></label><label className="policy-effective">Thời gian áp dụng<select value={effectiveAt} onChange={event => setEffectiveAt(event.target.value)} disabled={action.busy}><option value="tomorrow">Áp dụng sau 00h00 ngày hôm sau</option><option value="week">Áp dụng từ đầu tuần sau</option><option value="month">Áp dụng từ đầu tháng sau</option></select></label><div className="policy-actions"><button className="btn danger" disabled={action.busy} onClick={() => decide('Rejected')}>Từ chối</button><button className="btn warning" disabled={action.busy} onClick={() => decide('RevisionRequested')}>Yêu cầu sửa</button><button className="btn primary" disabled={action.busy} onClick={() => decide('Approved')}><CheckCircle2 size={17} /> Phê duyệt</button></div></section>}</div></div>; }
-function StaffHome() { const { user } = useApp(); const summary = useData('/reports/summary', 15000), orders = useData(['DPV', 'CSKH'].includes(user.role) ? '/orders?pageSize=8' : null), users = useData(user.role === 'ADMIN' ? '/users' : null); const targets = { DPV: ['/orders', 'Mở bàn điều phối'], CSKH: ['/support', 'Xử lý yêu cầu hỗ trợ'], KT: ['/finance', 'Mở đối soát & ví'], ADMIN: ['/admin/users', 'Quản lý tài khoản'], GD: ['/reports', 'Xem báo cáo chi tiết'] }; return <><PageHead eyebrow="TỔNG QUAN HOẠT ĐỘNG" title={`Xin chào, ${user.fullName.split(' ').at(-1)}`} text="Dữ liệu cập nhật từ các đơn dịch vụ trong hệ thống."><Link className="btn primary" to={targets[user.role][0]}>{targets[user.role][1]} <ArrowRight size={17} /></Link></PageHead><ErrorBox error={summary.error} />{summary.data && <div className="stat-grid"><Stat label="Tổng đơn dịch vụ" value={summary.data.totalOrders} /><Stat label="Đã hoàn thành" value={summary.data.completedOrders} icon={ShieldCheck} /><Stat label="Giá trị đơn đã thu" value={money(summary.data.gmv)} icon={Wallet} /><Stat label="Hoa hồng đã đối soát" value={money(summary.data.commissionRevenue)} icon={Star} /></div>}<div className="two-column"><Card title={user.role === 'ADMIN' ? 'Tài khoản hệ thống' : 'Đơn dịch vụ gần đây'}>{user.role === 'ADMIN' ? <><p>Quản lý tài khoản và quyền truy cập theo bảy vai trò nghiệp vụ.</p><strong className="big-number">{users.data?.length ?? '—'}</strong><p>Tài khoản đang được quản lý</p><Link to="/admin/users" className="btn">Xem danh sách <ArrowRight size={16} /></Link></> : orders.data?.length ? orders.data.slice(0, 4).map(o => <OrderCard key={o.id} order={o} />) : <Empty title="Mọi thứ sẵn sàng" text="Dữ liệu mới xuất hiện khi khách đặt và hoàn tất dịch vụ." />}</Card><Card title="Luồng phục vụ khách hàng"><ol className="workflow-list">{['Tiếp nhận yêu cầu & báo giá', 'Khách duyệt và điều phối thợ', 'Sửa chữa & duyệt vật tư', 'Nghiệm thu, thu COD & đánh giá'].map((s, i) => <li key={s}><span>{i + 1}</span><div><b>{s}</b><small>{['Kiểm tra thông tin và ảnh lỗi', 'Đúng chuyên môn, đúng quyền', 'Mọi phát sinh đều được xác nhận', 'Đối soát hoa hồng đúng một lần'][i]}</small></div></li>)}</ol></Card></div></>; }
+function StaffHome() {
+  const { user } = useApp();
+  const summary = useData('/reports/summary', 15000);
+  const orders = useData(['DPV', 'CSKH'].includes(user.role) ? '/orders?pageSize=12' : null);
+  const users = useData(user.role === 'ADMIN' ? '/users' : null);
+
+  const targets = {
+    DPV: ['/orders', 'Mở bàn điều phối'],
+    CSKH: ['/support', 'Xử lý yêu cầu hỗ trợ'],
+    KT: ['/finance', 'Mở đối soát & ví'],
+    ADMIN: ['/admin/users', 'Quản lý tài khoản'],
+    GD: ['/reports', 'Xem báo cáo chi tiết']
+  };
+
+  const pendingAssign = orders.data?.filter(o => ['ChoTiepNhan', 'ChoDuyetSoBo', 'ChoPhanCong'].includes(o.status))?.length || 0;
+  const inProgress = orders.data?.filter(o => ['ChoNhan', 'DaTiepNhan', 'DangDiChuyen', 'DaDenNoi', 'DangXuLy'].includes(o.status))?.length || 0;
+
+  return (
+    <>
+      <PageHead
+        eyebrow="TỔNG QUAN HOẠT ĐỘNG"
+        title={`Xin chào, ${user.fullName.split(' ').at(-1)}`}
+        text="Dữ liệu cập nhật từ các đơn dịch vụ trong hệ thống."
+      >
+        <Link className="btn primary" to={targets[user.role]?.[0] || '/orders'}>
+          {targets[user.role]?.[1] || 'Xem công việc'} <ArrowRight size={17} />
+        </Link>
+      </PageHead>
+
+      <ErrorBox error={summary.error} />
+
+      {summary.data && (
+        <div className="stat-grid">
+          <Stat label="Tổng đơn dịch vụ" value={summary.data.totalOrders} />
+          <Stat label="Đã hoàn thành" value={summary.data.completedOrders} icon={ShieldCheck} />
+          <Stat label="Giá trị đơn đã thu" value={money(summary.data.gmv)} icon={Wallet} />
+          <Stat label="Hoa hồng đã đối soát" value={money(summary.data.commissionRevenue)} icon={Star} />
+        </div>
+      )}
+
+      {user.role === 'ADMIN' ? (
+        <div className="two-column">
+          <Card title="Tài khoản hệ thống">
+            <p>Quản lý tài khoản và quyền truy cập theo bảy vai trò nghiệp vụ.</p>
+            <strong className="big-number">{users.data?.length ?? '—'}</strong>
+            <p>Tài khoản đang được quản lý</p>
+            <Link to="/admin/users" className="btn">Xem danh sách <ArrowRight size={16} /></Link>
+          </Card>
+        </div>
+      ) : (
+        <Card
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <span style={{ fontSize: '18px', fontWeight: '700', color: '#111827' }}>Đơn dịch vụ gần đây</span>
+              {orders.data?.length > 0 && (
+                <Link to="/orders" style={{ fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary, #047857)', textDecoration: 'none' }}>
+                  Xem tất cả ({orders.data.length}) <ArrowRight size={15} />
+                </Link>
+              )}
+            </div>
+          }
+        >
+          {orders.data?.length ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: '14px', marginTop: '12px' }}>
+              {orders.data.slice(0, 8).map(o => (
+                <OrderCard key={o.id} order={o} />
+              ))}
+            </div>
+          ) : (
+            <Empty title="Mọi thứ sẵn sàng" text="Dữ liệu mới xuất hiện khi khách đặt và hoàn tất dịch vụ." />
+          )}
+        </Card>
+      )}
+    </>
+  );
+}
 export function Services() {
   const s = useData('/services'); const [group, setGroup] = useState('all'), [search, setSearch] = useState('');
   return <><PageHead eyebrow="DỊCH VỤ TẠI NHÀ" title="Bạn cần HomeFix hỗ trợ gì?" text="Chọn dịch vụ phù hợp. Báo giá chính thức sẽ được gửi để bạn xác nhận trước khi phân công thợ." />
@@ -82,7 +157,168 @@ export function Booking() {
   async function submit(e) { e.preventDefault(); await a.run(async () => { const ids = []; for (const file of files) { if (!uploaded.current.has(file)) uploaded.current.set(file, (await upload(file, 'OrderFault')).id); ids.push(uploaded.current.get(file)); } const body = { serviceId: Number(serviceId), address: form.address, description: form.description, scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : null, attachmentIds: ids }; const sig = JSON.stringify(body); if (intent.current?.sig !== sig) intent.current = { sig, key: uuid() }; const r = await api('/orders', { method: 'POST', body, key: intent.current.key }); navigate('/orders/' + r.data.id); }, 'Đặt dịch vụ thành công.'); }
   return <><PageHead eyebrow="ĐẶT DỊCH VỤ" title={service?.name || 'Thông tin yêu cầu'} text="Một đơn phục vụ một thiết bị. Bạn chỉ thanh toán sau khi nghiệm thu." /><ErrorBox error={services.error} />{services.loading ? <Loading /> : !service ? <Empty title="Dịch vụ không còn được cung cấp" /> : <form onSubmit={submit} className="two-column booking-layout"><Card title="Thông tin đặt lịch"><div className="contact-summary"><span className="avatar">{user.fullName.slice(0, 1)}</span><div><b>{user.fullName}</b><small>{user.phone}</small><Link to="/profile">Chỉnh sửa thông tin liên hệ</Link></div></div><Field label="Địa chỉ thực hiện" hint="Ghi rõ số nhà, đường, phường và TP.HCM để điều phối đúng khu vực."><textarea required minLength={10} maxLength={500} value={form.address} onChange={e => set('address', e.target.value)} placeholder="Ví dụ: 1 Võ Văn Ngân, Thủ Đức, TP.HCM" /></Field><Field label="Thiết bị gặp vấn đề gì?"><textarea required minLength={5} maxLength={2000} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Mô tả hiện tượng, loại thiết bị và thông tin cần lưu ý…" rows={4} /></Field><Field label="Lịch hẹn (để trống nếu cần sớm nhất)" hint="08:00–17:30, khung 30 phút; đặt trước ít nhất 30 phút, tối đa 30 ngày."><input type="datetime-local" step="1800" value={form.scheduledAt} onChange={e => set('scheduledAt', e.target.value)} /></Field><Field label="Ảnh tình trạng thiết bị" hint="Tối đa 5 ảnh JPG/PNG, mỗi ảnh không quá 5 MB."><input type="file" accept="image/jpeg,image/png" multiple onChange={e => { const chosen = [...e.target.files]; if (chosen.length > 5 || chosen.some(f => f.size > 5242880)) { a.setError(new Error('Chọn tối đa 5 ảnh, mỗi ảnh không quá 5 MB.')); e.target.value = ''; return; } setFiles(chosen); a.setError(null); }} /></Field>{files.length > 0 && <small>Đã chọn {files.length} ảnh.</small>}<ErrorBox error={a.error} /><div className="form-actions"><Link className="btn" to="/services">Quay lại</Link><Submit busy={a.busy}>Gửi yêu cầu đặt dịch vụ</Submit></div></Card><aside><Card title="Chi phí tham khảo"><div className="money-lines"><div><span>Phí kiểm tra</span><b>{money(service.inspectionFee)}</b></div><div><span>Tiền công</span><b>{money(service.laborFee)}</b></div></div><div className="notice info"><ShieldCheck size={20} /><p>Điều phối viên gửi báo giá để bạn duyệt. Vật tư phát sinh chỉ được tính khi bạn đồng ý.</p></div><p className="policy-note">Miễn phí hủy trước khi thợ xuất phát. Hủy lúc thợ đang di chuyển: {policy.data ? money(policy.data.cancellationFee) : "đang tải mức phí"}. Khi thợ đã đến nơi, liên hệ hỗ trợ để xử lý.</p><ul className="check-list"><li><Check />Theo dõi tiến độ trong ứng dụng</li><li><Check />Xác nhận nghiệm thu bằng tài khoản</li><li><Check />Thanh toán tiền mặt hoặc chuyển khoản</li></ul></Card></aside></form>}</>;
 }
-export function Orders() { const { user } = useApp(); const [status, setStatus] = useState(''), [page, setPage] = useState(1); const r = useData('/orders?pageSize=20&page=' + page + (status ? '&status=' + status : ''), 10000); return <><PageHead eyebrow={user.role === 'KH' ? 'DỊCH VỤ CỦA BẠN' : 'QUẢN LÝ CÔNG VIỆC'} title={user.role === 'KH' ? 'Đơn dịch vụ của tôi' : 'Danh sách đơn dịch vụ'} text="Mở một đơn để xem thông tin và thực hiện bước tiếp theo.">{user.role === 'KH' && <Link className="btn primary" to="/services"><Plus size={18} /> Đặt dịch vụ</Link>}<button className="btn" onClick={r.reload}><RefreshCw size={16} /> Cập nhật</button></PageHead><div className="filter-bar"><Field label="Trạng thái"><select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}><option value="">Tất cả trạng thái</option>{Object.entries(labels).slice(0, 11).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field><span>Trang {page}</span></div><ErrorBox error={r.error} />{r.loading ? <Loading /> : r.data?.length ? <div className="order-list">{r.data.map(o => <OrderCard key={o.id} order={o} />)}</div> : <Empty title="Chưa có đơn phù hợp" text="Thử chọn trạng thái khác hoặc đặt dịch vụ mới." />}<div className="pagination"><button className="btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Trang trước</button><button className="btn" disabled={!r.data || r.data.length < 20} onClick={() => setPage(p => p + 1)}>Trang sau</button></div></>; }
+export function Orders() {
+  const { user } = useApp();
+  const [status, setStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [searchFields, setSearchFields] = useState({ orderId: '', phone: '' });
+  const [appliedFilters, setAppliedFilters] = useState({ orderId: '', phone: '', status: '' });
+  const debounceRef = useRef(null);
+
+  const queryParams = new URLSearchParams({
+    pageSize: '20',
+    page: String(page)
+  });
+  if (appliedFilters.status) queryParams.set('status', appliedFilters.status);
+  if (appliedFilters.orderId) queryParams.set('orderId', appliedFilters.orderId);
+  if (appliedFilters.phone) queryParams.set('phone', appliedFilters.phone);
+
+  const r = useData('/orders?' + queryParams.toString(), 10000);
+
+  const handleFieldChange = (key, val) => {
+    setSearchFields(s => ({ ...s, [key]: val }));
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setAppliedFilters(f => ({ ...f, [key]: val.trim() }));
+      setPage(1);
+    }, 350);
+  };
+
+  const handleStatusChange = val => {
+    setStatus(val);
+    setAppliedFilters(f => ({ ...f, status: val }));
+    setPage(1);
+  };
+
+  const handleSearchSubmit = e => {
+    if (e) e.preventDefault();
+    clearTimeout(debounceRef.current);
+    setAppliedFilters({
+      orderId: searchFields.orderId.trim(),
+      phone: searchFields.phone.trim(),
+      status
+    });
+    setPage(1);
+  };
+
+  const handleReset = () => {
+    clearTimeout(debounceRef.current);
+    setSearchFields({ orderId: '', phone: '' });
+    setStatus('');
+    setAppliedFilters({ orderId: '', phone: '', status: '' });
+    setPage(1);
+  };
+
+  const hasFilter = appliedFilters.orderId || appliedFilters.phone || appliedFilters.status;
+
+  return (
+    <>
+      <PageHead
+        eyebrow={user.role === 'KH' ? 'DỊCH VỤ CỦA BẠN' : 'QUẢN LÝ CÔNG VIỆC'}
+        title={user.role === 'KH' ? 'Đơn dịch vụ của tôi' : 'Danh sách đơn dịch vụ'}
+        text="Tra cứu và quản lý đơn dịch vụ theo mã đơn, số điện thoại hoặc trạng thái."
+      >
+        {user.role === 'KH' && (
+          <Link className="btn primary" to="/services">
+            <Plus size={18} /> Đặt dịch vụ
+          </Link>
+        )}
+        <button className="btn" onClick={r.reload}>
+          <RefreshCw size={16} /> Cập nhật
+        </button>
+      </PageHead>
+
+      <form onSubmit={handleSearchSubmit} className="card" style={{ marginBottom: '16px', padding: '16px 20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', alignItems: 'flex-end' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
+              Mã đơn hàng
+            </label>
+            <input
+              type="text"
+              placeholder="VD: HF-001012 hoặc 1012"
+              value={searchFields.orderId}
+              onChange={e => handleFieldChange('orderId', e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
+              Số điện thoại khách hàng
+            </label>
+            <input
+              type="tel"
+              placeholder="VD: 0901... hoặc 0918..."
+              value={searchFields.phone}
+              onChange={e => handleFieldChange('phone', e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
+              Trạng thái đơn
+            </label>
+            <select value={status} onChange={e => handleStatusChange(e.target.value)} style={{ width: '100%' }}>
+              <option value="">Tất cả trạng thái</option>
+              {Object.entries(labels).slice(0, 11).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button type="submit" className="btn primary" style={{ flex: 1, whiteSpace: 'nowrap' }}>
+              Tìm kiếm
+            </button>
+            {hasFilter && (
+              <button type="button" className="btn" onClick={handleReset} style={{ whiteSpace: 'nowrap' }}>
+                Đặt lại
+              </button>
+            )}
+          </div>
+        </div>
+
+        {hasFilter && (
+          <div style={{ marginTop: '12px', fontSize: '13px', color: '#047857', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
+            <span>• Đang lọc:</span>
+            {appliedFilters.orderId && <span style={{ background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px', border: '1px solid #a7f3d0' }}>Mã: {appliedFilters.orderId}</span>}
+            {appliedFilters.phone && <span style={{ background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px', border: '1px solid #a7f3d0' }}>SĐT: {appliedFilters.phone}</span>}
+            {appliedFilters.status && <span style={{ background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px', border: '1px solid #a7f3d0' }}>Trạng thái: {labels[appliedFilters.status]}</span>}
+          </div>
+        )}
+      </form>
+
+      <ErrorBox error={r.error} />
+
+      {r.loading ? (
+        <Loading />
+      ) : r.data?.length ? (
+        <div className="order-list">
+          {r.data.map(o => (
+            <OrderCard key={o.id} order={o} />
+          ))}
+        </div>
+      ) : (
+        <Empty
+          title="Không tìm thấy đơn dịch vụ phù hợp"
+          text={hasFilter ? 'Thử xóa bộ lọc hoặc kiểm tra lại Mã đơn / Số điện thoại.' : 'Chưa có đơn dịch vụ nào trong hệ thống.'}
+        />
+      )}
+
+      <div className="pagination">
+        <button className="btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+          Trang trước
+        </button>
+        <span>Trang {page}</span>
+        <button className="btn" disabled={!r.data || r.data.length < 20} onClick={() => setPage(p => p + 1)}>
+          Trang sau
+        </button>
+      </div>
+    </>
+  );
+}
 export function Profile() { const { user, setUser, logout } = useApp(), r = useData('/users/me'), a = useAction(); const [form, setForm] = useState(null), [contactPassword, setContactPassword] = useState(''); useEffect(() => { if (r.data) setForm({ fullName: r.data.fullName, email: r.data.email || '', defaultAddress: r.data.defaultAddress || '' }); }, [r.data]); return <><PageHead eyebrow="TÀI KHOẢN HOMEFIX" title="Thông tin cá nhân" text="Giữ thông tin liên hệ chính xác để việc phục vụ được thuận tiện." /><ErrorBox error={r.error || a.error} />{form && <div className="two-column"><Card title="Hồ sơ của bạn"><form onSubmit={e => { e.preventDefault(); a.run(async () => { const result = await api('/users/me', { method: 'PATCH', body: { ...form, email: form.email || null, ...(form.email !== (r.data.email || '') ? { currentPassword: contactPassword } : {}), expectedVersion: r.data.version } }); setUser(result.data); setContactPassword(''); r.reload(); }); }}><div className="profile-heading"><span className="avatar large">{user.fullName.slice(0, 1)}</span><div><h3>{user.fullName}</h3><span className="badge green">{roleNames[user.role]}</span></div></div><Field label="Họ và tên"><input required value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} /></Field><Field label="Số điện thoại đăng nhập"><input readOnly value={user.phone} /></Field><Field label="Email"><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></Field>{form.email !== (r.data.email || '') && <Field label="Mật khẩu hiện tại để thay đổi email"><input required type="password" autoComplete="current-password" value={contactPassword} onChange={e => setContactPassword(e.target.value)} /></Field>}<Field label="Địa chỉ mặc định"><textarea value={form.defaultAddress} onChange={e => setForm({ ...form, defaultAddress: e.target.value })} /></Field><Submit busy={a.busy}>Lưu thông tin</Submit></form></Card><div><Card title="Đổi mật khẩu"><PasswordChange user={r.data || user} logout={logout} /></Card>{user.role === 'KH' && <Card title="Trở thành kỹ thuật viên"><p>Bạn có kinh nghiệm sửa chữa? Gửi hồ sơ chuyên môn để quản trị viên xét duyệt.</p><Link to="/applications" className="btn">Đăng ký cộng tác</Link></Card>}<button className="btn danger full" onClick={logout}>Đăng xuất tài khoản</button></div></div>}</>; }
 
 const BaseProfile = Profile;
