@@ -482,23 +482,31 @@
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  margin-bottom: 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
   background: #ffffff;
   transition: all 0.15s ease;
   cursor: pointer;
+  min-height: 72px;
 }
 
-.dpv-candidate-card:hover {
+.dpv-candidate-card:hover:not(.busy) {
   border-color: #116a4e;
   background: #f0fdf4;
   transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 106, 78, 0.08);
 }
 
 .dpv-candidate-card.selected {
   border: 2px solid #116a4e;
   background: #f0fdf4;
+  box-shadow: 0 2px 12px rgba(16, 106, 78, 0.12);
+}
+
+.dpv-candidate-card.busy {
+  background: #fafafa;
+  opacity: 0.7;
+  cursor: default;
 }
 
 .dpv-candidate-badge-best {
@@ -511,6 +519,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 /* ==========================================================================

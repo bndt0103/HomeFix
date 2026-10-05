@@ -809,13 +809,16 @@ export function SmartDispatchCenter() {
   const orders = pendingOrders.data || [];
   const techs = allTechs.data || [];
 
-  // Khi chọn một đơn hàng, lấy danh sách thợ phù hợp
+  // Thuật toán gợi ý: Sắp xếp SanSang lên trước, sau đó theo đánh giá
   const targetOrder = selectedOrder || orders[0];
-  const matchingTechs = targetOrder ? techs.filter(t => {
-    // Tiêu chí 1: Đúng nhóm chuyên môn
-    if (t.skillGroup !== targetOrder.serviceGroup) return false;
-    return true;
-  }) : [];
+  const matchingTechs = targetOrder ? techs
+    .filter(t => t.skillGroup === targetOrder.serviceGroup)
+    .sort((a, b) => {
+      if (a.availability === 'SanSang' && b.availability !== 'SanSang') return -1;
+      if (a.availability !== 'SanSang' && b.availability === 'SanSang') return 1;
+      return (Number(b.averageRating) || 5) - (Number(a.averageRating) || 5);
+    })
+  : [];
 
   const handleAssign = () => {
     if (!targetOrder || !selectedTechId) return;
@@ -905,10 +908,12 @@ export function SmartDispatchCenter() {
 
                 <h4 style={{ margin: '0 0 12px', fontSize: '14px' }}>Kỹ thuật viên khả dụng theo thuật toán gợi ý:</h4>
 
-                {!matchingTechs.length ? (
+                {allTechs.loading ? (
+                  <Loading />
+                ) : !matchingTechs.length ? (
                   <Empty title="Chưa có KTV phù hợp" text="Không có thợ nào đúng chuyên môn hoặc thợ đang bận ca." />
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {matchingTechs.map((t, idx) => {
                       const isSelected = selectedTechId === t.id;
                       const isReady = t.availability === 'SanSang';
@@ -917,46 +922,56 @@ export function SmartDispatchCenter() {
                       return (
                         <div
                           key={t.id}
-                          className={`dpv-candidate-card ${isSelected ? 'selected' : ''}`}
-                          onClick={() => setSelectedTechId(t.id)}
+                          className={`dpv-candidate-card ${isSelected ? 'selected' : ''} ${!isReady ? 'busy' : ''}`}
+                          onClick={() => isReady && setSelectedTechId(t.id)}
                         >
-                          <input
-                            type="radio"
-                            name="tech_select"
-                            checked={isSelected}
-                            onChange={() => setSelectedTechId(t.id)}
-                            style={{ accentColor: '#116a4e' }}
-                          />
-
-                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: isReady ? '#e6f4ea' : '#f1f5f9', color: isReady ? '#137333' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                          {/* Avatar */}
+                          <div style={{
+                            flexShrink: 0,
+                            width: 44, height: 44,
+                            borderRadius: '50%',
+                            background: isReady ? '#dcfce7' : '#f1f5f9',
+                            color: isReady ? '#15803d' : '#94a3b8',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 700, fontSize: '16px',
+                            border: isBestMatch ? '2px solid #10b981' : '2px solid transparent'
+                          }}>
                             {t.fullName.charAt(0)}
                           </div>
 
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <b style={{ fontSize: '14px' }}>{t.fullName}</b>
+                          {/* Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                              <b style={{ fontSize: '14px', color: '#1e293b' }}>{t.fullName}</b>
                               {isBestMatch && (
                                 <span className="dpv-candidate-badge-best">
-                                  <Sparkles size={12} /> Đề xuất tối ưu
+                                  <Sparkles size={11} /> Đề xuất tối ưu
                                 </span>
                               )}
                               <Badge value={t.availability} />
                             </div>
-                            <small style={{ color: '#64748b' }}>
-                              Khu vực: {t.serviceArea} · Ví: <span style={{ color: '#116a4e', fontWeight: 600 }}>{money(t.balance || 1500000)}</span> · Đánh giá: {t.averageRating ? `${Number(t.averageRating).toFixed(1)} ⭐` : '5.0 ⭐'}
-                            </small>
+                            <div style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.4' }}>
+                              <span>Khu vực: <b style={{ color: '#334155' }}>{t.serviceArea}</b></span>
+                              <span style={{ margin: '0 6px', color: '#cbd5e1' }}>·</span>
+                              <span>Ví: <b style={{ color: '#116a4e' }}>{money(t.balance || 1500000)}</b></span>
+                              <span style={{ margin: '0 6px', color: '#cbd5e1' }}>·</span>
+                              <span>Đánh giá: <b>{t.averageRating ? `${Number(t.averageRating).toFixed(1)} ⭐` : '5.0 ⭐'}</b></span>
+                            </div>
                           </div>
 
-                          <div>
+                          {/* Action */}
+                          <div style={{ flexShrink: 0 }}>
                             {isReady ? (
                               <button
                                 className={`btn small ${isSelected ? 'primary' : ''}`}
+                                style={{ whiteSpace: 'nowrap', minWidth: '90px' }}
                                 onClick={(e) => { e.stopPropagation(); setSelectedTechId(t.id); }}
                               >
-                                {isSelected ? <Check size={14} /> : null} Chọn thợ này
+                                {isSelected ? <Check size={13} /> : null}
+                                {isSelected ? 'Xác nhận' : 'Chọn thợ này'}
                               </button>
                             ) : (
-                              <small style={{ color: '#ef4444' }}>Đang bận ca</small>
+                              <span style={{ fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>Đang bận ca</span>
                             )}
                           </div>
                         </div>
