@@ -22,6 +22,30 @@ ordersRouter.get('/orders', roles('KH', 'KTV', 'DPV', 'CSKH', 'KT', 'ADMIN'), wr
     if (req.query.from) { where += ' AND d.createdAt>=@from'; params.from = new Date(req.query.from); }
     if (req.query.to) { where += ' AND d.createdAt<@to'; params.to = new Date(req.query.to); }
     if (req.query.paymentStatus === 'Paid') where += ' AND p.id IS NOT NULL'; else if (req.query.paymentStatus === 'Unpaid') where += ' AND p.id IS NULL';
+
+    if (req.query.phone) {
+        where += ' AND d.contactPhone LIKE @phone';
+        params.phone = `%${String(req.query.phone).trim()}%`;
+    }
+    if (req.query.orderId) {
+        const oIdStr = String(req.query.orderId).trim();
+        const clean = oIdStr.replace(/^HF-?/i, '').replace(/^#/, '').trim();
+        let numId = 0;
+        if (/^\d{1,8}$/.test(clean)) numId = parseInt(clean, 10);
+        where += " AND ((@numId > 0 AND d.id = @numId) OR CAST(d.id AS varchar) LIKE @orderIdPattern OR ('HF-' + RIGHT('000000' + CAST(d.id AS varchar), 6)) LIKE @orderIdPattern)";
+        params.numId = numId;
+        params.orderIdPattern = `%${oIdStr}%`;
+    }
+    if (req.query.q && !req.query.phone && !req.query.orderId) {
+        const qStr = String(req.query.q).trim();
+        const clean = qStr.replace(/^HF-?/i, '').replace(/^#/, '').trim();
+        let numId = 0;
+        if (/^\d{1,8}$/.test(clean)) numId = parseInt(clean, 10);
+        where += " AND ((@qNumId > 0 AND d.id = @qNumId) OR CAST(d.id AS varchar) LIKE @qPattern OR ('HF-' + RIGHT('000000' + CAST(d.id AS varchar), 6)) LIKE @qPattern OR d.contactPhone LIKE @qPattern OR d.contactName LIKE @qPattern)";
+        params.qNumId = numId;
+        params.qPattern = `%${qStr}%`;
+    }
+
     const total = await one(`SELECT COUNT(*) n FROM dbo.DonHang d LEFT JOIN dbo.ThanhToan p ON p.orderId=d.id WHERE ${where}`, params);
     const rows = await q(`SELECT d.*,CASE WHEN p.id IS NULL THEN 'Unpaid' ELSE 'Paid' END paymentStatus,n.fullName technicianName FROM dbo.DonHang d LEFT JOIN dbo.ThanhToan p ON p.orderId=d.id LEFT JOIN dbo.NguoiDung n ON n.id=d.assignedTechnicianId WHERE ${where} ORDER BY d.id DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`, params); ok(res, rows, 200, { ...p, total: total.n });
 }));
