@@ -66,7 +66,156 @@ function ExecutivePolicy({ title, text }) { return <article><b>{title}</b><small
 function executiveMonths(trend) { const months = Array.from({ length: 6 }, (_, index) => { const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() - (5 - index)); return { key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`, label: `T${date.getMonth() + 1}`, revenue: 0, profit: 0 }; }); for (const item of trend) { const month = String(item.day || '').slice(0, 7), target = months.find(entry => entry.key === month); if (target) { target.revenue += Number(item.amount || 0); target.profit += Number(item.amount || 0) * .15; } } return months; }
 function ExecutiveChart({ rows, maximum }) { const points = key => rows.map((row, index) => `${20 + index * 88},${164 - row[key] / maximum * 130}`).join(' '); return <div className="executive-chart"><svg viewBox="0 0 480 190" preserveAspectRatio="none" aria-label="Biểu đồ doanh thu và lợi nhuận"><path className="chart-grid" d="M20 35H460M20 78H460M20 121H460M20 164H460" /><polyline className="chart-revenue" points={points('revenue')} /><polyline className="chart-profit" points={points('profit')} /></svg><div className="executive-chart-labels">{rows.map(row => <span key={row.key}>{row.label}</span>)}</div></div>; }
 export function PolicyApproval() { const { toast } = useApp(), r = useData('/director/policy-proposals', 5000), action = useAction(); const proposals = r.data || []; const [selectedId, setSelectedId] = useState(null), [note, setNote] = useState(''), [effectiveAt, setEffectiveAt] = useState('tomorrow'); useEffect(() => { if (!selectedId && proposals.length > 0) setSelectedId(proposals[0].id); }, [proposals, selectedId]); const selected = proposals.find(proposal => proposal.id === selectedId) || proposals[0]; const decide = async status => { if (['RevisionRequested', 'Rejected'].includes(status) && !note) { action.setError(new Error('Vui lòng nhập ý kiến phê duyệt / chỉ đạo.')); return; } await action.run(async () => { await api(`/director/policy-proposals/${selected.id}/decision`, { method: 'POST', body: { decision: status, note: note || undefined, effectiveAt, expectedVersion: selected.version } }); toast(status === 'Approved' ? `Đã phê duyệt ${selected.proposalCode}.` : status === 'RevisionRequested' ? `Đã gửi yêu cầu chỉnh sửa ${selected.proposalCode}.` : `Đã từ chối ${selected.proposalCode}.`); setNote(''); setSelectedId(null); await r.reload(); }, ''); }; return <div className="policy-approval"><div className="policy-heading"><div><div className="breadcrumb-text">HomeFix <span>›</span> Phê duyệt chính sách</div><h1>Phê duyệt chính sách & Bảng giá mới</h1><p>Xem xét các đề xuất điều chỉnh giá sản phẩm, chiết khấu và cơ chế thưởng cho kỹ thuật viên.</p></div></div><ErrorBox error={r.error || action.error} /><div className="policy-layout"><section className="policy-list"><h2>Danh sách đề xuất chờ duyệt</h2>{r.loading ? <Loading /> : proposals.length ? proposals.map(proposal => <button type="button" key={proposal.id} className={proposal.id === selected?.id ? 'selected' : ''} onClick={() => { setSelectedId(proposal.id); action.setError(null); }}><span>Chờ duyệt</span><b>{proposal.title}</b><small>{proposal.department}<em>{date(proposal.submittedAt)}</em></small><i>Đang chọn <ArrowRight size={13} /></i></button>) : <Empty title="Không còn đề xuất chờ duyệt" text="Các đề xuất mới sẽ xuất hiện tại đây." />}</section>{selected && <section className="policy-detail"><div className="policy-detail-head"><div><h2>Chi tiết đề xuất {selected.proposalCode}</h2><small>Bảng so sánh giá & chiết khấu</small></div><small>Ngày gửi: {date(selected.submittedAt)}</small></div><div className="policy-compare"><div className="policy-compare-head"><span>Hạng mục</span><span>Hiện tại</span><span>Đề xuất mới</span></div><div><b>Chiết khấu dịch vụ</b><span>{selected.currentDiscount != null ? selected.currentDiscount + '%' : '—'}</span><strong>{selected.proposedDiscount != null ? selected.proposedDiscount + '%' : '—'}</strong></div><div><b>Thưởng hiệu suất</b><span>{selected.currentBonus || '—'}</span><strong>{selected.proposedBonus || '—'}</strong></div></div><div className="policy-impact"><b>Dự báo tăng trưởng biên lợi nhuận ròng</b><p>{selected.impact}</p></div><div className="policy-readonly"><b>Ghi chú người đề xuất</b><p>{selected.reason}</p></div><label className="policy-note">Ý kiến phê duyệt / Chỉ đạo<textarea value={note} onChange={event => setNote(event.target.value)} placeholder="Nhập chỉ đạo hoặc yêu cầu chỉnh sửa chính sách..." disabled={action.busy} /></label><label className="policy-effective">Thời gian áp dụng<select value={effectiveAt} onChange={event => setEffectiveAt(event.target.value)} disabled={action.busy}><option value="tomorrow">Áp dụng sau 00h00 ngày hôm sau</option><option value="week">Áp dụng từ đầu tuần sau</option><option value="month">Áp dụng từ đầu tháng sau</option></select></label><div className="policy-actions"><button className="btn danger" disabled={action.busy} onClick={() => decide('Rejected')}>Từ chối</button><button className="btn warning" disabled={action.busy} onClick={() => decide('RevisionRequested')}>Yêu cầu sửa</button><button className="btn primary" disabled={action.busy} onClick={() => decide('Approved')}><CheckCircle2 size={17} /> Phê duyệt</button></div></section>}</div></div>; }
-function StaffHome() { const { user } = useApp(); const summary = useData('/reports/summary', 15000), orders = useData(['DPV', 'CSKH'].includes(user.role) ? '/orders?pageSize=8' : null), users = useData(user.role === 'ADMIN' ? '/users' : null); const targets = { DPV: ['/orders', 'Mở bàn điều phối'], CSKH: ['/support', 'Xử lý yêu cầu hỗ trợ'], KT: ['/finance', 'Mở đối soát & ví'], ADMIN: ['/admin/users', 'Quản lý tài khoản'], GD: ['/reports', 'Xem báo cáo chi tiết'] }; return <><PageHead eyebrow="TỔNG QUAN HOẠT ĐỘNG" title={`Xin chào, ${user.fullName.split(' ').at(-1)}`} text="Dữ liệu cập nhật từ các đơn dịch vụ trong hệ thống."><Link className="btn primary" to={targets[user.role][0]}>{targets[user.role][1]} <ArrowRight size={17} /></Link></PageHead><ErrorBox error={summary.error} />{summary.data && <div className="stat-grid"><Stat label="Tổng đơn dịch vụ" value={summary.data.totalOrders} /><Stat label="Đã hoàn thành" value={summary.data.completedOrders} icon={ShieldCheck} /><Stat label="Giá trị đơn đã thu" value={money(summary.data.gmv)} icon={Wallet} /><Stat label="Hoa hồng đã đối soát" value={money(summary.data.commissionRevenue)} icon={Star} /></div>}<div className="two-column"><Card title={user.role === 'ADMIN' ? 'Tài khoản hệ thống' : 'Đơn dịch vụ gần đây'}>{user.role === 'ADMIN' ? <><p>Quản lý tài khoản và quyền truy cập theo bảy vai trò nghiệp vụ.</p><strong className="big-number">{users.data?.length ?? '—'}</strong><p>Tài khoản đang được quản lý</p><Link to="/admin/users" className="btn">Xem danh sách <ArrowRight size={16} /></Link></> : orders.data?.length ? orders.data.slice(0, 4).map(o => <OrderCard key={o.id} order={o} />) : <Empty title="Mọi thứ sẵn sàng" text="Dữ liệu mới xuất hiện khi khách đặt và hoàn tất dịch vụ." />}</Card><Card title="Luồng phục vụ khách hàng"><ol className="workflow-list">{['Tiếp nhận yêu cầu & báo giá', 'Khách duyệt và điều phối thợ', 'Sửa chữa & duyệt vật tư', 'Nghiệm thu, thu COD & đánh giá'].map((s, i) => <li key={s}><span>{i + 1}</span><div><b>{s}</b><small>{['Kiểm tra thông tin và ảnh lỗi', 'Đúng chuyên môn, đúng quyền', 'Mọi phát sinh đều được xác nhận', 'Đối soát hoa hồng đúng một lần'][i]}</small></div></li>)}</ol></Card></div></>; }
+function StaffHome() {
+  const { user } = useApp();
+  const summary = useData('/reports/summary', 15000);
+  const orders = useData(['DPV', 'CSKH'].includes(user.role) ? '/orders?pageSize=12' : null);
+  const users = useData(user.role === 'ADMIN' ? '/users' : null);
+
+  const targets = {
+    DPV: ['/orders', 'Mở bàn điều phối'],
+    CSKH: ['/support', 'Xử lý yêu cầu hỗ trợ'],
+    KT: ['/finance', 'Mở đối soát & ví'],
+    ADMIN: ['/admin/users', 'Quản lý tài khoản'],
+    GD: ['/reports', 'Xem báo cáo chi tiết']
+  };
+
+  const pendingAssign = orders.data?.filter(o => ['ChoTiepNhan', 'ChoDuyetSoBo', 'ChoPhanCong'].includes(o.status))?.length || 0;
+  const inProgress = orders.data?.filter(o => ['ChoNhan', 'DaTiepNhan', 'DangDiChuyen', 'DaDenNoi', 'DangXuLy'].includes(o.status))?.length || 0;
+
+  return (
+    <>
+      <PageHead
+        eyebrow="TỔNG QUAN HOẠT ĐỘNG"
+        title={`Xin chào, ${user.fullName.split(' ').at(-1)}`}
+        text="Dữ liệu cập nhật từ các đơn dịch vụ trong hệ thống."
+      >
+        <Link className="btn primary" to={targets[user.role]?.[0] || '/orders'}>
+          {targets[user.role]?.[1] || 'Xem công việc'} <ArrowRight size={17} />
+        </Link>
+      </PageHead>
+
+      <ErrorBox error={summary.error} />
+
+      {summary.data && (
+        <div className="stat-grid">
+          <Stat label="Tổng đơn dịch vụ" value={summary.data.totalOrders} />
+          <Stat label="Đã hoàn thành" value={summary.data.completedOrders} icon={ShieldCheck} />
+          <Stat label="Giá trị đơn đã thu" value={money(summary.data.gmv)} icon={Wallet} />
+          <Stat label="Hoa hồng đã đối soát" value={money(summary.data.commissionRevenue)} icon={Star} />
+        </div>
+      )}
+
+      <div className="two-column">
+        <Card title={user.role === 'ADMIN' ? 'Tài khoản hệ thống' : 'Đơn dịch vụ gần đây'}>
+          {user.role === 'ADMIN' ? (
+            <>
+              <p>Quản lý tài khoản và quyền truy cập theo bảy vai trò nghiệp vụ.</p>
+              <strong className="big-number">{users.data?.length ?? '—'}</strong>
+              <p>Tài khoản đang được quản lý</p>
+              <Link to="/admin/users" className="btn">Xem danh sách <ArrowRight size={16} /></Link>
+            </>
+          ) : orders.data?.length ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+                <Link to="/orders" style={{ fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary, #047857)' }}>
+                  Xem tất cả ({orders.data.length}) <ArrowRight size={14} />
+                </Link>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {orders.data.slice(0, 5).map(o => <OrderCard key={o.id} order={o} />)}
+              </div>
+            </>
+          ) : (
+            <Empty title="Mọi thứ sẵn sàng" text="Dữ liệu mới xuất hiện khi khách đặt và hoàn tất dịch vụ." />
+          )}
+        </Card>
+
+        {user.role === 'DPV' && (
+          <Card title="Tác vụ điều phối trọng tâm">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px' }}>
+                <small style={{ color: '#92400e', fontWeight: '600', display: 'block' }}>Cần duyệt & phân công</small>
+                <b style={{ fontSize: '20px', color: '#b45309' }}>{pendingAssign}</b> đơn
+              </div>
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 12px' }}>
+                <small style={{ color: '#1e40af', fontWeight: '600', display: 'block' }}>Thợ đang thực hiện</small>
+                <b style={{ fontSize: '20px', color: '#1d4ed8' }}>{inProgress}</b> đơn
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Link to="/orders" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
+                <div>
+                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Bàn điều phối & Radar thợ</b>
+                  <small style={{ color: '#64748b' }}>Phân công kỹ thuật viên theo vị trí & chuyên môn</small>
+                </div>
+                <ArrowRight size={16} color="#047857" />
+              </Link>
+              <Link to="/orders?status=ChoTiepNhan" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
+                <div>
+                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Đơn mới chờ tiếp nhận</b>
+                  <small style={{ color: '#64748b' }}>Kiểm tra ảnh lỗi thiết bị và chẩn đoán báo giá</small>
+                </div>
+                <ArrowRight size={16} color="#047857" />
+              </Link>
+              <Link to="/reports" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
+                <div>
+                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Báo cáo hiệu suất điều phối</b>
+                  <small style={{ color: '#64748b' }}>Tỷ lệ hoàn thành đơn, doanh số & chỉ số chất lượng</small>
+                </div>
+                <ArrowRight size={16} color="#047857" />
+              </Link>
+            </div>
+          </Card>
+        )}
+
+        {user.role === 'CSKH' && (
+          <Card title="Nghiệp vụ Chăm sóc khách hàng">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Link to="/support" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', textDecoration: 'none', color: '#14532d' }}>
+                <div>
+                  <b style={{ display: 'block', fontSize: '14px', color: '#14532d' }}>Trung tâm CSKH & Phiếu hỗ trợ</b>
+                  <small style={{ color: '#15803d' }}>Xử lý khiếu nại, bảo hành và phân loại ưu tiên</small>
+                </div>
+                <ArrowRight size={16} color="#15803d" />
+              </Link>
+              <Link to="/support" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
+                <div>
+                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Tiếp nhận khiếu nại mới</b>
+                  <small style={{ color: '#64748b' }}>Tìm đơn qua Mã đơn, SĐT hoặc Tên khách để tạo phiếu</small>
+                </div>
+                <ArrowRight size={16} color="#047857" />
+              </Link>
+              <Link to="/support" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
+                <div>
+                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Khởi tạo phiếu bảo hành dịch vụ</b>
+                  <small style={{ color: '#64748b' }}>Tra cứu hạn bảo hành tay nghề và linh kiện thay thế</small>
+                </div>
+                <ArrowRight size={16} color="#047857" />
+              </Link>
+              <Link to="/reports" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
+                <div>
+                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Đánh giá & Khảo sát chất lượng</b>
+                  <small style={{ color: '#64748b' }}>Kiểm tra các đơn đánh giá 1-3 sao để liên hệ hỗ trợ</small>
+                </div>
+                <ArrowRight size={16} color="#047857" />
+              </Link>
+            </div>
+          </Card>
+        )}
+
+        {!['DPV', 'CSKH', 'ADMIN'].includes(user.role) && (
+          <Card title="Hướng dẫn nghiệp vụ">
+            <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.6' }}>
+              Chào mừng bạn đến với hệ thống điều hành dịch vụ HomeFix. Vui lòng sử dụng menu điều hướng để thao tác.
+            </p>
+          </Card>
+        )}
+      </div>
+    </>
+  );
+}
 export function Services() {
   const s = useData('/services'); const [group, setGroup] = useState('all'), [search, setSearch] = useState('');
   return <><PageHead eyebrow="DỊCH VỤ TẠI NHÀ" title="Bạn cần HomeFix hỗ trợ gì?" text="Chọn dịch vụ phù hợp. Báo giá chính thức sẽ được gửi để bạn xác nhận trước khi phân công thợ." />
