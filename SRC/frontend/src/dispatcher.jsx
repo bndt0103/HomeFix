@@ -3,17 +3,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   MapPin,
-  Video,
+  Camera,
   FileText,
   Users,
   Ban,
   Phone,
-  PhoneOff,
-  VideoOff,
-  Mic,
-  MicOff,
-  Camera,
-  Share2,
   Send,
   CheckCircle2,
   AlertTriangle,
@@ -37,7 +31,6 @@ import {
   Check,
   X,
   Copy,
-  ExternalLink,
   UploadCloud,
   Maximize2
 } from 'lucide-react';
@@ -331,28 +324,15 @@ export function RemoteDiagnostics() {
   const orderFiles = useData(currentOrder ? `/orders/${currentOrder.id}/attachments` : null);
   const faultPhotos = (orderFiles.data || []).filter(f => f.purpose === 'OrderFault');
 
-  // Trạng thái Video Call & Tải ảnh
-  const [isCalling, setIsCalling] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
-  const [snapshotTaken, setSnapshotTaken] = useState(false);
+  // Trạng thái tải ảnh
   const [copiedLink, setCopiedLink] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
 
-  const copyInviteLink = (type = 'all') => {
+  const copyInviteLink = () => {
     if (!currentOrder) return;
     const orderUrl = `${window.location.origin}/orders/${currentOrder.id}`;
-    const jitsiUrl = `https://meet.jit.si/HomeFix-Order-${currentOrder.id}`;
-    let text = '';
-    if (type === 'video') {
-      text = `HomeFix: Kính gửi quý khách ${currentOrder.contactName}, vui lòng tham gia phòng Video Call chẩn đoán sự cố cho đơn #${currentOrder.id} tại đường link: ${jitsiUrl}`;
-    } else if (type === 'upload') {
-      text = `HomeFix: Kính gửi quý khách ${currentOrder.contactName}, vui lòng truy cập liên kết sau để chụp và gửi thêm ảnh sự cố cho đơn #${currentOrder.id}: ${orderUrl}`;
-    } else {
-      text = `HomeFix: Kính gửi quý khách ${currentOrder.contactName}. Để chẩn đoán sự cố cho đơn #${currentOrder.id}, quý khách vui lòng vào phòng Video Call tại: ${jitsiUrl} hoặc gửi ảnh tại: ${orderUrl}`;
-    }
+    const text = `HomeFix: Kính gửi quý khách ${currentOrder.contactName}, vui lòng truy cập liên kết sau để chụp và gửi thêm ảnh sự cố cho đơn #${currentOrder.id}: ${orderUrl}`;
     navigator.clipboard.writeText(text);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
@@ -375,17 +355,6 @@ export function RemoteDiagnostics() {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
-
-  // Đếm thời gian gọi khi đang gọi
-  useEffect(() => {
-    let timer;
-    if (isCalling) {
-      timer = setInterval(() => setCallDuration(d => d + 1), 1000);
-    } else {
-      setCallDuration(0);
-    }
-    return () => clearInterval(timer);
-  }, [isCalling]);
 
   // Trạng thái Chat kỹ thuật
   const [chatMessages, setChatMessages] = useState([
@@ -429,10 +398,10 @@ export function RemoteDiagnostics() {
       {/* Thanh chọn đơn cần chẩn đoán */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '12px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Video size={20} style={{ color: '#116a4e' }} />
+          <Camera size={20} style={{ color: '#116a4e' }} />
           <div>
             <b style={{ fontSize: '15px' }}>Không gian chẩn đoán từ xa</b>
-            <small style={{ display: 'block', color: '#64748b' }}>Hỗ trợ khách hàng qua Video Call, kiểm tra ảnh chụp hiện trường và xác định lỗi trước khi điều thợ.</small>
+            <small style={{ display: 'block', color: '#64748b' }}>Kiểm tra ảnh chụp hiện trường từ khách hàng và hỏi đáp kỹ thuật để xác định lỗi trước khi điều thợ.</small>
           </div>
         </div>
 
@@ -507,14 +476,6 @@ export function RemoteDiagnostics() {
                   >
                     <Phone size={14} /> Gọi khách
                   </a>
-                  <button
-                    className="btn primary small"
-                    style={{ flex: 1 }}
-                    onClick={() => setIsCalling(true)}
-                    title="Bắt đầu phiên Video Call chẩn đoán"
-                  >
-                    <Video size={14} /> Video Call
-                  </button>
                 </div>
               </div>
 
@@ -522,7 +483,7 @@ export function RemoteDiagnostics() {
               <div style={{ marginBottom: '12px' }}>
                 <button
                   className="btn small full"
-                  onClick={() => copyInviteLink('upload')}
+                  onClick={() => copyInviteLink()}
                   style={{ fontSize: '12px', background: copiedLink ? '#ecfdf5' : '#f8fafc', color: copiedLink ? '#047857' : '#334155', border: '1px dashed #94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                   title="Sao chép đường link gửi cho khách qua Zalo/SMS để khách bấm vào gửi ảnh trực tiếp"
                 >
@@ -569,106 +530,6 @@ export function RemoteDiagnostics() {
             </div>
           </div>
 
-          {/* CỘT 2: KHUNG VIDEO CALL TRỰC TIẾP */}
-          <div className="dpv-panel">
-            <div className="dpv-panel-head">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Phòng Video Call trực tuyến
-                {isCalling && (
-                  <span className="dpv-call-badge">
-                    <span className="dot" /> LIVE ({String(Math.floor(callDuration / 60)).padStart(2, '0')}:{String(callDuration % 60).padStart(2, '0')})
-                  </span>
-                )}
-              </span>
-              {isCalling ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button
-                    className="btn small"
-                    onClick={() => copyInviteLink('video')}
-                    style={{ background: copiedLink ? '#f0fdf4' : '#fff', color: copiedLink ? '#15803d' : '#334155', border: '1px solid #cbd5e1', fontSize: '11.5px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    title="Sao chép link phòng gọi để gửi cho khách"
-                  >
-                    {copiedLink ? <Check size={12} /> : <Copy size={12} />} {copiedLink ? 'Đã chép link' : 'Gửi link cho khách'}
-                  </button>
-                  <a
-                    href={`https://meet.jit.si/HomeFix-Order-${currentOrder.id}#config.prejoinPageEnabled=false&userInfo.displayName=${encodeURIComponent('Điều Phối Viên HomeFix')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn small"
-                    style={{ background: '#fff', border: '1px solid #cbd5e1', fontSize: '11.5px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
-                    title="Mở phòng gọi trong cửa sổ tab mới"
-                  >
-                    <ExternalLink size={12} /> Tab riêng
-                  </a>
-                  <button
-                    className="btn danger small"
-                    onClick={() => setIsCalling(false)}
-                    style={{ padding: '3px 8px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    title="Kết thúc phiên gọi"
-                  >
-                    <PhoneOff size={12} /> Tắt
-                  </button>
-                </div>
-              ) : (
-                currentOrder.contactPhone && (
-                  <a
-                    href={`tel:${currentOrder.contactPhone}`}
-                    title={`Gọi trực tiếp ${currentOrder.contactName}: ${currentOrder.contactPhone}`}
-                    style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#116a4e', fontWeight: 600, textDecoration: 'none', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '4px 10px' }}
-                  >
-                    <Phone size={13} /> {currentOrder.contactPhone}
-                  </a>
-                )
-              )}
-            </div>
-
-            <div className="dpv-video-screen" style={{ height: '100%', minHeight: '480px' }}>
-              <div className="dpv-video-feed" style={{ height: '100%' }}>
-                {isCalling ? (
-                  <iframe
-                    src={`https://meet.jit.si/HomeFix-Order-${currentOrder.id}#config.prejoinPageEnabled=false&config.disableDeepLinking=true&userInfo.displayName=${encodeURIComponent('Điều Phối Viên HomeFix')}`}
-                    style={{ width: '100%', height: '100%', border: 'none', minHeight: '480px', background: '#090d16' }}
-                    allow="camera; microphone; fullscreen; display-capture; autoplay"
-                    title={`HomeFix Video Call - Đơn #${currentOrder.id}`}
-                  />
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '24px 20px', maxWidth: '380px' }}>
-                    <div style={{ width: 68, height: 68, borderRadius: '50%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 0 0 8px rgba(16,185,129,0.12)' }}>
-                      <Video size={30} style={{ color: '#10b981' }} />
-                    </div>
-                    <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: '#f1f5f9' }}>Video Call trực tuyến với khách</h3>
-                    <p style={{ margin: '0 0 4px', fontSize: '13px', color: '#94a3b8' }}>
-                      Khách hàng: <b style={{ color: '#e2e8f0' }}>{currentOrder.contactName}</b> ({currentOrder.contactPhone})
-                    </p>
-                    <small style={{ display: 'block', color: '#64748b', marginBottom: '18px', lineHeight: '1.4' }}>
-                      Gọi video 2 chiều để quan sát thiết bị, chẩn đoán nguyên nhân rò rỉ, tiếng kêu hoặc hướng dẫn thao tác an toàn.
-                    </small>
-                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                      <a
-                        href={`tel:${currentOrder.contactPhone}`}
-                        className="btn small"
-                        style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', background: '#1e293b', color: '#94a3b8', border: '1px solid #334155' }}
-                      >
-                        <Phone size={14} /> Gọi điện thoại
-                      </a>
-                      <button className="btn primary" onClick={() => setIsCalling(true)} style={{ gap: '8px' }}>
-                        <Video size={15} /> Bắt đầu Video Call
-                      </button>
-                      <button
-                        className="btn small"
-                        onClick={() => copyInviteLink('video')}
-                        style={{ background: '#1e293b', color: copiedLink ? '#34d399' : '#e2e8f0', border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        title="Sao chép link phòng gọi video để gửi qua Zalo/SMS cho khách"
-                      >
-                        {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-                        {copiedLink ? 'Đã chép link gọi!' : 'Sao chép link gọi gửi khách'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* CỘT 3: CHAT KỸ THUẬT & PHIẾU CHẨN ĐOÁN */}
           <div className="dpv-panel dpv-panel-col3">
@@ -1448,8 +1309,8 @@ export function DispatcherHub({ initialTab = 'dashboard' }) {
           className={`dpv-hub-tab ${activeTab === 'diagnostics' ? 'active' : ''}`}
           onClick={() => switchTab('diagnostics')}
         >
-          <Video size={17} />
-          Chẩn đoán từ xa (Video & Chat)
+          <Camera size={17} />
+          Chẩn đoán từ xa (Ảnh & Chat)
           {(waitingOrders.data?.length || 0) > 0 && <span className="badge-count">{waitingOrders.data.length}</span>}
         </button>
 
