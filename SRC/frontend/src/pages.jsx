@@ -106,113 +106,39 @@ function StaffHome() {
         </div>
       )}
 
-      <div className="two-column">
-        <Card title={user.role === 'ADMIN' ? 'Tài khoản hệ thống' : 'Đơn dịch vụ gần đây'}>
-          {user.role === 'ADMIN' ? (
-            <>
-              <p>Quản lý tài khoản và quyền truy cập theo bảy vai trò nghiệp vụ.</p>
-              <strong className="big-number">{users.data?.length ?? '—'}</strong>
-              <p>Tài khoản đang được quản lý</p>
-              <Link to="/admin/users" className="btn">Xem danh sách <ArrowRight size={16} /></Link>
-            </>
-          ) : orders.data?.length ? (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-                <Link to="/orders" style={{ fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary, #047857)' }}>
-                  Xem tất cả ({orders.data.length}) <ArrowRight size={14} />
+      {user.role === 'ADMIN' ? (
+        <div className="two-column">
+          <Card title="Tài khoản hệ thống">
+            <p>Quản lý tài khoản và quyền truy cập theo bảy vai trò nghiệp vụ.</p>
+            <strong className="big-number">{users.data?.length ?? '—'}</strong>
+            <p>Tài khoản đang được quản lý</p>
+            <Link to="/admin/users" className="btn">Xem danh sách <ArrowRight size={16} /></Link>
+          </Card>
+        </div>
+      ) : (
+        <Card
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <span style={{ fontSize: '18px', fontWeight: '700', color: '#111827' }}>Đơn dịch vụ gần đây</span>
+              {orders.data?.length > 0 && (
+                <Link to="/orders" style={{ fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary, #047857)', textDecoration: 'none' }}>
+                  Xem tất cả ({orders.data.length}) <ArrowRight size={15} />
                 </Link>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {orders.data.slice(0, 5).map(o => <OrderCard key={o.id} order={o} />)}
-              </div>
-            </>
+              )}
+            </div>
+          }
+        >
+          {orders.data?.length ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: '14px', marginTop: '12px' }}>
+              {orders.data.slice(0, 8).map(o => (
+                <OrderCard key={o.id} order={o} />
+              ))}
+            </div>
           ) : (
             <Empty title="Mọi thứ sẵn sàng" text="Dữ liệu mới xuất hiện khi khách đặt và hoàn tất dịch vụ." />
           )}
         </Card>
-
-        {user.role === 'DPV' && (
-          <Card title="Tác vụ điều phối trọng tâm">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-              <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px' }}>
-                <small style={{ color: '#92400e', fontWeight: '600', display: 'block' }}>Cần duyệt & phân công</small>
-                <b style={{ fontSize: '20px', color: '#b45309' }}>{pendingAssign}</b> đơn
-              </div>
-              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 12px' }}>
-                <small style={{ color: '#1e40af', fontWeight: '600', display: 'block' }}>Thợ đang thực hiện</small>
-                <b style={{ fontSize: '20px', color: '#1d4ed8' }}>{inProgress}</b> đơn
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Link to="/orders" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
-                <div>
-                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Bàn điều phối & Radar thợ</b>
-                  <small style={{ color: '#64748b' }}>Phân công kỹ thuật viên theo vị trí & chuyên môn</small>
-                </div>
-                <ArrowRight size={16} color="#047857" />
-              </Link>
-              <Link to="/orders?status=ChoTiepNhan" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
-                <div>
-                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Đơn mới chờ tiếp nhận</b>
-                  <small style={{ color: '#64748b' }}>Kiểm tra ảnh lỗi thiết bị và chẩn đoán báo giá</small>
-                </div>
-                <ArrowRight size={16} color="#047857" />
-              </Link>
-              <Link to="/reports" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
-                <div>
-                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Báo cáo hiệu suất điều phối</b>
-                  <small style={{ color: '#64748b' }}>Tỷ lệ hoàn thành đơn, doanh số & chỉ số chất lượng</small>
-                </div>
-                <ArrowRight size={16} color="#047857" />
-              </Link>
-            </div>
-          </Card>
-        )}
-
-        {user.role === 'CSKH' && (
-          <Card title="Nghiệp vụ Chăm sóc khách hàng">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Link to="/support" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', textDecoration: 'none', color: '#14532d' }}>
-                <div>
-                  <b style={{ display: 'block', fontSize: '14px', color: '#14532d' }}>Trung tâm CSKH & Phiếu hỗ trợ</b>
-                  <small style={{ color: '#15803d' }}>Xử lý khiếu nại, bảo hành và phân loại ưu tiên</small>
-                </div>
-                <ArrowRight size={16} color="#15803d" />
-              </Link>
-              <Link to="/support" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
-                <div>
-                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Tiếp nhận khiếu nại mới</b>
-                  <small style={{ color: '#64748b' }}>Tìm đơn qua Mã đơn, SĐT hoặc Tên khách để tạo phiếu</small>
-                </div>
-                <ArrowRight size={16} color="#047857" />
-              </Link>
-              <Link to="/support" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
-                <div>
-                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Khởi tạo phiếu bảo hành dịch vụ</b>
-                  <small style={{ color: '#64748b' }}>Tra cứu hạn bảo hành tay nghề và linh kiện thay thế</small>
-                </div>
-                <ArrowRight size={16} color="#047857" />
-              </Link>
-              <Link to="/reports" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', textDecoration: 'none', color: '#1e293b' }}>
-                <div>
-                  <b style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>Đánh giá & Khảo sát chất lượng</b>
-                  <small style={{ color: '#64748b' }}>Kiểm tra các đơn đánh giá 1-3 sao để liên hệ hỗ trợ</small>
-                </div>
-                <ArrowRight size={16} color="#047857" />
-              </Link>
-            </div>
-          </Card>
-        )}
-
-        {!['DPV', 'CSKH', 'ADMIN'].includes(user.role) && (
-          <Card title="Hướng dẫn nghiệp vụ">
-            <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.6' }}>
-              Chào mừng bạn đến với hệ thống điều hành dịch vụ HomeFix. Vui lòng sử dụng menu điều hướng để thao tác.
-            </p>
-          </Card>
-        )}
-      </div>
+      )}
     </>
   );
 }
