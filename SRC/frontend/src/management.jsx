@@ -592,13 +592,14 @@ function CSKHCreateComplaint({ onBack, prefillOrderId }) {
   const [searching, setSearching] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [form, setForm] = useState({ description: '', category: '', priority: 'Medium', initialAction: '' });
+  const debounceRef = useRef(null);
 
   useEffect(() => {
     if (prefillOrderId) runSearch(String(prefillOrderId));
   }, []);
 
   const runSearch = async q => {
-    if (!q || q.trim().length < 1) { setSearchResults([]); return; }
+    if (!q || !q.trim()) { setSearchResults([]); return; }
     setSearching(true);
     try {
       const res = await api('/support/orders/search?q=' + encodeURIComponent(q.trim()));
@@ -610,10 +611,19 @@ function CSKHCreateComplaint({ onBack, prefillOrderId }) {
   const handleFieldSearch = (field, value) => {
     setSearchFields(s => ({ ...s, [field]: value }));
     setSelectedOrder(null);
-    setSearchResults([]);
+    clearTimeout(debounceRef.current);
+    if (!value || !value.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      setSearchQ(value);
+      runSearch(value);
+    }, 300);
   };
 
   const doFieldSearch = field => {
+    clearTimeout(debounceRef.current);
     const v = searchFields[field];
     setSearchQ(v);
     runSearch(v);
@@ -784,9 +794,10 @@ function CSKHCreateWarranty({ onBack }) {
   const [warrantyInfo, setWarrantyInfo] = useState(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
   const [form, setForm] = useState({ description: '', initialAction: '' });
+  const debounceRef = useRef(null);
 
   const runSearch = async q => {
-    if (!q || q.trim().length < 1) { setSearchResults([]); return; }
+    if (!q || !q.trim()) { setSearchResults([]); return; }
     setSearching(true);
     try {
       const res = await api('/support/orders/search?q=' + encodeURIComponent(q.trim()));
@@ -808,10 +819,21 @@ function CSKHCreateWarranty({ onBack }) {
 
   const handleFieldSearch = (field, value) => {
     setSearchFields(s => ({ ...s, [field]: value }));
-    setSelectedOrder(null); setWarrantyInfo(null); setSearchResults([]);
+    setSelectedOrder(null);
+    setWarrantyInfo(null);
+    clearTimeout(debounceRef.current);
+    if (!value || !value.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      setSearchQ(value);
+      runSearch(value);
+    }, 300);
   };
 
   const doFieldSearch = field => {
+    clearTimeout(debounceRef.current);
     const v = searchFields[field];
     setSearchQ(v);
     runSearch(v);

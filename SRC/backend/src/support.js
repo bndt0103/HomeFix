@@ -160,10 +160,18 @@ supportRouter.get('/support/summary', roles('CSKH', 'GD', 'ADMIN'), wrap(async (
 
 // Tìm kiếm nhanh đơn hàng (cho CSKH khi tạo phiếu qua điện thoại/chat)
 supportRouter.get('/support/orders/search', roles('CSKH', 'ADMIN'), wrap(async (req, res) => {
-  const query = String(req.query.q || '').trim();
+  const query = String(req.query.q || req.query.orderId || req.query.phone || req.query.name || '').trim();
   if (!query) return ok(res, []);
+
+  // Trích xuất số nếu người dùng gõ HF-001003, HF-1003, #1003 hoặc số nguyên
+  const cleanCode = query.replace(/^HF-?/i, '').replace(/^#/, '').trim();
+  let numId = 0;
+  if (/^\d{1,8}$/.test(cleanCode)) {
+    numId = parseInt(cleanCode, 10);
+  }
+
   const rows = await q(`
-    SELECT TOP 12 d.id, d.serviceName, d.serviceGroup, d.address, d.status, d.contactName, d.contactPhone,
+    SELECT TOP 15 d.id, d.serviceName, d.serviceGroup, d.address, d.status, d.contactName, d.contactPhone,
            (SELECT TOP 1 total FROM dbo.PhieuNghiemThu WHERE orderId=d.id AND status='Approved') totalAmount, d.createdAt, d.assignedTechnicianId,
            ktv.fullName technicianName, ktv.phone technicianPhone,
            a.decidedAt acceptanceDate,
@@ -171,12 +179,14 @@ supportRouter.get('/support/orders/search', roles('CSKH', 'ADMIN'), wrap(async (
     FROM dbo.DonHang d
     LEFT JOIN dbo.NguoiDung ktv ON ktv.id = d.assignedTechnicianId
     LEFT JOIN dbo.PhieuNghiemThu a ON a.orderId = d.id AND a.status = 'Approved'
-    WHERE CAST(d.id AS varchar) LIKE @q
+    WHERE (@numId > 0 AND d.id = @numId)
+       OR CAST(d.id AS varchar) LIKE @q
+       OR ('HF-' + RIGHT('000000' + CAST(d.id AS varchar), 6)) LIKE @q
        OR d.contactPhone LIKE @q
        OR d.contactName LIKE @q
        OR d.address LIKE @q
     ORDER BY d.id DESC
-  `, { q: `%${query}%` });
+  `, { q: `%${query}%`, numId });
   ok(res, rows);
 }));
 
