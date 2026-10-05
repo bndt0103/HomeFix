@@ -1,4 +1,4 @@
-﻿import {MonitoringSettings,ReportOverview,CashflowChart,useReportData} from './report-widgets';
+import {MonitoringSettings,ReportOverview,CashflowChart,useReportData} from './report-widgets';
 import { AttentionDot } from './attention';
 import { ReportWorkspace, csvDownload } from './reports-ui';
 import { ApplicationWizard } from './application-wizard';
@@ -586,32 +586,37 @@ function CSKHTicketList({ onNavigate }) {
 function CSKHCreateComplaint({ onBack, prefillOrderId }) {
   const { toast } = useApp();
   const a = useAction();
-  const [searchQ, setSearchQ] = useState(prefillOrderId ? String(prefillOrderId) : '');
+  const [searchFields, setSearchFields] = useState({ orderId: prefillOrderId ? String(prefillOrderId) : '', phone: '', name: '' });
+  const [searchQ, setSearchQ] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [form, setForm] = useState({ description: '', category: '', priority: 'Medium', initialAction: '' });
-  const debounceRef = useRef(null);
 
   useEffect(() => {
-    if (prefillOrderId) doSearch(String(prefillOrderId));
+    if (prefillOrderId) runSearch(String(prefillOrderId));
   }, []);
 
-  const doSearch = async q => {
-    if (!q || q.length < 2) { setSearchResults([]); return; }
+  const runSearch = async q => {
+    if (!q || q.trim().length < 1) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const res = await api('/support/orders/search?q=' + encodeURIComponent(q));
+      const res = await api('/support/orders/search?q=' + encodeURIComponent(q.trim()));
       setSearchResults(res.data || []);
     } catch { setSearchResults([]); }
     finally { setSearching(false); }
   };
 
-  const handleSearchChange = v => {
-    setSearchQ(v);
+  const handleFieldSearch = (field, value) => {
+    setSearchFields(s => ({ ...s, [field]: value }));
     setSelectedOrder(null);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(v), 350);
+    setSearchResults([]);
+  };
+
+  const doFieldSearch = field => {
+    const v = searchFields[field];
+    setSearchQ(v);
+    runSearch(v);
   };
 
   const handleSubmit = async e => {
@@ -641,21 +646,57 @@ function CSKHCreateComplaint({ onBack, prefillOrderId }) {
       </PageHead>
 
       <Card title="Bước 1 — Tìm & chọn đơn hàng">
-        <Field label="Tìm theo mã đơn / SĐT / tên khách hàng">
-          <input
-            type="search"
-            placeholder="Nhập mã đơn, số điện thoại, tên KH..."
-            value={searchQ}
-            onChange={e => handleSearchChange(e.target.value)}
-          />
-        </Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '4px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Mã đơn</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                placeholder="VD: HF-00012"
+                value={searchFields.orderId}
+                onChange={e => handleFieldSearch('orderId', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('orderId')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('orderId')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Số điện thoại</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="tel"
+                placeholder="VD: 0912345678"
+                value={searchFields.phone}
+                onChange={e => handleFieldSearch('phone', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('phone')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('phone')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Tên khách hàng</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                placeholder="VD: Nguyễn Văn A"
+                value={searchFields.name}
+                onChange={e => handleFieldSearch('name', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('name')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('name')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+        </div>
         {searching && <Loading />}
         {!searching && searchResults.length > 0 && !selectedOrder && (
           <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', marginTop: '8px' }}>
             {searchResults.map(o => (
               <div
                 key={o.id}
-                onClick={() => { setSelectedOrder(o); setSearchResults([]); setSearchQ(code(o.id) + ' — ' + o.contactName); }}
+                onClick={() => { setSelectedOrder(o); setSearchResults([]); }}
                 style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f3f4', transition: 'background .15s' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
                 onMouseLeave={e => e.currentTarget.style.background = ''}
@@ -670,6 +711,9 @@ function CSKHCreateComplaint({ onBack, prefillOrderId }) {
             ))}
           </div>
         )}
+        {!searching && searchResults.length === 0 && searchQ && !selectedOrder && (
+          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>Không tìm thấy đơn hàng phù hợp.</div>
+        )}
         {selectedOrder && (
           <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 14px', marginTop: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -679,7 +723,7 @@ function CSKHCreateComplaint({ onBack, prefillOrderId }) {
                 {selectedOrder.technicianName && <small style={{ display: 'block', color: '#6b7280' }}>KTV: {selectedOrder.technicianName}</small>}
                 {selectedOrder.activeTicketsCount > 0 && <small style={{ display: 'block', color: '#ef4444', marginTop: '4px' }}>⚠ Đã có {selectedOrder.activeTicketsCount} phiếu hỗ trợ đang mở cho đơn này</small>}
               </div>
-              <button className="btn small" onClick={() => { setSelectedOrder(null); setSearchQ(''); }}>Đổi đơn</button>
+              <button className="btn small" onClick={() => { setSelectedOrder(null); setSearchResults([]); setSearchFields({ orderId: '', phone: '', name: '' }); }}>Đổi đơn</button>
             </div>
           </div>
         )}
@@ -732,6 +776,7 @@ function CSKHCreateComplaint({ onBack, prefillOrderId }) {
 function CSKHCreateWarranty({ onBack }) {
   const { toast } = useApp();
   const a = useAction();
+  const [searchFields, setSearchFields] = useState({ orderId: '', phone: '', name: '' });
   const [searchQ, setSearchQ] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -739,13 +784,12 @@ function CSKHCreateWarranty({ onBack }) {
   const [warrantyInfo, setWarrantyInfo] = useState(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
   const [form, setForm] = useState({ description: '', initialAction: '' });
-  const debounceRef = useRef(null);
 
-  const doSearch = async q => {
-    if (!q || q.length < 2) { setSearchResults([]); return; }
+  const runSearch = async q => {
+    if (!q || q.trim().length < 1) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const res = await api('/support/orders/search?q=' + encodeURIComponent(q));
+      const res = await api('/support/orders/search?q=' + encodeURIComponent(q.trim()));
       setSearchResults(res.data || []);
     } catch { setSearchResults([]); }
     finally { setSearching(false); }
@@ -754,7 +798,6 @@ function CSKHCreateWarranty({ onBack }) {
   const selectOrder = async o => {
     setSelectedOrder(o);
     setSearchResults([]);
-    setSearchQ(code(o.id) + ' — ' + o.contactName);
     setLoadingInfo(true);
     try {
       const res = await api('/support/orders/' + o.id + '/warranty-info');
@@ -763,10 +806,15 @@ function CSKHCreateWarranty({ onBack }) {
     finally { setLoadingInfo(false); }
   };
 
-  const handleSearchChange = v => {
-    setSearchQ(v); setSelectedOrder(null); setWarrantyInfo(null);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(v), 350);
+  const handleFieldSearch = (field, value) => {
+    setSearchFields(s => ({ ...s, [field]: value }));
+    setSelectedOrder(null); setWarrantyInfo(null); setSearchResults([]);
+  };
+
+  const doFieldSearch = field => {
+    const v = searchFields[field];
+    setSearchQ(v);
+    runSearch(v);
   };
 
   const handleSubmit = async e => {
@@ -794,9 +842,50 @@ function CSKHCreateWarranty({ onBack }) {
       </PageHead>
 
       <Card title="Bước 1 — Tìm đơn hàng">
-        <Field label="Tra cứu theo mã đơn / SĐT / tên khách">
-          <input type="search" placeholder="Nhập để tìm đơn..." value={searchQ} onChange={e => handleSearchChange(e.target.value)} />
-        </Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '4px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Mã đơn</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                placeholder="VD: HF-00012"
+                value={searchFields.orderId}
+                onChange={e => handleFieldSearch('orderId', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('orderId')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('orderId')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Số điện thoại</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="tel"
+                placeholder="VD: 0912345678"
+                value={searchFields.phone}
+                onChange={e => handleFieldSearch('phone', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('phone')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('phone')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Tên khách hàng</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                placeholder="VD: Nguyễn Văn A"
+                value={searchFields.name}
+                onChange={e => handleFieldSearch('name', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doFieldSearch('name')}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="btn small" onClick={() => doFieldSearch('name')} style={{ whiteSpace: 'nowrap' }}>Tìm</button>
+            </div>
+          </div>
+        </div>
         {searching && <Loading />}
         {!searching && searchResults.length > 0 && !selectedOrder && (
           <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', marginTop: '8px' }}>
@@ -815,6 +904,9 @@ function CSKHCreateWarranty({ onBack }) {
             ))}
           </div>
         )}
+        {!searching && searchResults.length === 0 && searchQ && !selectedOrder && (
+          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>Không tìm thấy đơn hàng phù hợp.</div>
+        )}
         {selectedOrder && (
           <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 14px', marginTop: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -822,7 +914,7 @@ function CSKHCreateWarranty({ onBack }) {
                 <b>{code(selectedOrder.id)}</b> — {selectedOrder.contactName} ({selectedOrder.contactPhone})
                 <small style={{ display: 'block', color: '#6b7280' }}>{selectedOrder.serviceName}</small>
               </div>
-              <button className="btn small" onClick={() => { setSelectedOrder(null); setWarrantyInfo(null); setSearchQ(''); }}>Đổi</button>
+              <button className="btn small" onClick={() => { setSelectedOrder(null); setWarrantyInfo(null); setSearchResults([]); setSearchFields({ orderId: '', phone: '', name: '' }); }}>Đổi</button>
             </div>
           </div>
         )}
