@@ -1,15 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  MapPin,
   Camera,
   FileText,
   Users,
   Ban,
-  Phone,
   Send,
-  CheckCircle2,
   AlertTriangle,
   Clock,
   ShieldCheck,
@@ -26,15 +22,11 @@ import {
   UserCheck,
   DollarSign,
   AlertCircle,
-  Radio,
-  Compass,
   Check,
   X,
-  Copy,
-  UploadCloud,
   Maximize2
 } from 'lucide-react';
-import { api, upload, uuid } from './api';
+import { api, uuid } from './api';
 import {
   useApp,
   useData,
@@ -59,640 +51,346 @@ import { AttentionDot } from './attention';
 import './dispatcher.css';
 
 /* ==========================================================================
-   TỌA ĐỘ VÀ VÙNG HOẠT ĐỘNG CÁC QUẬN TP.HCM (HỖ TRỢ BẢN ĐỒ RADAR)
-   ========================================================================== */
-const DISTRICT_CENTERS = {
-  'Quận 1': { x: 50, y: 50, lat: 10.7769, lng: 106.7009 },
-  'Quận 3': { x: 42, y: 44, lat: 10.7844, lng: 106.6844 },
-  'Quận 5': { x: 38, y: 58, lat: 10.7554, lng: 106.6672 },
-  'Quận 7': { x: 62, y: 78, lat: 10.7329, lng: 106.7188 },
-  'Quận 10': { x: 40, y: 50, lat: 10.7679, lng: 106.6667 },
-  'Bình Thạnh': { x: 58, y: 35, lat: 10.8030, lng: 106.6990 },
-  'Tân Bình': { x: 32, y: 36, lat: 10.7992, lng: 106.6543 },
-  'Gò Vấp': { x: 42, y: 22, lat: 10.8387, lng: 106.6657 },
-  'TP. Thủ Đức': { x: 78, y: 32, lat: 10.8499, lng: 106.7717 },
-  'TP.HCM': { x: 50, y: 50, lat: 10.7769, lng: 106.7009 }
-};
-
-function getCoordsFromArea(areaStr, idSeed = 1) {
-  for (const [dist, pos] of Object.entries(DISTRICT_CENTERS)) {
-    if (areaStr && areaStr.includes(dist)) {
-      const offsetX = ((idSeed * 17) % 11) - 5;
-      const offsetY = ((idSeed * 23) % 11) - 5;
-      return { x: Math.min(92, Math.max(8, pos.x + offsetX)), y: Math.min(92, Math.max(8, pos.y + offsetY)) };
-    }
-  }
-  const defaultPos = DISTRICT_CENTERS['Quận 1'];
-  return { x: defaultPos.x + ((idSeed * 13) % 9) - 4, y: defaultPos.y + ((idSeed * 19) % 9) - 4 };
-}
-
-/* ==========================================================================
-   1. MÀN HÌNH CHÍNH & BẢN ĐỒ THỢ (DASHBOARD & RADAR MAP)
-   ========================================================================== */
-export function DispatcherDashboard() {
-  const waitingOrders = useData('/orders?status=ChoTiepNhan&pageSize=50', 15000);
-  const pendingOrders = useData('/orders?status=ChoPhanCong&pageSize=50', 15000);
-  const activeOrders = useData('/orders?status=DangDiChuyen&pageSize=50', 15000);
-  const allTechs = useData('/technicians', 15000);
-
-  const [selectedTech, setSelectedTech] = useState(null);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [filterGroup, setFilterGroup] = useState('ALL');
-  const [filterStatus, setFilterStatus] = useState('ALL');
-
-  const reload = () => {
-    waitingOrders.reload();
-    pendingOrders.reload();
-    activeOrders.reload();
-    allTechs.reload();
-  };
-
-  const techs = allTechs.data || [];
-  const readyTechs = techs.filter(t => t.availability === 'SanSang');
-  const busyTechs = techs.filter(t => t.availability === 'DangBan');
-  const offTechs = techs.filter(t => t.availability === 'TamBan');
-
-  // Lọc thợ hiển thị trên bản đồ
-  const filteredTechs = techs.filter(t => {
-    if (filterGroup !== 'ALL' && t.skillGroup !== filterGroup) return false;
-    if (filterStatus !== 'ALL' && t.availability !== filterStatus) return false;
-    return true;
-  });
-
-  return (
-    <>
-      {/* 4 Thẻ KPI tức thời */}
-      <div className="stat-grid" style={{ marginBottom: '20px' }}>
-        <div className="stat-card" style={{ borderLeft: '4px solid #fbbc04' }}>
-          <div className="stat-label">Chờ tiếp nhận & Báo giá <FileText size={18} /></div>
-          <strong style={{ color: '#d97706' }}>{waitingOrders.data?.length ?? '…'}</strong>
-          <small>Cần chẩn đoán & gửi báo giá sơ bộ</small>
-        </div>
-        <div className="stat-card" style={{ borderLeft: '4px solid #ef4444' }}>
-          <div className="stat-label">Đơn chờ phân công <Users size={18} /></div>
-          <strong style={{ color: '#ef4444' }}>{pendingOrders.data?.length ?? '…'}</strong>
-          <small>Khách đã duyệt giá, cần giao KTV</small>
-        </div>
-        <div className="stat-card" style={{ borderLeft: '4px solid #10b981' }}>
-          <div className="stat-label">KTV đang sẵn sàng <CheckCircle2 size={18} /></div>
-          <strong style={{ color: '#10b981' }}>{readyTechs.length}</strong>
-          <small>Tổng cộng {techs.length} KTV trên hệ thống</small>
-        </div>
-        <div className="stat-card" style={{ borderLeft: '4px solid #3b82f6' }}>
-          <div className="stat-label">KTV đang làm việc <Radio size={18} /></div>
-          <strong style={{ color: '#3b82f6' }}>{busyTechs.length}</strong>
-          <small>{offTechs.length} thợ tạm nghỉ</small>
-        </div>
-      </div>
-
-      {/* Khu vực Bản đồ Radar */}
-      <Card title="Bản đồ mạng lưới kỹ thuật viên & Đơn chờ điều phối" style={{ padding: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Lọc chuyên môn:</span>
-            <select value={filterGroup} onChange={e => setFilterGroup(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}>
-              <option value="ALL">Tất cả chuyên môn</option>
-              {Object.entries(groups).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569', marginLeft: '8px' }}>Trạng thái:</span>
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}>
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="SanSang">Sẵn sàng nhận việc</option>
-              <option value="DangBan">Đang có ca / Bận</option>
-              <option value="TamBan">Tạm nghỉ</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px', fontSize: '12px', alignItems: 'center' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><i style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} /> KTV Sẵn sàng</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><i style={{ width: 10, height: 10, borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }} /> KTV Đang bận</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><i style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /> Đơn chờ thợ</span>
-            <button className="btn small" onClick={reload}><RefreshCw size={14} /> Làm mới</button>
-          </div>
-        </div>
-
-        <div className="dpv-map-container">
-          {/* Viewport Bản đồ TP.HCM tương tác */}
-          <div className="dpv-map-viewport">
-            <div className="dpv-map-grid-bg" />
-            <div className="dpv-map-radar-center" />
-
-            {/* Các nhãn địa bàn chính TP.HCM */}
-            <div style={{ position: 'absolute', top: '48%', left: '48%', color: 'rgba(255,255,255,0.25)', fontWeight: 800, fontSize: '16px', pointerEvents: 'none' }}>QUẬN 1</div>
-            <div style={{ position: 'absolute', top: '40%', left: '38%', color: 'rgba(255,255,255,0.18)', fontWeight: 700, fontSize: '14px', pointerEvents: 'none' }}>QUẬN 3</div>
-            <div style={{ position: 'absolute', top: '56%', left: '34%', color: 'rgba(255,255,255,0.18)', fontWeight: 700, fontSize: '14px', pointerEvents: 'none' }}>QUẬN 5</div>
-            <div style={{ position: 'absolute', top: '75%', left: '60%', color: 'rgba(255,255,255,0.18)', fontWeight: 700, fontSize: '14px', pointerEvents: 'none' }}>QUẬN 7</div>
-            <div style={{ position: 'absolute', top: '30%', left: '74%', color: 'rgba(255,255,255,0.2)', fontWeight: 700, fontSize: '14px', pointerEvents: 'none' }}>TP. THỦ ĐỨC</div>
-            <div style={{ position: 'absolute', top: '32%', left: '55%', color: 'rgba(255,255,255,0.18)', fontWeight: 700, fontSize: '13px', pointerEvents: 'none' }}>BÌNH THẠNH</div>
-
-            {/* Render Markers Kỹ thuật viên */}
-            {filteredTechs.map(t => {
-              const pos = getCoordsFromArea(t.serviceArea, t.id);
-              const isSelected = selectedTech?.id === t.id;
-              return (
-                <div
-                  key={'tech-' + t.id}
-                  className={`dpv-tech-pin ${t.availability}`}
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, zIndex: isSelected ? 40 : 15 }}
-                  onClick={() => { setSelectedTech(t); setSelectedOrder(null); }}
-                  title={`${t.fullName} (${groups[t.skillGroup] || t.skillGroup})`}
-                >
-                  <div className="pulse-wave" />
-                  <div className="pin-circle" style={{ transform: isSelected ? 'scale(1.3)' : 'scale(1)' }}>
-                    <Users size={16} />
-                  </div>
-                  <div className="pin-label">{t.fullName.split(' ').slice(-2).join(' ')}</div>
-                </div>
-              );
-            })}
-
-            {/* Render Markers Đơn hàng chờ phân công */}
-            {(pendingOrders.data || []).map(o => {
-              const pos = getCoordsFromArea(o.address, o.id + 50);
-              const isSelected = selectedOrder?.id === o.id;
-              return (
-                <div
-                  key={'ord-' + o.id}
-                  className="dpv-order-pin"
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, zIndex: isSelected ? 40 : 20 }}
-                  onClick={() => { setSelectedOrder(o); setSelectedTech(null); }}
-                  title={`Đơn ${code(o.id)}: ${o.serviceName}`}
-                >
-                  <div className="pin-box" style={{ transform: isSelected ? 'scale(1.3)' : 'scale(1)' }}>
-                    <MapPin size={15} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Sidebar xem chi tiết KTV / Đơn hàng được chọn */}
-          <div className="dpv-map-sidebar">
-            <div className="dpv-map-sidebar-head">
-              <span>{selectedTech ? 'Hồ sơ kỹ thuật viên' : selectedOrder ? 'Thông tin đơn chờ thợ' : 'Giám sát trực tuyến'}</span>
-              {(selectedTech || selectedOrder) && (
-                <button className="text-btn" style={{ fontSize: '12px' }} onClick={() => { setSelectedTech(null); setSelectedOrder(null); }}>Đóng</button>
-              )}
-            </div>
-
-            <div className="dpv-map-sidebar-body">
-              {selectedTech ? (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#e0f2fe', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '16px' }}>
-                      {selectedTech.fullName.charAt(0)}
-                    </div>
-                    <div>
-                      <h4 style={{ margin: 0, fontSize: '15px' }}>{selectedTech.fullName}</h4>
-                      <Badge value={selectedTech.availability} />
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#475569' }}>
-                    <div><b>Chuyên môn:</b> {groups[selectedTech.skillGroup] || selectedTech.skillGroup}</div>
-                    <div><b>Địa bàn phục vụ:</b> {selectedTech.serviceArea}</div>
-                    <div><b>Số điện thoại:</b> <a href={'tel:' + selectedTech.phone} style={{ color: '#116a4e', fontWeight: 600 }}>{selectedTech.phone || '0900000000'}</a></div>
-                    <div><b>Số dư ví KTV:</b> <span style={{ color: '#116a4e', fontWeight: 700 }}>{money(selectedTech.balance || 1500000)}</span></div>
-                    <div><b>Đánh giá:</b> {selectedTech.averageRating ? `${Number(selectedTech.averageRating).toFixed(1)}/5 ⭐` : '5.0/5 ⭐ (Tốt)'}</div>
-                    <div><b>Đơn đã hoàn thành:</b> {selectedTech.completedOrders ?? 12} đơn</div>
-                  </div>
-
-                  <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <Link to="/dispatch/assign" className="btn primary small" style={{ width: '100%', justifyContent: 'center' }}>
-                      <Users size={15} /> Giao việc cho KTV này
-                    </Link>
-                    <a href={'tel:' + (selectedTech.phone || '')} className="btn small" style={{ width: '100%', justifyContent: 'center' }}>
-                      <Phone size={15} /> Liên hệ điều phối
-                    </a>
-                  </div>
-                </div>
-              ) : selectedOrder ? (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <b style={{ color: '#116a4e', fontSize: '15px' }}>{code(selectedOrder.id)}</b>
-                    <Badge value={selectedOrder.status} />
-                  </div>
-                  <h4 style={{ margin: '0 0 8px', fontSize: '14px' }}>{selectedOrder.serviceName}</h4>
-                  <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#475569' }}>
-                    <div><b>Khách hàng:</b> {selectedOrder.contactName} ({selectedOrder.contactPhone})</div>
-                    <div><b>Địa chỉ:</b> {selectedOrder.address}</div>
-                    <div><b>Hẹn lúc:</b> {date(selectedOrder.scheduledAt)}</div>
-                    <div><b>Ghi chú lỗi:</b> {selectedOrder.description}</div>
-                  </div>
-                  <div style={{ marginTop: '20px' }}>
-                    <Link to="/dispatch/assign" className="btn primary small" style={{ width: '100%', justifyContent: 'center' }}>
-                      <Users size={15} /> Ghép thợ ngay
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', padding: '30px 10px' }}>
-                  <Compass size={36} style={{ color: '#94a3b8', margin: '0 auto 12px', display: 'block' }} />
-                  <p style={{ margin: '0 0 6px', fontWeight: 600, color: '#334155' }}>Chọn một Thợ hoặc Đơn hàng</p>
-                  <small>Nhấp vào các điểm trên bản đồ radar để kiểm tra thông tin chi tiết và điều phối tức thời.</small>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </Card>
-    </>
-  );
-}
-
-/* ==========================================================================
    2. MÀN HÌNH CHẨN ĐOÁN LỖI TỪ XA (VIDEO CALL, CHAT, MEDIA INSPECTOR)
    ========================================================================== */
 export function RemoteDiagnostics() {
-  const waitingOrders = useData('/orders?status=ChoTiepNhan&pageSize=20');
+  const waitingOrders = useData('/orders?status=ChoTiepNhan&pageSize=100', 15000);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const a = useAction();
 
-  // Đơn được chọn
   const orders = waitingOrders.data || [];
-  const currentOrder = orders.find(o => o.id === selectedOrderId) || orders[0];
-
-  useEffect(() => {
-    if (!selectedOrderId && orders.length > 0) {
-      setSelectedOrderId(orders[0].id);
-    }
-  }, [orders, selectedOrderId]);
+  const currentOrder = orders.find(order => String(order.id) === String(selectedOrderId));
 
   // Dữ liệu ảnh đính kèm của đơn
-  // Ảnh đính kèm sự cố của đơn hàng (OrderFault)
   const orderFiles = useData(currentOrder ? `/orders/${currentOrder.id}/attachments` : null);
   const faultPhotos = (orderFiles.data || []).filter(f => f.purpose === 'OrderFault');
-
-  // Trạng thái tải ảnh
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef(null);
-
-  const copyInviteLink = () => {
-    if (!currentOrder) return;
-    const orderUrl = `${window.location.origin}/orders/${currentOrder.id}`;
-    const text = `HomeFix: Kính gửi quý khách ${currentOrder.contactName}, vui lòng truy cập liên kết sau để chụp và gửi thêm ảnh sự cố cho đơn #${currentOrder.id}: ${orderUrl}`;
-    navigator.clipboard.writeText(text);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 3000);
-  };
-
-  const handleDpvUploadPhotos = async (e) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    if (!selectedFiles.length || !currentOrder) return;
-    setIsUploading(true);
-    try {
-      for (const f of selectedFiles) {
-        await upload(f, 'OrderFault', currentOrder.id);
-      }
-      await orderFiles.reload();
-      alert(`Đã tải thành công ${selectedFiles.length} ảnh sự cố vào hồ sơ đơn hàng!`);
-    } catch (err) {
-      alert('Lỗi tải ảnh: ' + (err.message || 'Không thể tải ảnh.'));
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
+  const [showFaultPhotos, setShowFaultPhotos] = useState(false);
 
   // Trạng thái Chat kỹ thuật
-  const [chatMessages, setChatMessages] = useState([
-    { sender: 'customer', text: 'Chào điều phối viên, máy lạnh nhà tôi chớp đèn đỏ liên tục, không mát.', time: '10:15' },
-    { sender: 'dpv', text: 'Dạ chào anh/chị. Anh/chị cho em hỏi đèn chớp mấy nhịp, và cánh đảo gió có mở ra không ạ?', time: '10:16' },
-  ]);
+  const chat = useData(currentOrder ? `/orders/${currentOrder.id}/chat` : null, 3000);
+  const chatAction = useAction();
   const [chatInput, setChatInput] = useState('');
+  const [diagnosticCode, setDiagnosticCode] = useState('');
+  const [severity, setSeverity] = useState('');
+  const [diagnosisNote, setDiagnosisNote] = useState('');
+  useEffect(() => {
+    setChatInput('');
+    setShowFaultPhotos(false);
+    setDiagnosticCode('');
+    setSeverity('');
+    setDiagnosisNote('');
+  }, [currentOrder?.id]);
 
-  // Phiếu kết luận chẩn đoán
-  const [diagnosticCode, setDiagnosticCode] = useState('F95 - Rò rỉ gas / Áp suất dàn nóng');
-  const [severity, setSeverity] = useState('Medium');
-  const [diagnosisNote, setDiagnosisNote] = useState('Dàn lạnh đóng tuyết một phần, quạt chạy yếu. Nghi ngờ xì đầu nối tán rắc co ống đồng hoặc thiếu gas.');
-
-  const sendChat = (textToSend) => {
-    const txt = textToSend || chatInput;
-    if (!txt.trim()) return;
-    setChatMessages(prev => [
-      ...prev,
-      { sender: 'dpv', text: txt, time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) }
-    ]);
-    if (!textToSend) setChatInput('');
+  const sendChat = async (textToSend) => {
+    const text = (textToSend || chatInput).trim();
+    if (!text || !currentOrder) return;
+    await chatAction.run(async () => {
+      const result = await api(`/orders/${currentOrder.id}/chat`, { method: 'POST', body: { text } });
+      if (!textToSend) setChatInput('');
+      chat.setData(messages => {
+        const current = messages || [];
+        return current.some(message => message.id === result.data.id) ? current : [...current, result.data];
+      });
+    }, 'Đã gửi tin nhắn cho khách hàng.');
   };
 
   const saveDiagnosticNote = () => {
     if (!currentOrder) return;
     a.run(async () => {
-      await api(`/orders/${currentOrder.id}/notes`, {
+      const diagnosis = [
+        `Mã lỗi dự đoán: ${diagnosticCode.trim()}`,
+        `Mức độ nghiêm trọng: ${severity}`,
+        `Mô tả nguyên nhân & đề xuất: ${diagnosisNote.trim()}`
+      ].join('\n');
+      await api(`/orders/${currentOrder.id}/preliminary-quotes`, {
         method: 'POST',
         body: {
-          text: `[CHẨN ĐOÁN TỪ XA]\nMã lỗi: ${diagnosticCode}\nMức độ: ${severity}\nKết luận: ${diagnosisNote}`,
-          visibility: 'Customer',
+          diagnosis,
           expectedVersion: currentOrder.version
         }
       });
-      alert('Đã lưu kết quả chẩn đoán vào hồ sơ đơn hàng!');
-    }, 'Đã cập nhật chẩn đoán từ xa.');
+      waitingOrders.setData(orders => (orders || []).filter(order => order.id !== currentOrder.id));
+      setSelectedOrderId(null);
+      waitingOrders.reload();
+    }, 'Đã lưu chẩn đoán và gửi báo giá cho khách duyệt.');
   };
 
   return (
     <>
-      {/* Thanh chọn đơn cần chẩn đoán */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '12px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+      <div className="dpv-diagnostics-heading">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Camera size={20} style={{ color: '#116a4e' }} />
           <div>
-            <b style={{ fontSize: '15px' }}>Không gian chẩn đoán từ xa</b>
-            <small style={{ display: 'block', color: '#64748b' }}>Kiểm tra ảnh chụp hiện trường từ khách hàng và hỏi đáp kỹ thuật để xác định lỗi trước khi điều thợ.</small>
+            <b style={{ fontSize: '15px' }}>{currentOrder ? 'Chẩn đoán từ xa' : 'Đơn chờ tiếp nhận'}</b>
+            <small style={{ display: 'block', color: '#64748b' }}>
+              {currentOrder
+                ? 'Trao đổi với khách hàng, xem ảnh sự cố và ghi nhận kết luận chẩn đoán.'
+                : 'Chọn một đơn để mở cuộc trò chuyện và phiếu chẩn đoán kỹ thuật.'}
+            </small>
           </div>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 600 }}>Chọn đơn:</span>
-          <select
-            value={currentOrder?.id || ''}
-            onChange={e => setSelectedOrderId(Number(e.target.value))}
-            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, color: '#116a4e' }}
-          >
-            {orders.map(o => (
-              <option key={o.id} value={o.id}>
-                {code(o.id)} · {o.serviceName} ({o.contactName})
-              </option>
-            ))}
-          </select>
-        </div>
+        <button className="icon-btn small" onClick={() => waitingOrders.reload()} title="Tải lại danh sách đơn">
+          <RefreshCw size={15} />
+        </button>
       </div>
 
-      {!currentOrder ? (
-        <Empty title="Chưa có đơn chờ chẩn đoán" text="Hiện không có đơn hàng nào ở trạng thái chờ tiếp nhận." />
+      <ErrorBox error={waitingOrders.error} />
+      {waitingOrders.loading && <Loading />}
+      {!waitingOrders.loading && !currentOrder && (orders.length === 0 ? (
+        <Empty title="Không có đơn chờ tiếp nhận" text="Các đơn mới cần chẩn đoán từ xa sẽ xuất hiện tại đây." />
       ) : (
-        <div className="dpv-diag-layout">
-          {/* CỘT 1: THƯ VIỆN ẢNH & THÔNG TIN SỰ CỐ */}
+        <div className="dpv-diagnostics-orders">
+          {orders.map(order => (
+            <button
+              key={order.id}
+              type="button"
+              className="dpv-diagnostics-order"
+              onClick={() => setSelectedOrderId(order.id)}
+            >
+              <div className="dpv-diagnostics-order-icon"><FileText size={20} /></div>
+              <div className="dpv-diagnostics-order-info">
+                <div className="dpv-diagnostics-order-title">
+                  <b>{code(order.id)} · {order.serviceName}</b>
+                  <Badge value={order.status} />
+                </div>
+                <span>{order.contactName || 'Khách hàng'} · {date(order.createdAt)}</span>
+                {order.description && <small>{order.description}</small>}
+                {order.address && <small>{order.address}</small>}
+              </div>
+              <ArrowRight size={18} />
+            </button>
+          ))}
+        </div>
+      ))}
+
+      {currentOrder && (
+        <div className="dpv-diagnostics-detail">
+          <button type="button" className="btn small" onClick={() => setSelectedOrderId(null)}>
+            <ArrowRight size={14} style={{ transform: 'rotate(180deg)' }} /> Quay lại danh sách đơn
+          </button>
+
           <div className="dpv-panel">
             <div className="dpv-panel-head">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Camera size={16} style={{ color: '#116a4e' }} />
-                <span>Ảnh sự cố ({faultPhotos.length})</span>
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <button
-                  className="icon-btn small"
-                  onClick={() => orderFiles.reload()}
-                  title="Tải lại danh sách ảnh mới nhất"
-                  style={{ padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff' }}
-                >
-                  <RefreshCw size={13} />
-                </button>
-                <button
-                  className="btn small"
-                  disabled={isUploading}
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Điều phối viên tải thêm ảnh sự cố từ Zalo/SMS vào hồ sơ"
-                  style={{ padding: '3px 8px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <UploadCloud size={13} /> {isUploading ? 'Đang tải...' : 'Tải ảnh'}
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  multiple
-                  accept="image/jpeg,image/png"
-                  style={{ display: 'none' }}
-                  onChange={handleDpvUploadPhotos}
-                />
-              </div>
+              <span>Hỏi đáp & Phiếu chẩn đoán · {code(currentOrder.id)}</span>
+              <MessageSquare size={16} style={{ color: '#64748b' }} />
             </div>
-            <div className="dpv-panel-body">
-              {/* Thông tin đơn hàng */}
-              <div style={{ marginBottom: '14px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <b style={{ color: '#116a4e', display: 'block', marginBottom: '4px' }}>{currentOrder.serviceName}</b>
-                <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>{currentOrder.description}</p>
-                <small style={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>📍 {currentOrder.address}</small>
-                {/* Nút gọi điện trực tiếp cho khách */}
-                <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
-                  <a
-                    href={`tel:${currentOrder.contactPhone}`}
-                    className="btn small"
-                    style={{ flex: 1, textDecoration: 'none', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '6px' }}
-                    title={`Gọi điện thoại cho ${currentOrder.contactName}`}
-                  >
-                    <Phone size={14} /> Gọi khách
-                  </a>
+            <div className="dpv-chat-messages dpv-diagnostics-messages">
+              {(chat.data || []).filter(message => String(message.orderId) === String(currentOrder.id)).map(message => (
+                <div key={message.id} className={`dpv-chat-bubble ${message.authorRole === 'KH' ? 'customer' : 'dpv'}`}>
+                  <div>{message.text}</div>
+                  <small style={{ fontSize: '10px', opacity: 0.7, marginTop: 4, display: 'block', textAlign: message.authorRole === 'DPV' ? 'right' : 'left' }}>
+                    {message.authorName} · {date(message.createdAt)}
+                  </small>
                 </div>
-              </div>
-
-              {/* Nút sao chép liên kết cho khách gửi ảnh */}
-              <div style={{ marginBottom: '12px' }}>
-                <button
-                  className="btn small full"
-                  onClick={() => copyInviteLink()}
-                  style={{ fontSize: '12px', background: copiedLink ? '#ecfdf5' : '#f8fafc', color: copiedLink ? '#047857' : '#334155', border: '1px dashed #94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                  title="Sao chép đường link gửi cho khách qua Zalo/SMS để khách bấm vào gửi ảnh trực tiếp"
-                >
-                  {copiedLink ? <Check size={13} /> : <Copy size={13} />}
-                  {copiedLink ? 'Đã chép link gửi ảnh!' : 'Sao chép link cho khách gửi ảnh'}
-                </button>
-              </div>
-
-              {/* Ảnh sự cố từ khách hàng */}
-              {orderFiles.loading && (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '13px' }}>Đang tải ảnh...</div>
+              ))}
+              {!chat.loading && !chat.error && !chat.data?.some(message => String(message.orderId) === String(currentOrder.id)) && (
+                <small style={{ color: '#64748b', padding: '12px' }}>Chưa có tin nhắn cho đơn này.</small>
               )}
-              {!orderFiles.loading && faultPhotos.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '24px 16px', border: '2px dashed #e2e8f0', borderRadius: '10px', color: '#94a3b8' }}>
-                  <Camera size={28} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.4 }} />
-                  <p style={{ margin: 0, fontSize: '13px' }}>Chưa có ảnh sự cố</p>
-                  <small>Gửi link cho khách chụp ảnh hoặc DPV tải ảnh từ Zalo</small>
-                </div>
+              {chat.loading && <small style={{ color: '#64748b', padding: '12px' }}>Đang tải tin nhắn...</small>}
+            </div>
+            <ErrorBox error={chat.error || chatAction.error} />
+            <div className="dpv-quick-prompts">
+              <button type="button" className="dpv-prompt-chip" onClick={() => sendChat('Khách hàng vui lòng kiểm tra mã lỗi hiển thị trên remote?')}>Mã lỗi remote?</button>
+              <button type="button" className="dpv-prompt-chip" onClick={() => sendChat('Đã ngắt aptomat để đảm bảo an toàn chưa ạ?')}>Ngắt aptomat?</button>
+              <button type="button" className="dpv-prompt-chip" onClick={() => sendChat('Thiết bị có phát ra mùi khét hoặc tiếng kêu lạ không?')}>Mùi khét / tiếng kêu?</button>
+            </div>
+            <div className="dpv-diagnostics-chat-input">
+              <input
+                type="text"
+                placeholder="Nhắn tin với khách hàng..."
+                maxLength={1993}
+                value={chatInput}
+                onChange={event => setChatInput(event.target.value)}
+                onKeyDown={event => event.key === 'Enter' && sendChat()}
+                disabled={chatAction.busy}
+              />
+              <button className="btn primary small" onClick={() => sendChat()} disabled={chatAction.busy || !chatInput.trim()}>
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+
+          <div className="dpv-diagnostics-photos">
+            <button
+              type="button"
+              className="btn"
+              aria-expanded={showFaultPhotos}
+              onClick={() => setShowFaultPhotos(show => !show)}
+            >
+              <Camera size={16} /> {showFaultPhotos ? 'Ẩn ảnh sự cố' : `Ảnh sự cố (${faultPhotos.length})`}
+            </button>
+            <button type="button" className="icon-btn small" onClick={() => orderFiles.reload()} title="Tải lại ảnh sự cố">
+              <RefreshCw size={15} />
+            </button>
+          </div>
+          {showFaultPhotos && (
+            <div className="dpv-panel dpv-diagnostics-photo-panel">
+              {orderFiles.error && <ErrorBox error={orderFiles.error} />}
+              {orderFiles.loading && <Loading />}
+              {!orderFiles.loading && !orderFiles.error && faultPhotos.length === 0 && (
+                <Empty title="Chưa có ảnh sự cố" text="Khách hàng chưa gửi ảnh cho đơn này." />
               )}
               {faultPhotos.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {faultPhotos.map((f, idx) => (
-                    <div key={f.id} style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', border: '1px solid #cbd5e1', background: '#0f172a' }}>
-                      <div style={{ display: 'block' }}>
-                        <ProtectedImage id={f.id} alt={`Ảnh sự cố ${idx + 1}`} />
-                      </div>
-                      <span style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: '11px', padding: '2px 7px', borderRadius: '4px', pointerEvents: 'none' }}>
-                        Ảnh {idx + 1}{f.originalName ? ': ' + f.originalName : ''}
-                      </span>
+                <div className="dpv-diagnostics-photo-grid">
+                  {faultPhotos.map((file, index) => (
+                    <div key={file.id} className="dpv-diagnostics-photo">
+                      <ProtectedImage id={file.id} alt={`Ảnh sự cố ${index + 1}`} />
+                      {file.originalName && <small>{file.originalName}</small>}
                     </div>
                   ))}
                 </div>
               )}
-
-              {/* Nhãn khuyết tật sơ bộ từ mô tả đơn */}
-              {currentOrder.description && (
-                <div style={{ marginTop: '14px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '6px' }}>Mô tả sự cố của khách:</span>
-                  <p style={{ margin: 0, fontSize: '12.5px', color: '#374151', background: '#f8fafc', padding: '8px 10px', borderRadius: '6px', borderLeft: '3px solid #10b981', lineHeight: '1.5' }}>
-                    {currentOrder.description}
-                  </p>
-                </div>
-              )}
             </div>
-          </div>
+          )}
 
-
-          {/* CỘT 3: CHAT KỸ THUẬT & PHIẾU CHẨN ĐOÁN */}
-          <div className="dpv-panel dpv-panel-col3">
-            <div className="dpv-panel-head">
-              <span>Hỏi đáp & Phiếu chẩn đoán</span>
-              <MessageSquare size={16} style={{ color: '#64748b' }} />
-            </div>
-
-            {/* Khu vực scroll chứa toàn bộ nội dung cột 3 */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-              {/* Khung chat */}
-              <div className="dpv-chat-messages" style={{ flex: '0 0 auto', maxHeight: '180px', minHeight: '120px' }}>
-                {chatMessages.map((m, idx) => (
-                  <div key={idx} className={`dpv-chat-bubble ${m.sender}`}>
-                    <div>{m.text}</div>
-                    <small style={{ fontSize: '10px', opacity: 0.7, marginTop: 4, display: 'block', textAlign: m.sender === 'dpv' ? 'right' : 'left' }}>{m.time}</small>
-                  </div>
-                ))}
+          <div className="dpv-panel dpv-diagnostics-conclusion">
+            <div className="dpv-panel-head">Kết luận chẩn đoán kỹ thuật</div>
+            <div className="dpv-panel-body">
+              <Field label="Mã lỗi dự đoán">
+                <input type="text" maxLength={200} value={diagnosticCode} onChange={event => setDiagnosticCode(event.target.value)} />
+              </Field>
+              <Field label="Mức độ nghiêm trọng">
+                <select value={severity} onChange={event => setSeverity(event.target.value)}>
+                  <option value="" disabled>Chọn mức độ nghiêm trọng</option>
+                  <option value="Normal">Bình thường (sửa trong ngày)</option>
+                  <option value="Medium">Cần gấp (trong vòng 2 giờ)</option>
+                  <option value="Critical">Khẩn cấp (nguy cơ rò rỉ điện/cháy)</option>
+                </select>
+              </Field>
+              <Field label="Mô tả nguyên nhân & đề xuất">
+                <textarea rows={3} maxLength={1500} value={diagnosisNote} onChange={event => setDiagnosisNote(event.target.value)} style={{ resize: 'vertical' }} />
+              </Field>
+              <div className="dpv-diagnostics-actions">
+                <button
+                  className="btn small"
+                  onClick={saveDiagnosticNote}
+                  disabled={a.busy || !diagnosticCode.trim() || !severity || !diagnosisNote.trim()}
+                >
+                  {a.busy ? 'Đang lưu...' : 'Lưu vào đơn'}
+                </button>
               </div>
-
-              {/* Quick Prompts */}
-              <div className="dpv-quick-prompts" style={{ flex: '0 0 auto' }}>
-                <span className="dpv-prompt-chip" onClick={() => sendChat('Khách hàng vui lòng kiểm tra mã lỗi hiển thị trên remote?')}>Mã lỗi remote?</span>
-                <span className="dpv-prompt-chip" onClick={() => sendChat('Đã ngắt aptomat để đảm bảo an toàn chưa ạ?')}>Ngắt aptomat?</span>
-                <span className="dpv-prompt-chip" onClick={() => sendChat('Thiết bị có phát ra mùi khét hoặc tiếng kêu lạ không?')}>Mùi khét / tiếng kêu?</span>
-              </div>
-
-              {/* Input Chat */}
-              <div style={{ display: 'flex', gap: '6px', padding: '10px 12px', borderBottom: '1px solid #e2e8f0', flex: '0 0 auto', background: '#fff' }}>
-                <input
-                  type="text"
-                  placeholder="Nhắn tin với khách hàng..."
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && sendChat()}
-                  style={{ flex: 1, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                />
-                <button className="btn primary small" onClick={() => sendChat()}><Send size={14} /></button>
-              </div>
-
-              {/* Phiếu kết luận chẩn đoán */}
-              <div style={{ flex: '0 0 auto', padding: '14px 16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-                <b style={{ fontSize: '13px', display: 'block', marginBottom: '10px', color: '#1e293b' }}>Kết luận chẩn đoán kỹ thuật:</b>
-                <Field label="Mã lỗi dự đoán">
-                  <input type="text" value={diagnosticCode} onChange={e => setDiagnosticCode(e.target.value)} />
-                </Field>
-                <Field label="Mức độ nghiêm trọng">
-                  <select value={severity} onChange={e => setSeverity(e.target.value)}>
-                    <option value="Normal">Bình thường (sửa trong ngày)</option>
-                    <option value="Medium">Cần gấp (trong vòng 2 giờ)</option>
-                    <option value="Critical">Khẩn cấp (nguy cơ rò rỉ điện/cháy)</option>
-                  </select>
-                </Field>
-                <Field label="Mô tả nguyên nhân & đề xuất">
-                  <textarea rows={3} value={diagnosisNote} onChange={e => setDiagnosisNote(e.target.value)} style={{ resize: 'vertical' }} />
-                </Field>
-
-                {/* Nút Lưu & Lập báo giá – luôn hiển thị */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                  <button
-                    className="btn small"
-                    onClick={saveDiagnosticNote}
-                    disabled={a.busy}
-                    style={{ flex: 1, justifyContent: 'center' }}
-                  >
-                    {a.busy ? '...' : 'Lưu vào đơn'}
-                  </button>
-                  <Link
-                    to={`/dispatch/quotes?orderId=${currentOrder.id}`}
-                    className="btn primary small"
-                    style={{ flex: 1, justifyContent: 'center', textDecoration: 'none' }}
-                  >
-                    Lập báo giá <ArrowRight size={14} />
-                  </Link>
-                </div>
-                {a.error && <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444' }}>Lỗi: {a.error.message}</div>}
-                {a.success && <div style={{ marginTop: '8px', fontSize: '12px', color: '#10b981' }}>✓ {a.success}</div>}
-              </div>
+              {a.error && <ErrorBox error={a.error} />}
             </div>
           </div>
         </div>
       )}
+
     </>
   );
 }
 
 /* ==========================================================================
-   3. MÀN HÌNH LẬP & GỬI BÁO GIÁ SƠ BỘ
+   3. THEO DÕI BÁO GIÁ SƠ BỘ
    ========================================================================== */
 export function PreliminaryQuoteManager() {
-  const waitingOrders = useData('/orders?status=ChoTiepNhan&pageSize=50');
+  const location = useLocation();
+  const unsentOrders = useData('/orders?status=ChoTiepNhan&pageSize=100', 15000);
+  const sentOrders = useData('/orders?status=ChoDuyetSoBo&pageSize=100', 15000);
   const a = useAction();
+  const [activeQuoteTab, setActiveQuoteTab] = useState('unsent');
   const [selectedOrder, setSelectedOrder] = useState(null);
-
-  const [form, setForm] = useState({
-    diagnosis: 'Kiểm tra máy lạnh, xử lý nghẹt máng xả nước thải, vệ sinh lưới lọc và nạp gas bổ sung R32.',
-    inspectionFee: '50000',
-    laborFee: '150000',
-    commissionPercent: '15'
-  });
-
-  const orders = waitingOrders.data || [];
-
-  // Mẫu chẩn đoán sẵn
-  const TEMPLATES = [
-    { label: 'Điện lạnh - Chảy nước & Thiếu gas', text: 'Kiểm tra đường thoát nước máy lạnh, vệ sinh máng hứng, xử lý mối hở tán đồng và nạp gas bổ sung.' },
-    { label: 'Điện nước - Rò rỉ ống dẫn', text: 'Kiểm tra áp lực đường nước, thay thế đoạn ống nhiệt PPR bị nứt vỡ, quấn cao su non và thay ren nối.' },
-    { label: 'Gia dụng - Hỏng tụ & Kẹt động cơ', text: 'Kiểm tra nguồn cấp bo mạch, thay thế tụ khởi động quạt/máy giặt, vệ sinh tra dầu bảo dưỡng.' },
-    { label: 'Vệ sinh - Bảo trì định kỳ', text: 'Tháo vệ sinh lồng giặt / dàn lạnh bằng máy phun áp lực cao, khử khuẩn và chạy test tải nghiệm thu.' }
+  const quoteDetails = useData(selectedOrder ? `/orders/${selectedOrder.id}` : null);
+  const [form, setForm] = useState({ diagnosis: '', inspectionFee: '50000', laborFee: '150000', commissionPercent: '15' });
+  const orders = activeQuoteTab === 'unsent'
+    ? unsentOrders.data || []
+    : sentOrders.data || [];
+  const list = activeQuoteTab === 'unsent' ? unsentOrders : sentOrders;
+  const quote = quoteDetails.data?.currentPreliminaryQuote;
+  const templates = [
+    { label: 'Điện lạnh - Chảy nước & Thiếu gas', serviceGroup: 'DienLanh', text: 'Kiểm tra đường thoát nước máy lạnh, vệ sinh máng hứng, xử lý mối hở tán đồng và nạp gas bổ sung.', laborFee: '150000' },
+    { label: 'Điện nước - Rò rỉ ống dẫn', serviceGroup: 'DienNuoc', text: 'Kiểm tra áp lực đường nước, thay thế đoạn ống nhiệt PPR bị nứt vỡ, quấn cao su non và thay ren nối.', laborFee: '120000' },
+    { label: 'Gia dụng - Hỏng tụ & Kẹt động cơ', serviceGroup: 'DienGiaDung', text: 'Kiểm tra nguồn cấp bo mạch, thay thế tụ khởi động quạt/máy giặt, vệ sinh tra dầu bảo dưỡng.', laborFee: '180000' },
+    { label: 'Vệ sinh - Bảo trì định kỳ', serviceGroup: 'VeSinh', text: 'Tháo vệ sinh lồng giặt / dàn lạnh bằng máy phun áp lực cao, khử khuẩn và chạy test tải nghiệm thu.', laborFee: '150000' }
   ];
-
-  const handleSelectOrder = (o) => {
-    setSelectedOrder(o);
-    // Tùy theo nhóm dịch vụ gán mẫu chẩn đoán thích hợp
-    if (o.serviceGroup === 'DienLanh') {
-      setForm(f => ({ ...f, diagnosis: TEMPLATES[0].text, laborFee: '150000' }));
-    } else if (o.serviceGroup === 'DienNuoc') {
-      setForm(f => ({ ...f, diagnosis: TEMPLATES[1].text, laborFee: '120000' }));
-    } else {
-      setForm(f => ({ ...f, diagnosis: TEMPLATES[2].text, laborFee: '180000' }));
-    }
+  const handleSelectOrder = order => {
+    setSelectedOrder(order);
+    const template = templates.find(item => item.serviceGroup === order.serviceGroup) || templates[0];
+    setForm(current => ({ ...current, diagnosis: template.text, laborFee: template.laborFee }));
   };
 
-  const submitQuote = () => {
+  useEffect(() => {
+    const orderId = Number(new URLSearchParams(location.search).get('orderId'));
+    if (!orderId || !unsentOrders.data) return;
+    const order = unsentOrders.data.find(item => item.id === orderId);
+    if (order) {
+      setActiveQuoteTab('unsent');
+      handleSelectOrder(order);
+    }
+  }, [location.search, unsentOrders.data]);
+
+  useEffect(() => {
     if (!selectedOrder) return;
+    if (activeQuoteTab === 'unsent' && unsentOrders.data && !unsentOrders.data.some(order => order.id === selectedOrder.id)) {
+      setSelectedOrder(null);
+    }
+    if (activeQuoteTab === 'sent' && sentOrders.data && !sentOrders.data.some(order => order.id === selectedOrder.id)) {
+      setSelectedOrder(null);
+    }
+  }, [activeQuoteTab, selectedOrder, sentOrders.data, unsentOrders.data]);
+
+  const submitQuote = () => {
+    if (!selectedOrder || activeQuoteTab !== 'unsent') return;
     a.run(async () => {
       await api(`/orders/${selectedOrder.id}/preliminary-quotes`, {
         method: 'POST',
-        body: {
-          diagnosis: form.diagnosis,
-          expectedVersion: selectedOrder.version
-        }
+        body: { diagnosis: form.diagnosis, expectedVersion: selectedOrder.version }
       });
       setSelectedOrder(null);
-      waitingOrders.reload();
-      alert('Đã gửi báo giá sơ bộ cho khách hàng duyệt thành công!');
-    }, 'Đã gửi báo giá sơ bộ thành công.');
+      setActiveQuoteTab('sent');
+      unsentOrders.reload();
+      sentOrders.reload();
+    }, 'Đã gửi báo giá cho khách hàng duyệt.');
   };
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px' }}>
-        {/* Danh sách đơn chờ lập báo giá */}
-        <Card title={`Đơn chờ lập báo giá (${orders.length})`}>
-          <ErrorBox error={waitingOrders.error} />
-          {waitingOrders.loading ? <Loading /> : !orders.length ? (
-            <Empty title="Không có đơn chờ tiếp nhận" text="Tất cả các đơn đã được lập báo giá sơ bộ." />
+      <div className="dpv-quote-manager">
+        <Card title={activeQuoteTab === 'unsent' ? `Đơn chưa gửi báo giá (${orders.length})` : `Đơn đã gửi · Chờ khách duyệt (${orders.length})`}>
+          <div className="dpv-quote-status-tabs" role="tablist" aria-label="Trạng thái báo giá">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeQuoteTab === 'unsent'}
+              className={activeQuoteTab === 'unsent' ? 'active' : ''}
+              onClick={() => {
+                setActiveQuoteTab('unsent');
+                setSelectedOrder(null);
+              }}
+            >
+              Chưa gửi <span>{unsentOrders.data?.length ?? '…'}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeQuoteTab === 'sent'}
+              className={activeQuoteTab === 'sent' ? 'active' : ''}
+              onClick={() => {
+                setActiveQuoteTab('sent');
+                setSelectedOrder(null);
+              }}
+            >
+              Đã gửi · Chờ duyệt <span>{sentOrders.data?.length ?? '…'}</span>
+            </button>
+          </div>
+
+          <ErrorBox error={list.error} />
+          {list.loading ? <Loading /> : !orders.length ? (
+            <Empty
+              title={activeQuoteTab === 'unsent' ? 'Không có đơn chưa gửi báo giá' : 'Không có báo giá đang chờ khách duyệt'}
+              text={activeQuoteTab === 'unsent'
+                ? 'Các đơn chờ tiếp nhận sẽ xuất hiện tại đây để điều phối viên lập và gửi báo giá.'
+                : 'Các đơn đã gửi báo giá và đang chờ khách hàng xác nhận sẽ xuất hiện tại đây.'}
+            />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="dpv-quote-order-list">
               {orders.map(o => {
                 const isSelected = selectedOrder?.id === o.id;
                 return (
-                  <div
+                  <button
                     key={o.id}
-                    onClick={() => handleSelectOrder(o)}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid ' + (isSelected ? '#116a4e' : '#e2e8f0'),
-                      background: isSelected ? '#f0faf5' : '#fff',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s'
-                    }}
+                    type="button"
+                    className={`dpv-diagnostics-order ${isSelected ? 'selected' : ''}`}
+                    onClick={() => activeQuoteTab === 'unsent' ? handleSelectOrder(o) : setSelectedOrder(o)}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                       <b style={{ color: '#116a4e' }}>{code(o.id)}</b>
@@ -701,92 +399,86 @@ export function PreliminaryQuoteManager() {
                     <div style={{ fontWeight: 600, fontSize: '13.5px' }}>{o.serviceName}</div>
                     <div style={{ color: '#475569', fontSize: '12.5px' }}>{o.contactName} · {o.contactPhone}</div>
                     <small style={{ color: '#64748b', display: 'block', marginTop: '4px' }}>📍 {o.address}</small>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </Card>
 
-        {/* Panel Form lập báo giá sơ bộ */}
-        <Card title={selectedOrder ? `Lập báo giá sơ bộ · ${code(selectedOrder.id)}` : 'Chi tiết báo giá sơ bộ'}>
+        <Card title={selectedOrder ? `${activeQuoteTab === 'unsent' ? 'Gửi báo giá' : 'Chi tiết báo giá'} · ${code(selectedOrder.id)}` : 'Báo giá sơ bộ'}>
           {!selectedOrder ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b' }}>
+            <div className="dpv-quote-empty-detail">
               <FileText size={40} style={{ color: '#cbd5e1', margin: '0 auto 12px', display: 'block' }} />
-              <p style={{ fontWeight: 600, color: '#334155' }}>Chọn một đơn hàng bên trái để tiến hành lập báo giá sơ bộ</p>
-              <small>Hệ thống tự động đồng bộ phí kiểm tra và tiền công tiêu chuẩn từ danh mục dịch vụ.</small>
+              <p>{activeQuoteTab === 'unsent' ? 'Chọn đơn chờ tiếp nhận để lập và gửi báo giá.' : 'Chọn đơn đã gửi để xem chi tiết báo giá.'}</p>
             </div>
-          ) : (
-            <div>
-              {/* Thông tin đơn */}
-              <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', marginBottom: '18px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px' }}>
-                  <div><b>Dịch vụ yêu cầu:</b> {selectedOrder.serviceName}</div>
-                  <div><b>Nhóm chuyên môn:</b> {groups[selectedOrder.serviceGroup] || selectedOrder.serviceGroup}</div>
-                  <div><b>Khách hàng:</b> {selectedOrder.contactName} ({selectedOrder.contactPhone})</div>
-                  <div><b>Địa chỉ thi công:</b> {selectedOrder.address}</div>
-                </div>
-                <div style={{ marginTop: '8px', fontSize: '13px' }}>
-                  <b>Mô tả của khách:</b> <i>"{selectedOrder.description}"</i>
-                </div>
+          ) : activeQuoteTab === 'unsent' ? (
+            <div className="dpv-quote-detail">
+              <div className="dpv-quote-order-summary">
+                <b>{selectedOrder.serviceName}</b>
+                <span>{selectedOrder.contactName} · {selectedOrder.contactPhone}</span>
+                <span>{selectedOrder.address}</span>
+                <span>Mô tả: {selectedOrder.description}</span>
               </div>
-
-              {/* Mẫu gợi ý chẩn đoán nhanh */}
-              <div style={{ marginBottom: '16px' }}>
-                <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#475569' }}>Mẫu gợi ý chẩn đoán nhanh:</span>
+              <div>
+                <b>Mẫu gợi ý chẩn đoán</b>
                 <div className="dpv-template-list">
-                  {TEMPLATES.map((tmpl, idx) => (
+                  {templates.map(template => (
                     <button
-                      key={idx}
+                      key={template.label}
                       type="button"
                       className="dpv-template-btn"
-                      onClick={() => setForm(f => ({ ...f, diagnosis: tmpl.text }))}
+                      onClick={() => setForm(current => ({ ...current, diagnosis: template.text, laborFee: template.laborFee }))}
                     >
-                      {tmpl.label}
+                      {template.label}
                     </button>
                   ))}
                 </div>
               </div>
-
-              <Field label="Chẩn đoán nguyên nhân & Phương án xử lý (Khách hàng sẽ đọc nội dung này)">
-                <textarea
-                  rows={3}
-                  required
-                  value={form.diagnosis}
-                  onChange={e => setForm({ ...form, diagnosis: e.target.value })}
-                />
+              <Field label="Chẩn đoán & phương án xử lý (khách hàng sẽ xem)">
+                <textarea rows={4} maxLength={1993} value={form.diagnosis} onChange={event => setForm(current => ({ ...current, diagnosis: event.target.value }))} />
               </Field>
-
-              {/* Bảng chi phí sơ bộ */}
-              <div className="dpv-quote-card">
-                <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#0f172a' }}>Dự toán chi phí sơ bộ</h4>
-                <div className="dpv-fee-row">
-                  <span>Phí kiểm tra niêm yết (Cố định):</span>
-                  <b>{money(form.inspectionFee)}</b>
-                </div>
-                <div className="dpv-fee-row">
-                  <span>Tiền công ước tính (Theo danh mục):</span>
-                  <b>{money(form.laborFee)}</b>
-                </div>
-                <div className="dpv-fee-row">
-                  <span>Hoa hồng nền tảng ({form.commissionPercent}% tiền công):</span>
-                  <span style={{ color: '#64748b' }}>{money(Number(form.laborFee) * 0.15)}</span>
-                </div>
-                <div className="dpv-fee-row">
-                  <span>Tổng chi phí sơ bộ khách cần duyệt:</span>
-                  <span>{money(Number(form.inspectionFee) + Number(form.laborFee))}</span>
-                </div>
+              <div className="dpv-quote-costs">
+                <div><span>Phí kiểm tra</span><b>{money(form.inspectionFee)}</b></div>
+                <div><span>Tiền công</span><b>{money(form.laborFee)}</b></div>
+                <div><span>Hoa hồng nền tảng ({form.commissionPercent}%)</span><b>{money(Number(form.laborFee) * Number(form.commissionPercent) / 100)}</b></div>
+                <div className="total"><span>Tổng chi phí sơ bộ</span><b>{money(Number(form.inspectionFee) + Number(form.laborFee))}</b></div>
               </div>
-
               <ErrorBox error={a.error} />
-
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
-                <button className="btn" type="button" onClick={() => setSelectedOrder(null)}>Hủy chọn</button>
-                <Submit busy={a.busy} onClick={submitQuote}>
-                  <Send size={16} /> Gửi báo giá sơ bộ cho khách duyệt
+              <div className="dpv-quote-actions">
+                <Submit busy={a.busy} onClick={submitQuote} disabled={a.busy || form.diagnosis.trim().length < 5}>
+                  <Send size={16} /> Gửi báo giá cho khách duyệt
                 </Submit>
               </div>
             </div>
+          ) : (
+            quoteDetails.loading || (!quoteDetails.error && String(quoteDetails.data?.id) !== String(selectedOrder.id)) ? <Loading />
+              : quoteDetails.error ? <ErrorBox error={quoteDetails.error} />
+                : !quote ? <Empty title="Không tìm thấy báo giá" text="Đơn hàng này chưa có phiếu báo giá sơ bộ." />
+                  : (
+            <div className="dpv-quote-detail">
+              <div className="dpv-quote-order-summary">
+                <b>{quoteDetails.data.serviceName}</b>
+                <span>{quoteDetails.data.contactName} · {date(quote.createdAt)}</span>
+                <span>{quoteDetails.data.address}</span>
+              </div>
+              <div className="dpv-quote-status">
+                <span>Trạng thái báo giá</span>
+                <span className="badge amber">Đã gửi · Chờ khách duyệt</span>
+              </div>
+              <div>
+                <b>Chẩn đoán & phương án xử lý</b>
+                <p className="pre-wrap">{quote.diagnosis}</p>
+              </div>
+              <div className="dpv-quote-costs">
+                <div><span>Phí kiểm tra</span><b>{money(quote.inspectionFee)}</b></div>
+                <div><span>Tiền công</span><b>{money(quote.laborFee)}</b></div>
+                <div><span>Hoa hồng nền tảng ({quote.commissionRatePercent}%)</span><b>{money(Number(quote.laborFee) * Number(quote.commissionRatePercent) / 100)}</b></div>
+                <div className="total"><span>Tổng chi phí sơ bộ</span><b>{money(quote.total)}</b></div>
+              </div>
+              <div className="notice info">Báo giá đã được gửi. Khách hàng sẽ xem và quyết định duyệt trên đơn hàng của họ.</div>
+            </div>
+                  )
           )}
         </Card>
       </div>
@@ -849,7 +541,7 @@ export function SmartDispatchCenter() {
       </div>
 
       {activeTab === 'dispatch' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '20px' }}>
           {/* Cột trái: Đơn chờ phân công */}
           <Card title={`Đơn chờ ghép thợ (${orders.length})`}>
             <ErrorBox error={pendingOrders.error} />
@@ -1055,13 +747,16 @@ function AssignmentHistoryFullTab() {
    5. MÀN HÌNH HỦY ĐƠN HÀNG & XỬ LÝ PHÍ DI CHUYỂN
    ========================================================================== */
 export function CancellationManager() {
-  const activeOrders = useData('/orders?pageSize=50');
+  const cancellationRequests = useData('/orders?cancellationRequests=pending&pageSize=100', 10000);
   const cancelledOrders = useData('/orders?status=Huy&pageSize=50');
   const a = useAction();
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [cancelReason, setCancelReason] = useState('Khách hàng đổi ý, không còn nhu cầu sửa chữa');
+  const [customCancelReason, setCustomCancelReason] = useState('');
   const [customNote, setCustomNote] = useState('');
+  const [cancelFee, setCancelFee] = useState('0');
+  const [customFee, setCustomFee] = useState('50000');
 
   const REASONS = [
     'Khách hàng đổi ý, không còn nhu cầu sửa chữa',
@@ -1072,41 +767,57 @@ export function CancellationManager() {
     'Sai lệch thông tin địa chỉ hoặc ngoài phạm vi phục vụ'
   ];
 
+  useEffect(() => {
+    if (!selectedOrder) return;
+    setCustomCancelReason('');
+    const defaultFee = selectedOrder.status === 'DangDiChuyen' ? String(selectedOrder.cancellationFeeSnapshot ?? 50000) : '0';
+    const presetFees = ['0', '50000', '60000', '100000', '150000', '200000', '300000'];
+    const normalizedFee = presetFees.includes(defaultFee) ? defaultFee : 'custom';
+    setCancelFee(normalizedFee);
+    setCustomFee(normalizedFee === 'custom' ? defaultFee : (defaultFee || '50000'));
+  }, [selectedOrder]);
+
   const handleCancelOrder = () => {
     if (!selectedOrder) return;
-    const finalReason = customNote ? `${cancelReason} (${customNote})` : cancelReason;
+    const selectedReason = cancelReason === 'Lý do khác' ? customCancelReason.trim() : cancelReason;
+    const finalReason = customNote.trim() ? `${selectedReason} (${customNote.trim()})` : selectedReason;
+    const chosenFee = cancelFee === 'custom' ? Number(customFee || 0) : Number(cancelFee || 0);
 
     a.run(async () => {
       await api(`/orders/${selectedOrder.id}/cancel`, {
         method: 'POST',
         body: {
           reason: finalReason,
-          expectedVersion: selectedOrder.version
+          expectedVersion: selectedOrder.version,
+          fee: chosenFee
         }
       });
       setSelectedOrder(null);
+      setCustomCancelReason('');
       setCustomNote('');
-      activeOrders.reload();
+      setCancelFee('0');
+      setCustomFee('50000');
+      cancellationRequests.reload();
       cancelledOrders.reload();
       alert('Đã xử lý hủy đơn hàng thành công theo quy chuẩn!');
     }, 'Đã hủy đơn hàng thành công.');
   };
 
   const isEnRoute = selectedOrder?.status === 'DangDiChuyen';
-  const travelFee = isEnRoute ? 50000 : 0;
+  const selectedFeeValue = cancelFee === 'custom' ? Number(customFee || 0) : Number(cancelFee || 0);
+  const hasSelectedFee = selectedFeeValue > 0;
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: '20px' }}>
+      <div className="dpv-cancellation-manager">
         {/* Bảng quản lý & chọn đơn cần hủy */}
-        <div>
-          <Card title="Danh sách đơn hàng có thể xử lý hủy">
-            <ErrorBox error={activeOrders.error} />
-            {activeOrders.loading ? <Loading /> : (
+        <Card title="Yêu cầu hủy do khách gửi">
+            <ErrorBox error={cancellationRequests.error} />
+            {cancellationRequests.loading ? <Loading /> : (
               <Table
-                headers={['Mã đơn', 'Dịch vụ', 'Khách hàng', 'Trạng thái hiện tại', 'KTV phụ trách', 'Thao tác']}
-                rows={(activeOrders.data || []).filter(o => !['HoanThanh', 'Huy'].includes(o.status))}
-                empty="Không có đơn hàng nào đang trong tiến trình."
+                headers={['Mã đơn', 'Dịch vụ', 'Khách hàng', 'Lý do khách hủy', 'Trạng thái hiện tại', 'KTV phụ trách', 'Thao tác']}
+                rows={cancellationRequests.data || []}
+                empty="Chưa có yêu cầu hủy nào do khách gửi tới."
                 render={o => {
                   const isSelected = selectedOrder?.id === o.id;
                   const enRoute = o.status === 'DangDiChuyen';
@@ -1116,6 +827,7 @@ export function CancellationManager() {
                       <td><b>{code(o.id)}</b></td>
                       <td>{o.serviceName}</td>
                       <td>{o.contactName}<small>{o.contactPhone}</small></td>
+                      <td><small className="pre-wrap">{o.cancelReason || 'Khách chưa ghi lý do.'}</small></td>
                       <td><Badge value={o.status} /></td>
                       <td>{o.technicianName || <small style={{ color: '#94a3b8' }}>Chưa có</small>}</td>
                       <td>
@@ -1131,10 +843,10 @@ export function CancellationManager() {
                 }}
               />
             )}
-          </Card>
+        </Card>
 
-          {/* Lịch sử các đơn đã hủy */}
-          <Card title="Nhật ký các đơn đã hủy & Đối soát phí di chuyển" style={{ marginTop: '20px' }}>
+        {/* Lịch sử các đơn đã hủy */}
+        <Card title="Nhật ký các đơn đã hủy & Đối soát phí di chuyển" style={{ marginTop: '20px' }}>
             <Table
               headers={['Mã đơn', 'Dịch vụ', 'Khách hàng', 'Thời điểm hủy', 'Phí di chuyển', 'Lý do hủy']}
               rows={cancelledOrders.data}
@@ -1158,90 +870,127 @@ export function CancellationManager() {
                 </tr>
               )}
             />
-          </Card>
-        </div>
+        </Card>
+      </div>
 
-        {/* Panel Form xác nhận hủy & Áp dụng phí di chuyển */}
-        <div>
-          <Card title="Xử lý hủy đơn & Phí bồi hoàn di chuyển">
-            {!selectedOrder ? (
-              <div style={{ padding: '30px 10px', textAlign: 'center', color: '#64748b' }}>
-                <Ban size={36} style={{ color: '#fca5a5', margin: '0 auto 12px', display: 'block' }} />
-                <p style={{ fontWeight: 600, color: '#334155' }}>Chọn một đơn hàng bên trái để thực hiện hủy</p>
-                <small>Hệ thống tự động áp dụng quy tắc tính phí di chuyển 50.000đ khi thợ đã bắt đầu di chuyển.</small>
-              </div>
-            ) : (
+      {/* Form xác nhận hủy và phí di chuyển */}
+      {selectedOrder && <Modal
+        title="Xử lý hủy đơn & Phí bồi hoàn di chuyển"
+        onClose={() => setSelectedOrder(null)}
+        className="dpv-cancel-modal"
+      >
+        <div className="dpv-cancel-dialog">
+          <div className="dpv-cancel-order-summary">
+            <div className="dpv-cancel-order-heading">
+              <b>{code(selectedOrder.id)}</b>
+              <Badge value={selectedOrder.status} />
+            </div>
+            <dl className="dpv-cancel-order-details">
+              <div><dt>Dịch vụ</dt><dd>{selectedOrder.serviceName}</dd></div>
+              <div><dt>Khách hàng</dt><dd>{selectedOrder.contactName}<small>{selectedOrder.contactPhone}</small></dd></div>
+              <div><dt>Kỹ thuật viên</dt><dd>{selectedOrder.technicianName || 'Chưa gán thợ'}</dd></div>
+              <div className="dpv-cancel-customer-reason"><dt>Lý do khách hủy</dt><dd className="pre-wrap">{selectedOrder.cancelReason || 'Khách chưa ghi lý do.'}</dd></div>
+            </dl>
+          </div>
+
+          {/* Banner giải trình quy tắc tính phí di chuyển */}
+          {hasSelectedFee ? (
+            <div className="dpv-cancel-notice danger">
+              <AlertTriangle size={24} style={{ flexShrink: 0, marginTop: 2 }} />
               <div>
-                <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc', marginBottom: '14px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <b style={{ color: '#116a4e', fontSize: '15px' }}>{code(selectedOrder.id)}</b>
-                    <Badge value={selectedOrder.status} />
-                  </div>
-                  <div style={{ marginTop: '6px', fontSize: '13px' }}>
-                    <div><b>Dịch vụ:</b> {selectedOrder.serviceName}</div>
-                    <div><b>Khách hàng:</b> {selectedOrder.contactName} ({selectedOrder.contactPhone})</div>
-                    <div><b>KTV:</b> {selectedOrder.technicianName || 'Chưa gán thợ'}</div>
-                  </div>
-                </div>
+                <b>ÁP DỤNG PHÍ HỦY: {money(selectedFeeValue)}</b>
+                <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+                  {isEnRoute
+                    ? 'Kỹ thuật viên đang trên đường di chuyển đến nhà khách. Điều phối viên có thể điều chỉnh mức phí hủy phù hợp với chính sách đang áp dụng cho đơn này.'
+                    : 'Đơn hàng được áp dụng phí hủy theo mức đã chọn. Khách hàng sẽ phải thanh toán khoản này nếu xác nhận hủy.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="dpv-cancel-notice warning">
+              <ShieldCheck size={24} style={{ flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <b>HỦY MIỄN PHÍ (0đ)</b>
+                <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+                  Đơn hàng chưa bắt đầu di chuyển hoặc mức phí hủy được chọn là 0đ. Khách hàng và thợ được miễn phí hủy đơn hoàn toàn.
+                </p>
+              </div>
+            </div>
+          )}
 
-                {/* Banner giải trình quy tắc tính phí di chuyển */}
-                {isEnRoute ? (
-                  <div className="dpv-cancel-notice danger">
-                    <AlertTriangle size={24} style={{ flexShrink: 0, marginTop: 2 }} />
-                    <div>
-                      <b>ÁP DỤNG PHÍ DI CHUYỂN: 50.000đ</b>
-                      <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
-                        Kỹ thuật viên đang trên đường di chuyển đến nhà khách. Theo quy chế HomeFix, hệ thống ghi nhận khoản phải thu 50.000đ từ khách hàng nhằm bồi hoàn chi phí xăng xe và công sức di chuyển của thợ.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="dpv-cancel-notice warning">
-                    <ShieldCheck size={24} style={{ flexShrink: 0, marginTop: 2 }} />
-                    <div>
-                      <b>HỦY MIỄN PHÍ (0đ)</b>
-                      <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
-                        Đơn hàng chưa bắt đầu di chuyển. Khách hàng và thợ được miễn phí hủy đơn hoàn toàn.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="dpv-cancel-fee-box">
-                  <span style={{ fontWeight: 600 }}>Phí di chuyển áp dụng:</span>
-                  <b style={{ fontSize: '18px', color: isEnRoute ? '#dc2626' : '#116a4e' }}>
-                    {money(travelFee)}
-                  </b>
-                </div>
-
-                <Field label="Lý do hủy tiêu chuẩn">
-                  <select value={cancelReason} onChange={e => setCancelReason(e.target.value)}>
-                    {REASONS.map((r, idx) => <option key={idx} value={r}>{r}</option>)}
-                  </select>
-                </Field>
-
-                <Field label="Ghi chú bổ sung của điều phối viên">
-                  <textarea
-                    rows={2}
-                    placeholder="Nhập thông tin chi tiết giải trình việc hủy đơn..."
-                    value={customNote}
-                    onChange={e => setCustomNote(e.target.value)}
+          <div className="dpv-cancel-fee-box">
+            <div className="dpv-cancel-fee-total">
+              <span>Phí hủy / phí di chuyển</span>
+              <b className={selectedFeeValue > 0 ? 'has-fee' : ''}>{money(selectedFeeValue)}</b>
+            </div>
+            <div className="dpv-cancel-fee-controls">
+              <Field label="Mức phí áp dụng">
+                <select value={cancelFee} onChange={e => setCancelFee(e.target.value)}>
+                  <option value="0">Miễn phí (0đ)</option>
+                  <option value="50000">50.000đ</option>
+                  <option value="60000">60.000đ</option>
+                  <option value="100000">100.000đ</option>
+                  <option value="150000">150.000đ</option>
+                  <option value="200000">200.000đ</option>
+                  <option value="300000">300.000đ</option>
+                  <option value="custom">Tùy chọn khác</option>
+                </select>
+              </Field>
+              {cancelFee === 'custom' && (
+                <Field label="Nhập số tiền">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={customFee}
+                    onChange={e => setCustomFee(e.target.value)}
+                    placeholder="Nhập số tiền"
                   />
                 </Field>
+              )}
+            </div>
+          </div>
 
-                <ErrorBox error={a.error} />
+          <Field label="Lý do hủy tiêu chuẩn">
+            <select value={cancelReason} onChange={e => setCancelReason(e.target.value)}>
+              {REASONS.map((r, idx) => <option key={idx} value={r}>{r}</option>)}
+              <option value="Lý do khác">Lý do khác</option>
+            </select>
+          </Field>
 
-                <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-                  <button className="btn" style={{ flex: 1 }} onClick={() => setSelectedOrder(null)}>Hủy bỏ</button>
-                  <button className="btn primary" style={{ flex: 1.5, background: '#dc2626', borderColor: '#dc2626' }} disabled={a.busy} onClick={handleCancelOrder}>
-                    <Ban size={15} /> Xác nhận hủy đơn
-                  </button>
-                </div>
-              </div>
-            )}
-          </Card>
+          {cancelReason === 'Lý do khác' && (
+            <Field label="Nhập lý do hủy" hint="Vui lòng nhập ít nhất 5 ký tự.">
+              <textarea
+                rows={3}
+                required
+                minLength={5}
+                maxLength={1000}
+                placeholder="Nhập lý do hủy..."
+                value={customCancelReason}
+                onChange={e => setCustomCancelReason(e.target.value)}
+              />
+            </Field>
+          )}
+
+          <Field label="Ghi chú bổ sung của điều phối viên">
+            <textarea
+              rows={3}
+              placeholder="Nhập thông tin chi tiết giải trình việc hủy đơn..."
+              value={customNote}
+              onChange={e => setCustomNote(e.target.value)}
+            />
+          </Field>
+
+          <ErrorBox error={a.error} />
+
+          <div className="dpv-cancel-actions">
+            <button type="button" className="btn" onClick={() => setSelectedOrder(null)}>Hủy bỏ</button>
+            <button className="btn primary" disabled={a.busy || (cancelReason === 'Lý do khác' && customCancelReason.trim().length < 5)} onClick={handleCancelOrder}>
+              <Ban size={15} /> Xác nhận hủy đơn
+            </button>
+          </div>
         </div>
-      </div>
+      </Modal>}
     </>
   );
 }
@@ -1264,7 +1013,7 @@ function Table({ headers, rows, render, empty = 'Chưa có dữ liệu' }) {
   );
 }
 
-export function DispatcherHub({ initialTab = 'dashboard' }) {
+export function DispatcherHub({ initialTab = 'diagnostics' }) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -1287,7 +1036,6 @@ export function DispatcherHub({ initialTab = 'dashboard' }) {
   const switchTab = (tabKey) => {
     setActiveTab(tabKey);
     const routes = {
-      dashboard: '/dispatch',
       diagnostics: '/dispatch/diagnostics',
       quotes: '/dispatch/quotes',
       assign: '/dispatch/assign',
@@ -1305,21 +1053,13 @@ export function DispatcherHub({ initialTab = 'dashboard' }) {
       <PageHead
         eyebrow="TRUNG TÂM ĐIỀU PHỐI HOMEFIX"
         title="Bàn làm việc Điều phối viên"
-        text="Giám sát thợ trên bản đồ radar, chẩn đoán lỗi từ xa, lập báo giá sơ bộ, ghép thợ thông minh và xử lý hủy đơn bồi hoàn phí di chuyển."
+        text="Theo dõi công việc, chẩn đoán lỗi từ xa, lập báo giá sơ bộ, điều phối thợ và xử lý hủy đơn, phí di chuyển."
       >
         <Link to="/orders" className="btn"><FileText size={16} /> Danh sách tất cả đơn</Link>
       </PageHead>
 
-      {/* Thanh điều hướng 5 Module chuyên sâu */}
+      {/* Thanh điều hướng các module điều phối */}
       <div className="dpv-hub-nav">
-        <button
-          className={`dpv-hub-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => switchTab('dashboard')}
-        >
-          <LayoutDashboard size={17} />
-          Bản đồ thợ & Radar
-        </button>
-
         <button
           className={`dpv-hub-tab ${activeTab === 'diagnostics' ? 'active' : ''}`}
           onClick={() => switchTab('diagnostics')}
@@ -1356,7 +1096,6 @@ export function DispatcherHub({ initialTab = 'dashboard' }) {
       </div>
 
       {/* Render màn hình tương ứng */}
-      {activeTab === 'dashboard' && <DispatcherDashboard />}
       {activeTab === 'diagnostics' && <RemoteDiagnostics />}
       {activeTab === 'quotes' && <PreliminaryQuoteManager />}
       {activeTab === 'assign' && <SmartDispatchCenter />}

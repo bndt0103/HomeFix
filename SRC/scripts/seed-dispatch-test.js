@@ -25,7 +25,7 @@ async function seed() {
       { name: 'Lê Hoàng Nam', phone: '0971000002', email: 'ktv.nam@homefix.local', group: 'DienLanh', status: 'DangBan', area: 'Quận 5, Quận 10, TP.HCM', lat: 10.7554, lng: 106.6672 },
       { name: 'Phạm Quốc Tuấn', phone: '0971000003', email: 'ktv.tuan@homefix.local', group: 'DienNuoc', status: 'SanSang', area: 'Quận 7, Quận 4, TP.HCM', lat: 10.7329, lng: 106.7188 },
       { name: 'Nguyễn Thành Đạt', phone: '0971000004', email: 'ktv.dat@homefix.local', group: 'DienNuoc', status: 'TamBan', area: 'Bình Thạnh, Gò Vấp, TP.HCM', lat: 10.8030, lng: 106.6990 },
-      { name: 'Vũ Đức Thịnh', phone: '0971000005', email: 'ktv.thinh@homefix.local', group: 'DienGiaDung', status: 'SanSang', area: 'Tân Bình, Phú Nhuận, TP.HCM', lat: 10.7992, lng: 106.6543 },
+      { name: 'Vũ Đức Thịnh', phone: '0971000005', email: 'ktv.thinh@homefix.local', group: 'DienGiaDung', status: 'SanSang', area: 'TP. Thủ Đức, TP.HCM', lat: 10.8499, lng: 106.7717 },
       { name: 'Đỗ Hữu Hùng', phone: '0971000006', email: 'ktv.hung@homefix.local', group: 'VeSinh', status: 'SanSang', area: 'TP. Thủ Đức, TP.HCM', lat: 10.8499, lng: 106.7717 },
     ];
 
