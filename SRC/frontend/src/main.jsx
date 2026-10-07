@@ -6,14 +6,13 @@ import { BrowserRouter, Routes, Route, NavLink, Link, useNavigate, useLocation, 
 import {
   Wrench, House, ClipboardList, Wallet, Users, Settings, ChartNoAxesCombined,
   Headphones, Bell, LogOut, Menu, X, UserRound, ShieldCheck, ArrowRight,
-  ArrowDownUp, Server, CheckCircle2, Snowflake, FileCheck2, LayoutDashboard,
-  Video, FileText, Ban
+  ArrowDownUp, Server, CheckCircle2, Snowflake, FileCheck2
 } from 'lucide-react';
 import { api, setSession, baseUrl, saveBaseUrl, native } from './api';
 import { AppContext, useApp, roleNames, ErrorBox, Field, Submit, Modal, useAction } from './shared';
 import { Dashboard, Services, Booking, Orders, Profile, Notifications, PolicyApproval } from './pages';
 import { OrderDetail } from './order-detail';
-import { Management, Finance, WalletPage, Support, Reports, Applications, DispatchBoard } from './management';
+import { Management, Finance, WalletPage, Support, Reports, Applications } from './management';
 import { DispatcherHub } from './dispatcher';
 import './style.css';
 import './screen-tv.css';
@@ -89,13 +88,8 @@ const menuByRole = {
   KTV: [['/', 'Tổng quan', House], ['/orders', 'Công việc', ClipboardList], ['/wallet', 'Ví & thu nhập', Wallet], ['/profile', 'Cá nhân', UserRound]],
   DPV: [
     ['/', 'Tổng quan', House],
-    ['/dispatch', 'Bản đồ & Radar thợ', LayoutDashboard],
-    ['/dispatch/diagnostics', 'Chẩn đoán từ xa', Video],
-    ['/dispatch/quotes', 'Lập báo giá sơ bộ', FileText],
-    ['/dispatch/assign', 'Điều phối thợ', Users],
-    ['/dispatch/cancellations', 'Hủy & Phí di chuyển', Ban],
-    ['/orders', 'Tất cả đơn', ClipboardList],
-    ['/reports', 'Báo cáo', ChartNoAxesCombined]
+    ['/dispatch', 'Điều phối', Users],
+    ['/orders', 'Tất cả đơn', ClipboardList]
   ],
   CSKH: [['/', 'Tổng quan', House], ['/support', 'Yêu cầu hỗ trợ', Headphones], ['/orders', 'Tra cứu đơn', ClipboardList]],
   KT: [['/', 'Tổng quan tài chính', ChartNoAxesCombined], ['/finance?tab=settlements', 'Đối soát doanh thu', ClipboardList], ['/finance?tab=wallet', 'Duyệt Ví KTV', Wallet], ['/finance?tab=bank', 'Giao dịch', ArrowDownUp], ['/reports', 'Báo cáo dòng tiền', ChartNoAxesCombined]],
@@ -116,6 +110,7 @@ function LayoutContent() {
   const customer = user.role === 'KH', technician = user.role === 'KTV', accountant = user.role === 'KT', menus = menuByRole[user.role];
 
   const isMenuActive = url => {
+    if (user.role === 'DPV' && url === '/dispatch' && location.pathname.startsWith('/dispatch/')) return true;
     if (user.role === 'GD' && location.pathname === '/reports' && url.startsWith('/reports')) {
       const params = new URLSearchParams(location.search), view = params.get('view') || params.get('tab') || 'finance';
       const target = view === 'quality' ? '/reports?tab=quality' : ['technicians', 'performance'].includes(view) ? '/reports?tab=technicians' : '/reports';
@@ -213,7 +208,7 @@ function LayoutContent() {
             <Route path="/wallet" element={<Guard roles={['KTV']}><WalletPage /></Guard>} />
             <Route path="/support" element={<Guard roles={['KH', 'CSKH']}><Support /></Guard>} />
             <Route path="/reports" element={<Guard roles={['GD', 'KT', 'DPV', 'CSKH']}><Reports /></Guard>} />
-            <Route path="/dispatch" element={<Guard roles={['DPV']}><DispatcherHub initialTab="dashboard" /></Guard>} />
+            <Route path="/dispatch" element={<Guard roles={['DPV']}><DispatcherHub initialTab="diagnostics" /></Guard>} />
             <Route path="/dispatch/:subview" element={<Guard roles={['DPV']}><DispatcherHub /></Guard>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
