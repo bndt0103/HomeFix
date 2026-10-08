@@ -12,11 +12,16 @@ fs.mkdirSync(path.dirname(artifact), { recursive: true });
 fs.copyFileSync(path.join(root, 'SRC/manual/manual.css'), path.join(output, 'manual.css'));
 const escape = (value) =>
   value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
-// Chỉ mục dùng thực thể HTML để trình biên dịch cũ đọc đúng tiếng Việt.
-const entities = (value) =>
-  [...escape(value)].map((c) => (c.charCodeAt(0) > 127 ? `&#${c.codePointAt(0)};` : c)).join('');
+// Thanh mục lục và chỉ mục dùng chữ không dấu để tránh lỗi bảng mã của CHM.
+const navigationText = (value) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replaceAll('đ', 'd')
+    .replaceAll('Đ', 'D')
+    .replace(/[^\x20-\x7e]/g, '');
 const sitemap = (name, local) =>
-  `<OBJECT type="text/sitemap"><param name="Name" value="${entities(name)}">${local ? `<param name="Local" value="${local}.html">` : ''}</OBJECT>`;
+  `<OBJECT type="text/sitemap"><param name="Name" value="${escape(navigationText(name))}">${local ? `<param name="Local" value="${local}.html">` : ''}</OBJECT>`;
 for (const [i, topic] of topics.entries()) {
   const previous = topics[i - 1],
     next = topics[i + 1];
@@ -43,7 +48,7 @@ fs.writeFileSync(
 );
 const keywords = topics
   .flatMap((topic) => topic.keywords.map((keyword) => ({ keyword, id: topic.id })))
-  .sort((a, b) => a.keyword.localeCompare(b.keyword, 'vi'));
+  .sort((a, b) => navigationText(a.keyword).localeCompare(navigationText(b.keyword), 'en'));
 fs.writeFileSync(
   path.join(output, 'index.hhk'),
   '<!DOCTYPE HTML><html><body><ul>' +
