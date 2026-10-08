@@ -1,0 +1,137 @@
+html {
+  background: #eef3f5;
+}
+body {
+  margin: 0;
+  padding: 28px;
+  color: #243746;
+  font:
+    15px/1.7 'Segoe UI',
+    Arial,
+    sans-serif;
+}
+.page {
+  max-width: 960px;
+  margin: auto;
+  background: white;
+  border: 1px solid #dce5e9;
+}
+.brand {
+  padding: 22px 34px;
+  background: #133c3c;
+  color: white;
+  font-size: 22px;
+  font-weight: bold;
+}
+.brand small {
+  display: block;
+  color: #bcdbd6;
+  font-size: 12px;
+  font-weight: normal;
+  letter-spacing: 1px;
+}
+.content {
+  padding: 24px 34px 32px;
+}
+h1 {
+  color: #164b45;
+  font-size: 30px;
+  line-height: 1.3;
+  margin-top: 10px;
+}
+h2 {
+  font-size: 20px;
+  color: #17645b;
+  border-bottom: 1px solid #e6eeec;
+  padding-bottom: 7px;
+  margin-top: 30px;
+}
+a {
+  color: #08796d;
+  text-decoration: underline;
+}
+p,
+li {
+  margin-bottom: 10px;
+}
+li {
+  padding-left: 5px;
+}
+.lead {
+  font-size: 18px;
+  color: #51656d;
+}
+.callout {
+  margin: 20px 0;
+  padding: 17px 20px;
+  border-left: 5px solid #dfb362;
+  background: #fff8e9;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0;
+}
+th,
+td {
+  border: 1px solid #dce6e4;
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #e8f3ee;
+  color: #164b45;
+}
+tr:nth-child(even) {
+  background: #f7faf9;
+}
+code {
+  color: #15574e;
+  background: #eef5f2;
+  padding: 2px 4px;
+  font:
+    13px Consolas,
+    monospace;
+}
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: #193e3d;
+  color: #edf8f5;
+  padding: 20px;
+  font:
+    13px/1.7 Consolas,
+    monospace;
+}
+.flow {
+  background: #eef6f2;
+  color: #15594e;
+  padding: 20px;
+  font-weight: bold;
+}
+.navigation {
+  padding: 16px 34px;
+  border-top: 1px solid #dce6e4;
+  background: #f5f8f7;
+}
+.navigation a {
+  margin-right: 18px;
+}
+.footer {
+  color: #647975;
+  font-size: 12px;
+  padding: 12px 34px 20px;
+}
+@media print {
+  body {
+    padding: 0;
+    background: white;
+  }
+  .page {
+    border: 0;
+  }
+  .navigation {
+    display: none;
+  }
+}

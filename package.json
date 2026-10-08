@@ -8,6 +8,17 @@
     "dev:frontend": "npm --prefix SRC run dev -w frontend",
     "install:all": "npm --prefix SRC ci",
     "build": "npm --prefix SRC run build",
-    "start": "npm --prefix SRC start"
+    "start": "npm --prefix SRC start",
+    "online": "npm --prefix SRC run online",
+    "online:setup": "npm --prefix SRC run online:setup",
+    "online:status": "npm --prefix SRC run online:status",
+    "online:stop": "npm --prefix SRC run online:stop",
+    "db:init": "npm --prefix SRC run db:init",
+    "db:migrate": "npm --prefix SRC run db:migrate",
+    "manual:build": "node SRC/scripts/build-manual.js",
+    "installer:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File SRC/scripts/build-installer.ps1",
+    "format": "npm --prefix SRC run format",
+    "format:check": "npm --prefix SRC run format:check",
+    "package:source": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File SRC/scripts/package-source.ps1"
   }
 }

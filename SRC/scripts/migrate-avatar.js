@@ -1,9 +1,14 @@
 import fs from 'node:fs/promises';
-import {q,transaction,close} from '../backend/src/db.js';
+import { q, transaction, close } from '../backend/src/db.js';
 try {
- const source=await fs.readFile(new URL('../database/007_user_avatar.sql',import.meta.url),'utf8');
- await transaction(null,async t=>{
-  for(const batch of source.split(/^GO\s*$/m).filter(s=>s.trim()))await q(batch,{},t);
- });
- console.log('Avatar migration complete.');
-} finally {await close();}
+  const source = await fs.readFile(
+    new URL('../database/007_user_avatar.sql', import.meta.url),
+    'utf8',
+  );
+  await transaction(null, async (t) => {
+    for (const batch of source.split(/^GO\s*$/m).filter((s) => s.trim())) await q(batch, {}, t);
+  });
+  console.log('Avatar migration complete.');
+} finally {
+  await close();
+}

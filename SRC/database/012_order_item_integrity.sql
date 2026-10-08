@@ -1,12 +1,24 @@
-/*====================================================
-12. TOÀN VẸN ĐƠN HÀNG VÀ CHI TIẾT
-Không cho gắn công việc của khách khác vào cùng đơn.
-====================================================*/
-If Not Exists (Select 1 From sys.indexes Where object_id = Object_Id('dbo.DonHang') And name = 'UX_DonHang_KhachHang')
-    Create Unique Index UX_DonHang_KhachHang On dbo.DonHang(MaDonHang, MaKhachHang);
+-- Ràng buộc công việc thuộc đúng đơn của khách hàng.
+
+IF NOT EXISTS (SELECT 1
+               FROM   sys.indexes
+               WHERE  object_id = Object_Id('dbo.DonHang')
+                      AND name = 'UX_DonHang_KhachHang')
+    CREATE UNIQUE INDEX UX_DonHang_KhachHang
+        ON dbo.DonHang(MaDonHang, MaKhachHang);
+
+
 GO
-If Not Exists (Select 1 From sys.foreign_keys Where name = 'FK_ChiTietDonHang_ChuDon')
-    Alter Table dbo.ChiTietDonHang Add Constraint FK_ChiTietDonHang_ChuDon
-        Foreign Key(MaDonHang, customerId) References dbo.DonHang(MaDonHang, MaKhachHang);
-If Not Exists (Select 1 From sys.indexes Where object_id = Object_Id('dbo.ChiTietDonHang') And name = 'IX_ChiTietDonHang_DonHang')
-    Create Index IX_ChiTietDonHang_DonHang On dbo.ChiTietDonHang(MaDonHang, id);
+IF NOT EXISTS (SELECT 1
+               FROM   sys.foreign_keys
+               WHERE  name = 'FK_ChiTietDonHang_ChuDon')
+    ALTER TABLE dbo.ChiTietDonHang
+        ADD CONSTRAINT FK_ChiTietDonHang_ChuDon FOREIGN KEY (MaDonHang,
+            customerId) REFERENCES dbo.DonHang (MaDonHang, MaKhachHang);
+
+IF NOT EXISTS (SELECT 1
+               FROM   sys.indexes
+               WHERE  object_id = Object_Id('dbo.ChiTietDonHang')
+                      AND name = 'IX_ChiTietDonHang_DonHang')
+    CREATE INDEX IX_ChiTietDonHang_DonHang
+        ON dbo.ChiTietDonHang(MaDonHang, id);

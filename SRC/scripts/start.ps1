@@ -1,4 +1,4 @@
-. "$PSScriptRoot/runtime.ps1"
+﻿. "$PSScriptRoot/runtime.ps1"
 Push-Location $srcRoot
 try {
  if(!(Test-Path 'node_modules/express') -or !(Test-Path 'backend/.env') -or !(Test-Path 'frontend/dist/index.html')){throw 'Chua cai dat du. Hay chay CAI_DAT.bat truoc.'}

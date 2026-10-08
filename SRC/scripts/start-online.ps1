@@ -1,4 +1,4 @@
-. "$PSScriptRoot/runtime.ps1"
+﻿. "$PSScriptRoot/runtime.ps1"
 Push-Location $srcRoot
 try {
  Invoke-HomeFixNpm -NpmArgs @('run','online:setup')

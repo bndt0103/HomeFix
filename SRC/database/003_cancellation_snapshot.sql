@@ -1,10 +1,13 @@
--- Preserve the cancellation policy accepted when an order was placed.
--- Existing v1 classroom orders use the original 50,000 VND policy.
-If COL_LENGTH('dbo.ChiTietDonHang','cancellationFeeSnapshot') Is Null
- Alter Table dbo.ChiTietDonHang Add cancellationFeeSnapshot Decimal(18,2) Not Null
- Constraint DF_Order_CancellationSnapshot Default 50000 With Values
- Constraint CK_Order_CancellationSnapshot Check(cancellationFeeSnapshot>=0);
+-- Lưu mức phí hủy áp dụng tại thời điểm xử lý.
+
+IF COL_LENGTH('dbo.ChiTietDonHang', 'cancellationFeeSnapshot') IS NULL
+    ALTER TABLE dbo.ChiTietDonHang
+        ADD cancellationFeeSnapshot DECIMAL (18, 2) CONSTRAINT DF_Order_CancellationSnapshot DEFAULT 50000 WITH VALUES NOT NULL CONSTRAINT CK_Order_CancellationSnapshot CHECK (cancellationFeeSnapshot >= 0);
+
+
 GO
-If Not Exists(Select 1 From dbo.SchemaVersion Where version=2)
- Insert dbo.SchemaVersion(version) Values(2);
-GO
+IF NOT EXISTS (SELECT 1
+               FROM   dbo.SchemaVersion
+               WHERE  version = 2)
+    INSERT  dbo.SchemaVersion (version)
+    VALUES                   (2);

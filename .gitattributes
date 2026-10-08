@@ -1,3 +1,13 @@
-# Giữ nguyên nội dung bản Web và APK khi thành viên checkout trên Windows.
-BIN/Web/** -text
+# Giữ nguyên các tệp đã đóng gói và thống nhất xuống dòng mã nguồn.
+* text=auto eol=lf
 BIN/*.apk -text
+BIN/*.exe -text
+BIN/*.chm -text
+*.js text eol=lf
+*.jsx text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+BIN/HomeFix-Setup.exe filter=lfs diff=lfs merge=lfs -text

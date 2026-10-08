@@ -1,11 +1,24 @@
-If COL_LENGTH('dbo.NguoiDung','avatarUrl') Is Null
- Alter Table dbo.NguoiDung Add avatarUrl Nvarchar(500) Null;
+-- Lưu ảnh đại diện của người dùng.
+
+IF COL_LENGTH('dbo.NguoiDung', 'avatarUrl') IS NULL
+    ALTER TABLE dbo.NguoiDung
+        ADD avatarUrl NVARCHAR (500) NULL;
+
+
 GO
-Declare @sql Nvarchar(Max)='';
-Select @sql=@sql+'ALTER TABLE dbo.TepDinhKem DROP CONSTRAINT '+QUOTENAME(name)+';'
- From sys.check_constraints Where parent_object_id=OBJECT_ID('dbo.TepDinhKem')
- And (parent_column_id=COLUMNPROPERTY(OBJECT_ID('dbo.TepDinhKem'),'purpose','ColumnId') Or name='CK_Upload_Purpose');
-Exec sp_executesql @sql;
+DECLARE @sql AS NVARCHAR (MAX) = '';
+
+SELECT @sql = @sql + 'ALTER TABLE dbo.TepDinhKem DROP CONSTRAINT ' + QUOTENAME(name) + ';'
+FROM   sys.check_constraints
+WHERE  parent_object_id = OBJECT_ID('dbo.TepDinhKem')
+       AND (parent_column_id = COLUMNPROPERTY(OBJECT_ID('dbo.TepDinhKem'), 'purpose', 'ColumnId')
+            OR name = 'CK_Upload_Purpose');
+
+EXECUTE sp_executesql @sql;
+
+
 GO
-Alter Table dbo.TepDinhKem Add Constraint CK_Upload_Purpose Check(purpose In('OrderFault','MaterialEvidence','AcceptancePhoto','CustomerSignature','WalletProof','TechnicianDocument','PaymentProof','Avatar'));
-GO
+ALTER TABLE dbo.TepDinhKem
+    ADD CONSTRAINT CK_Upload_Purpose CHECK (purpose IN ('OrderFault', 'MaterialEvidence',
+        'AcceptancePhoto', 'CustomerSignature', 'WalletProof', 'TechnicianDocument',
+        'PaymentProof', 'Avatar'));

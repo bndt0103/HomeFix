@@ -30,14 +30,21 @@
     "db:migrate:technician-ui": "node scripts/migrate-technician-ui.js",
     "db:migrate:dispatch": "node scripts/migrate-dispatch.js",
     "db:migrate:materials": "node scripts/migrate-materials.js",
-    "db:upgrade:orders": "node scripts/upgrade-orders.js",
     "db:migrate:order-items": "node scripts/migrate-order-items.js",
-    "db:migrate:support-chat": "node scripts/migrate-support-chat.js"
+    "db:migrate:support-chat": "node scripts/migrate-support-chat.js",
+    "format": "prettier --write \"backend/src/**/*.js\" \"frontend/src/**/*.{js,jsx,css}\" \"scripts/*.js\" \"database/*.js\" \"manual/*.js\" \"manual/*.css\" \"package.json\" \"backend/package.json\" \"frontend/package.json\" \"frontend/capacitor.config.json\" \"frontend/vite.config.js\"",
+    "format:check": "prettier --check \"backend/src/**/*.js\" \"frontend/src/**/*.{js,jsx,css}\" \"scripts/*.js\" \"database/*.js\" \"manual/*.js\" \"manual/*.css\" \"package.json\" \"backend/package.json\" \"frontend/package.json\" \"frontend/capacitor.config.json\" \"frontend/vite.config.js\""
   },
   "engines": {
     "node": ">=22.12"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "prettier": "3.9.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "msnodesqlv8@5.5.0": true,
+    "sharp@0.34.5": true
   }
 }

@@ -1,0 +1,8 @@
+**/node_modules/
+.build/
+.runtime/
+BIN/
+SRC/frontend/dist/
+SRC/frontend/android/
+SRC/package-lock.json
+SRC/manual/

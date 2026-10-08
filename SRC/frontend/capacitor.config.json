@@ -1,1 +1,7 @@
-{"appId":"vn.edu.nhom08.homefix","appName":"HomeFix","webDir":"dist","server":{"cleartext":true},"android":{"allowMixedContent":true}}
+{
+  "appId": "vn.edu.nhom08.homefix",
+  "appName": "HomeFix",
+  "webDir": "dist",
+  "server": { "cleartext": true },
+  "android": { "allowMixedContent": true }
+}

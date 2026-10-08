@@ -1,11 +1,21 @@
-If COL_LENGTH('dbo.HoSoKTV','profileJson') Is Null
- Alter Table dbo.HoSoKTV Add profileJson Nvarchar(2000) Null;
-If COL_LENGTH('dbo.HoSoKTV','frontDocumentId') Is Null
- Alter Table dbo.HoSoKTV Add frontDocumentId Int Null References dbo.TepDinhKem(id);
-If COL_LENGTH('dbo.HoSoKTV','backDocumentId') Is Null
- Alter Table dbo.HoSoKTV Add backDocumentId Int Null References dbo.TepDinhKem(id);
-If COL_LENGTH('dbo.HoSoKTV','identityNumber') Is Null
- Alter Table dbo.HoSoKTV Add identityNumber Varchar(12) Null;
+-- Bổ sung thông tin hồ sơ đăng ký kỹ thuật viên.
 
-If COL_LENGTH('dbo.PhieuNghiemThu','proposedPaymentMethod') Is Null
- Alter Table dbo.PhieuNghiemThu Add proposedPaymentMethod Varchar(10) Null Check(proposedPaymentMethod In('COD','BANK'));
+IF COL_LENGTH('dbo.HoSoKTV', 'profileJson') IS NULL
+    ALTER TABLE dbo.HoSoKTV
+        ADD profileJson NVARCHAR (2000) NULL;
+
+IF COL_LENGTH('dbo.HoSoKTV', 'frontDocumentId') IS NULL
+    ALTER TABLE dbo.HoSoKTV
+        ADD frontDocumentId INT NULL FOREIGN KEY REFERENCES dbo.TepDinhKem (id);
+
+IF COL_LENGTH('dbo.HoSoKTV', 'backDocumentId') IS NULL
+    ALTER TABLE dbo.HoSoKTV
+        ADD backDocumentId INT NULL FOREIGN KEY REFERENCES dbo.TepDinhKem (id);
+
+IF COL_LENGTH('dbo.HoSoKTV', 'identityNumber') IS NULL
+    ALTER TABLE dbo.HoSoKTV
+        ADD identityNumber VARCHAR (12) NULL;
+
+IF COL_LENGTH('dbo.PhieuNghiemThu', 'proposedPaymentMethod') IS NULL
+    ALTER TABLE dbo.PhieuNghiemThu
+        ADD proposedPaymentMethod VARCHAR (10) NULL CHECK (proposedPaymentMethod IN ('COD', 'BANK'));

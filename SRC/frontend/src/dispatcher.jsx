@@ -7,28 +7,15 @@ import {
   Ban,
   Send,
   AlertTriangle,
-  Clock,
   ShieldCheck,
-  Search,
-  Filter,
   RefreshCw,
-  Plus,
-  Eye,
-  RotateCw,
-  ZoomIn,
   MessageSquare,
   Sparkles,
   ArrowRight,
-  UserCheck,
-  DollarSign,
-  AlertCircle,
   Check,
-  X,
-  Maximize2
 } from 'lucide-react';
-import { api, uuid } from './api';
+import { api } from './api';
 import {
-  useApp,
   useData,
   useAction,
   PageHead,
@@ -42,12 +29,10 @@ import {
   money,
   date,
   code,
-  labels,
   groups,
   Modal,
-  ProtectedImage
+  ProtectedImage,
 } from './shared';
-import { AttentionDot } from './attention';
 import { useAttention } from './attention';
 import { DispatcherInbox } from './dispatch-inbox';
 import { ChatBubble, useChatRead, useChatScroll } from './order-chat';
@@ -62,11 +47,11 @@ export function RemoteDiagnostics() {
   const a = useAction();
 
   const orders = waitingOrders.data || [];
-  const currentOrder = orders.find(order => String(order.id) === String(selectedOrderId));
+  const currentOrder = orders.find((order) => String(order.id) === String(selectedOrderId));
 
   // Dữ liệu ảnh đính kèm của đơn
   const orderFiles = useData(currentOrder ? `/orders/${currentOrder.id}/attachments` : null);
-  const faultPhotos = (orderFiles.data || []).filter(f => f.purpose === 'OrderFault');
+  const faultPhotos = (orderFiles.data || []).filter((f) => f.purpose === 'OrderFault');
   const [showFaultPhotos, setShowFaultPhotos] = useState(false);
 
   // Trạng thái Chat kỹ thuật
@@ -90,11 +75,16 @@ export function RemoteDiagnostics() {
     const text = (textToSend || chatInput).trim();
     if (!text || !currentOrder) return;
     await chatAction.run(async () => {
-      const result = await api(`/orders/${currentOrder.id}/chat`, { method: 'POST', body: { text } });
+      const result = await api(`/orders/${currentOrder.id}/chat`, {
+        method: 'POST',
+        body: { text },
+      });
       if (!textToSend) setChatInput('');
-      chat.setData(messages => {
+      chat.setData((messages) => {
         const current = messages || [];
-        return current.some(message => message.id === result.data.id) ? current : [...current, result.data];
+        return current.some((message) => message.id === result.data.id)
+          ? current
+          : [...current, result.data];
       });
     }, 'Đã gửi tin nhắn cho khách hàng.');
   };
@@ -105,16 +95,18 @@ export function RemoteDiagnostics() {
       const diagnosis = [
         `Mã lỗi dự đoán: ${diagnosticCode.trim()}`,
         `Mức độ nghiêm trọng: ${severity}`,
-        `Mô tả nguyên nhân & đề xuất: ${diagnosisNote.trim()}`
+        `Mô tả nguyên nhân & đề xuất: ${diagnosisNote.trim()}`,
       ].join('\n');
       await api(`/orders/${currentOrder.id}/preliminary-quotes`, {
         method: 'POST',
         body: {
           diagnosis,
-          expectedVersion: currentOrder.version
-        }
+          expectedVersion: currentOrder.version,
+        },
       });
-      waitingOrders.setData(orders => (orders || []).filter(order => order.id !== currentOrder.id));
+      waitingOrders.setData((orders) =>
+        (orders || []).filter((order) => order.id !== currentOrder.id),
+      );
       setSelectedOrderId(null);
       waitingOrders.reload();
     }, 'Đã lưu chẩn đoán và gửi báo giá cho khách duyệt.');
@@ -126,7 +118,9 @@ export function RemoteDiagnostics() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Camera size={20} style={{ color: '#116a4e' }} />
           <div>
-            <b style={{ fontSize: '15px' }}>{currentOrder ? 'Chẩn đoán từ xa' : 'Đơn chờ tiếp nhận'}</b>
+            <b style={{ fontSize: '15px' }}>
+              {currentOrder ? 'Chẩn đoán từ xa' : 'Đơn chờ tiếp nhận'}
+            </b>
             <small style={{ display: 'block', color: '#64748b' }}>
               {currentOrder
                 ? 'Trao đổi với khách hàng, xem ảnh sự cố và ghi nhận kết luận chẩn đoán.'
@@ -134,39 +128,54 @@ export function RemoteDiagnostics() {
             </small>
           </div>
         </div>
-        <button className="icon-btn small" onClick={() => waitingOrders.reload()} title="Tải lại danh sách đơn">
+        <button
+          className="icon-btn small"
+          onClick={() => waitingOrders.reload()}
+          title="Tải lại danh sách đơn"
+        >
           <RefreshCw size={15} />
         </button>
       </div>
 
       <ErrorBox error={waitingOrders.error} />
       {waitingOrders.loading && <Loading />}
-      {!waitingOrders.loading && !currentOrder && (orders.length === 0 ? (
-        <Empty title="Không có đơn chờ tiếp nhận" text="Các đơn mới cần chẩn đoán từ xa sẽ xuất hiện tại đây." />
-      ) : (
-        <div className="dpv-diagnostics-orders">
-          {orders.map(order => (
-            <button
-              key={order.id}
-              type="button"
-              className="dpv-diagnostics-order"
-              onClick={() => setSelectedOrderId(order.id)}
-            >
-              <div className="dpv-diagnostics-order-icon"><FileText size={20} /></div>
-              <div className="dpv-diagnostics-order-info">
-                <div className="dpv-diagnostics-order-title">
-                  <b>{code(order.id)} · {order.serviceName}</b>
-                  <Badge value={order.status} />
+      {!waitingOrders.loading &&
+        !currentOrder &&
+        (orders.length === 0 ? (
+          <Empty
+            title="Không có đơn chờ tiếp nhận"
+            text="Các đơn mới cần chẩn đoán từ xa sẽ xuất hiện tại đây."
+          />
+        ) : (
+          <div className="dpv-diagnostics-orders">
+            {orders.map((order) => (
+              <button
+                key={order.id}
+                type="button"
+                className="dpv-diagnostics-order"
+                onClick={() => setSelectedOrderId(order.id)}
+              >
+                <div className="dpv-diagnostics-order-icon">
+                  <FileText size={20} />
                 </div>
-                <span>{order.contactName || 'Khách hàng'} · {date(order.createdAt)}</span>
-                {order.description && <small>{order.description}</small>}
-                {order.address && <small>{order.address}</small>}
-              </div>
-              <ArrowRight size={18} />
-            </button>
-          ))}
-        </div>
-      ))}
+                <div className="dpv-diagnostics-order-info">
+                  <div className="dpv-diagnostics-order-title">
+                    <b>
+                      {code(order.id)} · {order.serviceName}
+                    </b>
+                    <Badge value={order.status} />
+                  </div>
+                  <span>
+                    {order.contactName || 'Khách hàng'} · {date(order.createdAt)}
+                  </span>
+                  {order.description && <small>{order.description}</small>}
+                  {order.address && <small>{order.address}</small>}
+                </div>
+                <ArrowRight size={18} />
+              </button>
+            ))}
+          </div>
+        ))}
 
       {currentOrder && (
         <div className="dpv-diagnostics-detail">
@@ -179,20 +188,54 @@ export function RemoteDiagnostics() {
               <span>Hỏi đáp & Phiếu chẩn đoán · {code(currentOrder.id)}</span>
               <MessageSquare size={16} style={{ color: '#64748b' }} />
             </div>
-            <div className="dpv-chat-messages dpv-diagnostics-messages chat-messages" {...chatScroll} role="log" aria-label="Tin nhắn trao đổi" tabIndex={0}>
-              {(chat.data || []).filter(message => String(message.orderId) === String(currentOrder.id)).map(message => (
-                <ChatBubble key={message.id} message={message}/>
-              ))}
-              {!chat.loading && !chat.error && !chat.data?.some(message => String(message.orderId) === String(currentOrder.id)) && (
-                <small style={{ color: '#64748b', padding: '12px' }}>Chưa có tin nhắn cho đơn này.</small>
+            <div
+              className="dpv-chat-messages dpv-diagnostics-messages chat-messages"
+              {...chatScroll}
+              role="log"
+              aria-label="Tin nhắn trao đổi"
+              tabIndex={0}
+            >
+              {(chat.data || [])
+                .filter((message) => String(message.orderId) === String(currentOrder.id))
+                .map((message) => (
+                  <ChatBubble key={message.id} message={message} />
+                ))}
+              {!chat.loading &&
+                !chat.error &&
+                !chat.data?.some(
+                  (message) => String(message.orderId) === String(currentOrder.id),
+                ) && (
+                  <small style={{ color: '#64748b', padding: '12px' }}>
+                    Chưa có tin nhắn cho đơn này.
+                  </small>
+                )}
+              {chat.loading && (
+                <small style={{ color: '#64748b', padding: '12px' }}>Đang tải tin nhắn...</small>
               )}
-              {chat.loading && <small style={{ color: '#64748b', padding: '12px' }}>Đang tải tin nhắn...</small>}
             </div>
             <ErrorBox error={chat.error || chatAction.error} />
             <div className="dpv-quick-prompts">
-              <button type="button" className="dpv-prompt-chip" onClick={() => sendChat('Bạn có thể mô tả rõ triệu chứng của sự cố không?')}>Hỏi về triệu chứng</button>
-              <button type="button" className="dpv-prompt-chip" onClick={() => sendChat('Sự cố bắt đầu từ khi nào?')}>Thời điểm xảy ra</button>
-              <button type="button" className="dpv-prompt-chip" onClick={() => sendChat('Bạn có thể gửi thêm ảnh vị trí gặp sự cố không?')}>Xin thêm ảnh</button>
+              <button
+                type="button"
+                className="dpv-prompt-chip"
+                onClick={() => sendChat('Bạn có thể mô tả rõ triệu chứng của sự cố không?')}
+              >
+                Hỏi về triệu chứng
+              </button>
+              <button
+                type="button"
+                className="dpv-prompt-chip"
+                onClick={() => sendChat('Sự cố bắt đầu từ khi nào?')}
+              >
+                Thời điểm xảy ra
+              </button>
+              <button
+                type="button"
+                className="dpv-prompt-chip"
+                onClick={() => sendChat('Bạn có thể gửi thêm ảnh vị trí gặp sự cố không?')}
+              >
+                Xin thêm ảnh
+              </button>
             </div>
             <div className="dpv-diagnostics-chat-input">
               <input
@@ -200,11 +243,15 @@ export function RemoteDiagnostics() {
                 placeholder="Nhắn tin với khách hàng..."
                 maxLength={1993}
                 value={chatInput}
-                onChange={event => setChatInput(event.target.value)}
-                onKeyDown={event => event.key === 'Enter' && sendChat()}
+                onChange={(event) => setChatInput(event.target.value)}
+                onKeyDown={(event) => event.key === 'Enter' && sendChat()}
                 disabled={chatAction.busy}
               />
-              <button className="btn primary small" onClick={() => sendChat()} disabled={chatAction.busy || !chatInput.trim()}>
+              <button
+                className="btn primary small"
+                onClick={() => sendChat()}
+                disabled={chatAction.busy || !chatInput.trim()}
+              >
                 <Send size={14} />
               </button>
             </div>
@@ -215,11 +262,17 @@ export function RemoteDiagnostics() {
               type="button"
               className="btn"
               aria-expanded={showFaultPhotos}
-              onClick={() => setShowFaultPhotos(show => !show)}
+              onClick={() => setShowFaultPhotos((show) => !show)}
             >
-              <Camera size={16} /> {showFaultPhotos ? 'Ẩn ảnh sự cố' : `Ảnh sự cố (${faultPhotos.length})`}
+              <Camera size={16} />{' '}
+              {showFaultPhotos ? 'Ẩn ảnh sự cố' : `Ảnh sự cố (${faultPhotos.length})`}
             </button>
-            <button type="button" className="icon-btn small" onClick={() => orderFiles.reload()} title="Tải lại ảnh sự cố">
+            <button
+              type="button"
+              className="icon-btn small"
+              onClick={() => orderFiles.reload()}
+              title="Tải lại ảnh sự cố"
+            >
               <RefreshCw size={15} />
             </button>
           </div>
@@ -247,18 +300,31 @@ export function RemoteDiagnostics() {
             <div className="dpv-panel-head">Kết luận chẩn đoán kỹ thuật</div>
             <div className="dpv-panel-body">
               <Field label="Mã lỗi dự đoán">
-                <input type="text" maxLength={200} value={diagnosticCode} onChange={event => setDiagnosticCode(event.target.value)} />
+                <input
+                  type="text"
+                  maxLength={200}
+                  value={diagnosticCode}
+                  onChange={(event) => setDiagnosticCode(event.target.value)}
+                />
               </Field>
               <Field label="Mức độ nghiêm trọng">
-                <select value={severity} onChange={event => setSeverity(event.target.value)}>
-                  <option value="" disabled>Chọn mức độ nghiêm trọng</option>
+                <select value={severity} onChange={(event) => setSeverity(event.target.value)}>
+                  <option value="" disabled>
+                    Chọn mức độ nghiêm trọng
+                  </option>
                   <option value="Normal">Thông thường</option>
                   <option value="Medium">Cần ưu tiên</option>
                   <option value="Critical">Khẩn cấp (nguy cơ rò rỉ điện/cháy)</option>
                 </select>
               </Field>
               <Field label="Mô tả nguyên nhân & đề xuất">
-                <textarea rows={3} maxLength={1500} value={diagnosisNote} onChange={event => setDiagnosisNote(event.target.value)} style={{ resize: 'vertical' }} />
+                <textarea
+                  rows={3}
+                  maxLength={1500}
+                  value={diagnosisNote}
+                  onChange={(event) => setDiagnosisNote(event.target.value)}
+                  style={{ resize: 'vertical' }}
+                />
               </Field>
               <div className="dpv-diagnostics-actions">
                 <button
@@ -274,7 +340,6 @@ export function RemoteDiagnostics() {
           </div>
         </div>
       )}
-
     </>
   );
 }
@@ -290,28 +355,52 @@ export function PreliminaryQuoteManager() {
   const [activeQuoteTab, setActiveQuoteTab] = useState('unsent');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const quoteDetails = useData(selectedOrder ? `/orders/${selectedOrder.id}` : null);
-  const [form, setForm] = useState({ diagnosis: '', inspectionFee: '50000', laborFee: '150000', commissionPercent: '15' });
-  const orders = activeQuoteTab === 'unsent'
-    ? unsentOrders.data || []
-    : sentOrders.data || [];
+  const [form, setForm] = useState({
+    diagnosis: '',
+    inspectionFee: '50000',
+    laborFee: '150000',
+    commissionPercent: '15',
+  });
+  const orders = activeQuoteTab === 'unsent' ? unsentOrders.data || [] : sentOrders.data || [];
   const list = activeQuoteTab === 'unsent' ? unsentOrders : sentOrders;
   const quote = quoteDetails.data?.currentPreliminaryQuote;
   const templates = [
-    { label: 'Điện lạnh - Chảy nước & Thiếu gas', serviceGroup: 'DienLanh', text: 'Kiểm tra đường thoát nước máy lạnh, vệ sinh máng hứng, xử lý mối hở tán đồng và nạp gas bổ sung.', laborFee: '150000' },
-    { label: 'Điện nước - Rò rỉ ống dẫn', serviceGroup: 'DienNuoc', text: 'Kiểm tra áp lực đường nước, thay thế đoạn ống nhiệt PPR bị nứt vỡ, quấn cao su non và thay ren nối.', laborFee: '120000' },
-    { label: 'Gia dụng - Hỏng tụ & Kẹt động cơ', serviceGroup: 'DienGiaDung', text: 'Kiểm tra nguồn cấp bo mạch, thay thế tụ khởi động quạt/máy giặt, vệ sinh tra dầu bảo dưỡng.', laborFee: '180000' },
-    { label: 'Vệ sinh - Bảo trì định kỳ', serviceGroup: 'VeSinh', text: 'Tháo vệ sinh lồng giặt / dàn lạnh bằng máy phun áp lực cao, khử khuẩn và chạy test tải nghiệm thu.', laborFee: '150000' }
+    {
+      label: 'Điện lạnh - Chảy nước & Thiếu gas',
+      serviceGroup: 'DienLanh',
+      text: 'Kiểm tra đường thoát nước máy lạnh, vệ sinh máng hứng, xử lý mối hở tán đồng và nạp gas bổ sung.',
+      laborFee: '150000',
+    },
+    {
+      label: 'Điện nước - Rò rỉ ống dẫn',
+      serviceGroup: 'DienNuoc',
+      text: 'Kiểm tra áp lực đường nước, thay thế đoạn ống nhiệt PPR bị nứt vỡ, quấn cao su non và thay ren nối.',
+      laborFee: '120000',
+    },
+    {
+      label: 'Gia dụng - Hỏng tụ & Kẹt động cơ',
+      serviceGroup: 'DienGiaDung',
+      text: 'Kiểm tra nguồn cấp bo mạch, thay thế tụ khởi động quạt/máy giặt, vệ sinh tra dầu bảo dưỡng.',
+      laborFee: '180000',
+    },
+    {
+      label: 'Vệ sinh - Bảo trì định kỳ',
+      serviceGroup: 'VeSinh',
+      text: 'Tháo vệ sinh lồng giặt / dàn lạnh bằng máy phun áp lực cao, khử khuẩn và chạy test tải nghiệm thu.',
+      laborFee: '150000',
+    },
   ];
-  const handleSelectOrder = order => {
+  const handleSelectOrder = (order) => {
     setSelectedOrder(order);
-    const template = templates.find(item => item.serviceGroup === order.serviceGroup) || templates[0];
-    setForm(current => ({ ...current, diagnosis: template.text, laborFee: template.laborFee }));
+    const template =
+      templates.find((item) => item.serviceGroup === order.serviceGroup) || templates[0];
+    setForm((current) => ({ ...current, diagnosis: template.text, laborFee: template.laborFee }));
   };
 
   useEffect(() => {
     const orderId = Number(new URLSearchParams(location.search).get('orderId'));
     if (!orderId || !unsentOrders.data) return;
-    const order = unsentOrders.data.find(item => item.id === orderId);
+    const order = unsentOrders.data.find((item) => item.id === orderId);
     if (order) {
       setActiveQuoteTab('unsent');
       handleSelectOrder(order);
@@ -320,10 +409,18 @@ export function PreliminaryQuoteManager() {
 
   useEffect(() => {
     if (!selectedOrder) return;
-    if (activeQuoteTab === 'unsent' && unsentOrders.data && !unsentOrders.data.some(order => order.id === selectedOrder.id)) {
+    if (
+      activeQuoteTab === 'unsent' &&
+      unsentOrders.data &&
+      !unsentOrders.data.some((order) => order.id === selectedOrder.id)
+    ) {
       setSelectedOrder(null);
     }
-    if (activeQuoteTab === 'sent' && sentOrders.data && !sentOrders.data.some(order => order.id === selectedOrder.id)) {
+    if (
+      activeQuoteTab === 'sent' &&
+      sentOrders.data &&
+      !sentOrders.data.some((order) => order.id === selectedOrder.id)
+    ) {
       setSelectedOrder(null);
     }
   }, [activeQuoteTab, selectedOrder, sentOrders.data, unsentOrders.data]);
@@ -333,7 +430,7 @@ export function PreliminaryQuoteManager() {
     a.run(async () => {
       await api(`/orders/${selectedOrder.id}/preliminary-quotes`, {
         method: 'POST',
-        body: { diagnosis: form.diagnosis, expectedVersion: selectedOrder.version }
+        body: { diagnosis: form.diagnosis, expectedVersion: selectedOrder.version },
       });
       setSelectedOrder(null);
       setActiveQuoteTab('sent');
@@ -345,7 +442,13 @@ export function PreliminaryQuoteManager() {
   return (
     <>
       <div className="dpv-quote-manager">
-        <Card title={activeQuoteTab === 'unsent' ? `Đơn chưa gửi báo giá (${orders.length})` : `Đơn đã gửi · Chờ khách duyệt (${orders.length})`}>
+        <Card
+          title={
+            activeQuoteTab === 'unsent'
+              ? `Đơn chưa gửi báo giá (${orders.length})`
+              : `Đơn đã gửi · Chờ khách duyệt (${orders.length})`
+          }
+        >
           <div className="dpv-quote-status-tabs" role="tablist" aria-label="Trạng thái báo giá">
             <button
               type="button"
@@ -374,31 +477,52 @@ export function PreliminaryQuoteManager() {
           </div>
 
           <ErrorBox error={list.error} />
-          {list.loading ? <Loading /> : !orders.length ? (
+          {list.loading ? (
+            <Loading />
+          ) : !orders.length ? (
             <Empty
-              title={activeQuoteTab === 'unsent' ? 'Không có đơn chưa gửi báo giá' : 'Không có báo giá đang chờ khách duyệt'}
-              text={activeQuoteTab === 'unsent'
-                ? 'Các đơn chờ tiếp nhận sẽ xuất hiện tại đây để điều phối viên lập và gửi báo giá.'
-                : 'Các đơn đã gửi báo giá và đang chờ khách hàng xác nhận sẽ xuất hiện tại đây.'}
+              title={
+                activeQuoteTab === 'unsent'
+                  ? 'Không có đơn chưa gửi báo giá'
+                  : 'Không có báo giá đang chờ khách duyệt'
+              }
+              text={
+                activeQuoteTab === 'unsent'
+                  ? 'Các đơn chờ tiếp nhận sẽ xuất hiện tại đây để điều phối viên lập và gửi báo giá.'
+                  : 'Các đơn đã gửi báo giá và đang chờ khách hàng xác nhận sẽ xuất hiện tại đây.'
+              }
             />
           ) : (
             <div className="dpv-quote-order-list">
-              {orders.map(o => {
+              {orders.map((o) => {
                 const isSelected = selectedOrder?.id === o.id;
                 return (
                   <button
                     key={o.id}
                     type="button"
                     className={`dpv-diagnostics-order ${isSelected ? 'selected' : ''}`}
-                    onClick={() => activeQuoteTab === 'unsent' ? handleSelectOrder(o) : setSelectedOrder(o)}
+                    onClick={() =>
+                      activeQuoteTab === 'unsent' ? handleSelectOrder(o) : setSelectedOrder(o)
+                    }
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '4px',
+                      }}
+                    >
                       <b style={{ color: '#116a4e' }}>{code(o.id)}</b>
                       <small style={{ color: '#64748b' }}>{date(o.createdAt)}</small>
                     </div>
                     <div style={{ fontWeight: 600, fontSize: '13.5px' }}>{o.serviceName}</div>
-                    <div style={{ color: '#475569', fontSize: '12.5px' }}>{o.contactName} · {o.contactPhone}</div>
-                    <small style={{ color: '#64748b', display: 'block', marginTop: '4px' }}>📍 {o.address}</small>
+                    <div style={{ color: '#475569', fontSize: '12.5px' }}>
+                      {o.contactName} · {o.contactPhone}
+                    </div>
+                    <small style={{ color: '#64748b', display: 'block', marginTop: '4px' }}>
+                      📍 {o.address}
+                    </small>
                   </button>
                 );
               })}
@@ -406,30 +530,55 @@ export function PreliminaryQuoteManager() {
           )}
         </Card>
 
-        <Card title={selectedOrder ? `${activeQuoteTab === 'unsent' ? 'Gửi báo giá' : 'Chi tiết báo giá'} · ${code(selectedOrder.id)}` : 'Báo giá sơ bộ'}>
-          {selectedOrder && <Link className="btn" to={'/dispatch/messages?orderId=' + selectedOrder.id}><MessageSquare size={16} /> Trao đổi với khách hàng</Link>}
+        <Card
+          title={
+            selectedOrder
+              ? `${activeQuoteTab === 'unsent' ? 'Gửi báo giá' : 'Chi tiết báo giá'} · ${code(selectedOrder.id)}`
+              : 'Báo giá sơ bộ'
+          }
+        >
+          {selectedOrder && (
+            <Link className="btn" to={'/dispatch/messages?orderId=' + selectedOrder.id}>
+              <MessageSquare size={16} /> Trao đổi với khách hàng
+            </Link>
+          )}
           {!selectedOrder ? (
             <div className="dpv-quote-empty-detail">
-              <FileText size={40} style={{ color: '#cbd5e1', margin: '0 auto 12px', display: 'block' }} />
-              <p>{activeQuoteTab === 'unsent' ? 'Chọn đơn chờ tiếp nhận để lập và gửi báo giá.' : 'Chọn đơn đã gửi để xem chi tiết báo giá.'}</p>
+              <FileText
+                size={40}
+                style={{ color: '#cbd5e1', margin: '0 auto 12px', display: 'block' }}
+              />
+              <p>
+                {activeQuoteTab === 'unsent'
+                  ? 'Chọn đơn chờ tiếp nhận để lập và gửi báo giá.'
+                  : 'Chọn đơn đã gửi để xem chi tiết báo giá.'}
+              </p>
             </div>
           ) : activeQuoteTab === 'unsent' ? (
             <div className="dpv-quote-detail">
               <div className="dpv-quote-order-summary">
                 <b>{selectedOrder.serviceName}</b>
-                <span>{selectedOrder.contactName} · {selectedOrder.contactPhone}</span>
+                <span>
+                  {selectedOrder.contactName} · {selectedOrder.contactPhone}
+                </span>
                 <span>{selectedOrder.address}</span>
                 <span>Mô tả: {selectedOrder.description}</span>
               </div>
               <div>
                 <b>Mẫu gợi ý chẩn đoán</b>
                 <div className="dpv-template-list">
-                  {templates.map(template => (
+                  {templates.map((template) => (
                     <button
                       key={template.label}
                       type="button"
                       className="dpv-template-btn"
-                      onClick={() => setForm(current => ({ ...current, diagnosis: template.text, laborFee: template.laborFee }))}
+                      onClick={() =>
+                        setForm((current) => ({
+                          ...current,
+                          diagnosis: template.text,
+                          laborFee: template.laborFee,
+                        }))
+                      }
                     >
                       {template.label}
                     </button>
@@ -437,30 +586,61 @@ export function PreliminaryQuoteManager() {
                 </div>
               </div>
               <Field label="Chẩn đoán & phương án xử lý (khách hàng sẽ xem)">
-                <textarea rows={4} maxLength={1993} value={form.diagnosis} onChange={event => setForm(current => ({ ...current, diagnosis: event.target.value }))} />
+                <textarea
+                  rows={4}
+                  maxLength={1993}
+                  value={form.diagnosis}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, diagnosis: event.target.value }))
+                  }
+                />
               </Field>
               <div className="dpv-quote-costs">
-                <div><span>Phí kiểm tra</span><b>{money(form.inspectionFee)}</b></div>
-                <div><span>Tiền công</span><b>{money(form.laborFee)}</b></div>
-                <div><span>Hoa hồng nền tảng ({form.commissionPercent}%)</span><b>{money(Number(form.laborFee) * Number(form.commissionPercent) / 100)}</b></div>
-                <div className="total"><span>Tổng chi phí sơ bộ</span><b>{money(Number(form.inspectionFee) + Number(form.laborFee))}</b></div>
+                <div>
+                  <span>Phí kiểm tra</span>
+                  <b>{money(form.inspectionFee)}</b>
+                </div>
+                <div>
+                  <span>Tiền công</span>
+                  <b>{money(form.laborFee)}</b>
+                </div>
+                <div>
+                  <span>Hoa hồng nền tảng ({form.commissionPercent}%)</span>
+                  <b>{money((Number(form.laborFee) * Number(form.commissionPercent)) / 100)}</b>
+                </div>
+                <div className="total">
+                  <span>Tổng chi phí sơ bộ</span>
+                  <b>{money(Number(form.inspectionFee) + Number(form.laborFee))}</b>
+                </div>
               </div>
               <ErrorBox error={a.error} />
               <div className="dpv-quote-actions">
-                <Submit busy={a.busy} onClick={submitQuote} disabled={a.busy || form.diagnosis.trim().length < 5}>
+                <Submit
+                  busy={a.busy}
+                  onClick={submitQuote}
+                  disabled={a.busy || form.diagnosis.trim().length < 5}
+                >
                   <Send size={16} /> Gửi báo giá cho khách duyệt
                 </Submit>
               </div>
             </div>
+          ) : quoteDetails.loading ||
+            (!quoteDetails.error && String(quoteDetails.data?.id) !== String(selectedOrder.id)) ? (
+            <Loading />
+          ) : quoteDetails.error ? (
+            <ErrorBox error={quoteDetails.error} />
+          ) : !quote ? (
+            <Empty
+              title="Không tìm thấy báo giá"
+              text="Đơn hàng này chưa có phiếu báo giá sơ bộ."
+            />
           ) : (
-            quoteDetails.loading || (!quoteDetails.error && String(quoteDetails.data?.id) !== String(selectedOrder.id)) ? <Loading />
-              : quoteDetails.error ? <ErrorBox error={quoteDetails.error} />
-                : !quote ? <Empty title="Không tìm thấy báo giá" text="Đơn hàng này chưa có phiếu báo giá sơ bộ." />
-                  : (
             <div className="dpv-quote-detail">
               <div className="dpv-quote-order-summary">
                 <b>{quoteDetails.data.serviceName}</b>
-                <span>{quoteDetails.data.contactName} · {date(quote.createdAt)}</span>
+                <span>
+                  {quoteDetails.data.contactName} · {date(quote.createdAt)}
+                </span>
                 <span>{quoteDetails.data.address}</span>
               </div>
               <div className="dpv-quote-status">
@@ -472,14 +652,29 @@ export function PreliminaryQuoteManager() {
                 <p className="pre-wrap">{quote.diagnosis}</p>
               </div>
               <div className="dpv-quote-costs">
-                <div><span>Phí kiểm tra</span><b>{money(quote.inspectionFee)}</b></div>
-                <div><span>Tiền công</span><b>{money(quote.laborFee)}</b></div>
-                <div><span>Hoa hồng nền tảng ({quote.commissionRatePercent}%)</span><b>{money(Number(quote.laborFee) * Number(quote.commissionRatePercent) / 100)}</b></div>
-                <div className="total"><span>Tổng chi phí sơ bộ</span><b>{money(quote.total)}</b></div>
+                <div>
+                  <span>Phí kiểm tra</span>
+                  <b>{money(quote.inspectionFee)}</b>
+                </div>
+                <div>
+                  <span>Tiền công</span>
+                  <b>{money(quote.laborFee)}</b>
+                </div>
+                <div>
+                  <span>Hoa hồng nền tảng ({quote.commissionRatePercent}%)</span>
+                  <b>
+                    {money((Number(quote.laborFee) * Number(quote.commissionRatePercent)) / 100)}
+                  </b>
+                </div>
+                <div className="total">
+                  <span>Tổng chi phí sơ bộ</span>
+                  <b>{money(quote.total)}</b>
+                </div>
               </div>
-              <div className="notice info">Báo giá đã được gửi. Khách hàng sẽ xem và quyết định duyệt trên đơn hàng của họ.</div>
+              <div className="notice info">
+                Báo giá đã được gửi. Khách hàng sẽ xem và quyết định duyệt trên đơn hàng của họ.
+              </div>
             </div>
-                  )
           )}
         </Card>
       </div>
@@ -504,14 +699,15 @@ export function SmartDispatchCenter() {
 
   // Thuật toán gợi ý: Sắp xếp SanSang lên trước, sau đó theo đánh giá
   const targetOrder = selectedOrder || orders[0];
-  const matchingTechs = targetOrder ? techs
-    .filter(t => t.skillGroup === targetOrder.serviceGroup)
-    .sort((a, b) => {
-      if (a.availability === 'SanSang' && b.availability !== 'SanSang') return -1;
-      if (a.availability !== 'SanSang' && b.availability === 'SanSang') return 1;
-      return (Number(b.averageRating) || 0) - (Number(a.averageRating) || 0);
-    })
-  : [];
+  const matchingTechs = targetOrder
+    ? techs
+        .filter((t) => t.skillGroup === targetOrder.serviceGroup)
+        .sort((a, b) => {
+          if (a.availability === 'SanSang' && b.availability !== 'SanSang') return -1;
+          if (a.availability !== 'SanSang' && b.availability === 'SanSang') return 1;
+          return (Number(b.averageRating) || 0) - (Number(a.averageRating) || 0);
+        })
+    : [];
 
   const handleAssign = () => {
     if (!targetOrder || !selectedTechId) return;
@@ -520,8 +716,8 @@ export function SmartDispatchCenter() {
         method: 'POST',
         body: {
           technicianId: selectedTechId,
-          expectedVersion: targetOrder.version
-        }
+          expectedVersion: targetOrder.version,
+        },
       });
       setSelectedTechId(null);
       pendingOrders.reload();
@@ -533,10 +729,16 @@ export function SmartDispatchCenter() {
   return (
     <>
       <div className="tabs" style={{ marginBottom: '18px' }}>
-        <button className={activeTab === 'dispatch' ? 'active' : ''} onClick={() => setActiveTab('dispatch')}>
+        <button
+          className={activeTab === 'dispatch' ? 'active' : ''}
+          onClick={() => setActiveTab('dispatch')}
+        >
           Điều phối thợ thông minh ({orders.length})
         </button>
-        <button className={activeTab === 'history' ? 'active' : ''} onClick={() => setActiveTab('history')}>
+        <button
+          className={activeTab === 'history' ? 'active' : ''}
+          onClick={() => setActiveTab('history')}
+        >
           Lịch sử lệnh điều phối
         </button>
       </div>
@@ -546,32 +748,51 @@ export function SmartDispatchCenter() {
           {/* Cột trái: Đơn chờ phân công */}
           <Card title={`Đơn chờ ghép thợ (${orders.length})`}>
             <ErrorBox error={pendingOrders.error} />
-            {pendingOrders.loading ? <Loading /> : !orders.length ? (
-              <Empty title="Không có đơn chờ phân công" text="Tất cả các đơn đã được chỉ định KTV thành công." />
+            {pendingOrders.loading ? (
+              <Loading />
+            ) : !orders.length ? (
+              <Empty
+                title="Không có đơn chờ phân công"
+                text="Tất cả các đơn đã được chỉ định KTV thành công."
+              />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {orders.map(o => {
+                {orders.map((o) => {
                   const isCurrent = targetOrder?.id === o.id;
                   return (
                     <div
                       key={o.id}
-                      onClick={() => { setSelectedOrder(o); setSelectedTechId(null); }}
+                      onClick={() => {
+                        setSelectedOrder(o);
+                        setSelectedTechId(null);
+                      }}
                       style={{
                         padding: '12px 14px',
                         borderRadius: '8px',
                         border: '1px solid ' + (isCurrent ? '#116a4e' : '#e2e8f0'),
                         background: isCurrent ? '#f0faf5' : '#fff',
                         cursor: 'pointer',
-                        transition: 'all 0.15s'
+                        transition: 'all 0.15s',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '4px',
+                        }}
+                      >
                         <b style={{ color: '#116a4e' }}>{code(o.id)}</b>
                         <span className="badge green">Đã duyệt giá</span>
                       </div>
                       <div style={{ fontWeight: 600, fontSize: '13.5px' }}>{o.serviceName}</div>
-                      <small style={{ color: '#475569' }}>Khách: {o.contactName} ({o.contactPhone})</small>
-                      <small style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>📍 {o.address}</small>
+                      <small style={{ color: '#475569' }}>
+                        Khách: {o.contactName} ({o.contactPhone})
+                      </small>
+                      <small style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>
+                        📍 {o.address}
+                      </small>
                     </div>
                   );
                 })}
@@ -580,18 +801,44 @@ export function SmartDispatchCenter() {
           </Card>
 
           {/* Cột phải: Khung ghép thợ thông minh */}
-          <Card title={targetOrder ? `Ghép thợ cho đơn ${code(targetOrder.id)} · ${targetOrder.serviceName}` : 'Ghép thợ'}>
+          <Card
+            title={
+              targetOrder
+                ? `Ghép thợ cho đơn ${code(targetOrder.id)} · ${targetOrder.serviceName}`
+                : 'Ghép thợ'
+            }
+          >
             {!targetOrder ? (
               <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                <Users size={36} style={{ color: '#cbd5e1', margin: '0 auto 12px', display: 'block' }} />
+                <Users
+                  size={36}
+                  style={{ color: '#cbd5e1', margin: '0 auto 12px', display: 'block' }}
+                />
                 <p>Chọn một đơn hàng bên trái để thực hiện điều phối thợ.</p>
               </div>
             ) : (
               <div>
-                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
                     <div>
-                      <b>Chuyên môn cần tìm:</b> <span className="badge green">{groups[targetOrder.serviceGroup] || targetOrder.serviceGroup}</span>
+                      <b>Chuyên môn cần tìm:</b>{' '}
+                      <span className="badge green">
+                        {groups[targetOrder.serviceGroup] || targetOrder.serviceGroup}
+                      </span>
                     </div>
                     <div style={{ fontSize: '13px', color: '#64748b' }}>
                       Khu vực: <b>{targetOrder.address}</b>
@@ -599,12 +846,17 @@ export function SmartDispatchCenter() {
                   </div>
                 </div>
 
-                <h4 style={{ margin: '0 0 12px', fontSize: '14px' }}>Kỹ thuật viên khả dụng theo thuật toán gợi ý:</h4>
+                <h4 style={{ margin: '0 0 12px', fontSize: '14px' }}>
+                  Kỹ thuật viên khả dụng theo thuật toán gợi ý:
+                </h4>
 
                 {allTechs.loading ? (
                   <Loading />
                 ) : !matchingTechs.length ? (
-                  <Empty title="Chưa có KTV phù hợp" text="Không có thợ nào đúng chuyên môn hoặc thợ đang bận ca." />
+                  <Empty
+                    title="Chưa có KTV phù hợp"
+                    text="Không có thợ nào đúng chuyên môn hoặc thợ đang bận ca."
+                  />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {matchingTechs.map((t, idx) => {
@@ -619,22 +871,36 @@ export function SmartDispatchCenter() {
                           onClick={() => isReady && setSelectedTechId(t.id)}
                         >
                           {/* Avatar */}
-                          <div style={{
-                            flexShrink: 0,
-                            width: 44, height: 44,
-                            borderRadius: '50%',
-                            background: isReady ? '#dcfce7' : '#f1f5f9',
-                            color: isReady ? '#15803d' : '#94a3b8',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontWeight: 700, fontSize: '16px',
-                            border: isBestMatch ? '2px solid #10b981' : '2px solid transparent'
-                          }}>
+                          <div
+                            style={{
+                              flexShrink: 0,
+                              width: 44,
+                              height: 44,
+                              borderRadius: '50%',
+                              background: isReady ? '#dcfce7' : '#f1f5f9',
+                              color: isReady ? '#15803d' : '#94a3b8',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: '16px',
+                              border: isBestMatch ? '2px solid #10b981' : '2px solid transparent',
+                            }}
+                          >
                             {t.fullName.charAt(0)}
                           </div>
 
                           {/* Info */}
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                flexWrap: 'wrap',
+                                marginBottom: '4px',
+                              }}
+                            >
                               <b style={{ fontSize: '14px', color: '#1e293b' }}>{t.fullName}</b>
                               {isBestMatch && (
                                 <span className="dpv-candidate-badge-best">
@@ -644,11 +910,22 @@ export function SmartDispatchCenter() {
                               <Badge value={t.availability} />
                             </div>
                             <div style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.4' }}>
-                              <span>Khu vực: <b style={{ color: '#334155' }}>{t.serviceArea}</b></span>
+                              <span>
+                                Khu vực: <b style={{ color: '#334155' }}>{t.serviceArea}</b>
+                              </span>
                               <span style={{ margin: '0 6px', color: '#cbd5e1' }}>·</span>
-                              <span>Ví: <b style={{ color: '#116a4e' }}>{money(t.balance ?? 0)}</b></span>
+                              <span>
+                                Ví: <b style={{ color: '#116a4e' }}>{money(t.balance ?? 0)}</b>
+                              </span>
                               <span style={{ margin: '0 6px', color: '#cbd5e1' }}>·</span>
-                              <span>Đánh giá: <b>{t.averageRating ? `${Number(t.averageRating).toFixed(1)} ⭐` : 'Chưa có đánh giá'}</b></span>
+                              <span>
+                                Đánh giá:{' '}
+                                <b>
+                                  {t.averageRating
+                                    ? `${Number(t.averageRating).toFixed(1)} ⭐`
+                                    : 'Chưa có đánh giá'}
+                                </b>
+                              </span>
                             </div>
                           </div>
 
@@ -658,13 +935,28 @@ export function SmartDispatchCenter() {
                               <button
                                 className={`btn small ${isSelected ? 'primary' : ''}`}
                                 style={{ whiteSpace: 'nowrap', minWidth: '90px' }}
-                                onClick={(e) => { e.stopPropagation(); setSelectedTechId(t.id); }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTechId(t.id);
+                                }}
                               >
                                 {isSelected ? <Check size={13} /> : null}
                                 {isSelected ? 'Xác nhận' : 'Chọn thợ này'}
                               </button>
                             ) : (
-                              <span style={{ fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>Đang bận ca</span>
+                              <span
+                                style={{
+                                  fontSize: '12px',
+                                  color: '#94a3b8',
+                                  whiteSpace: 'nowrap',
+                                  background: '#f8fafc',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #e2e8f0',
+                                }}
+                              >
+                                Đang bận ca
+                              </span>
                             )}
                           </div>
                         </div>
@@ -675,7 +967,14 @@ export function SmartDispatchCenter() {
 
                 <ErrorBox error={a.error} />
 
-                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <div
+                  style={{
+                    marginTop: '20px',
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '10px',
+                  }}
+                >
                   <Submit busy={a.busy} disabled={!selectedTechId} onClick={handleAssign}>
                     <Send size={16} /> Gửi lệnh điều phối (Thời hạn 10 phút)
                   </Submit>
@@ -699,13 +998,13 @@ function AssignmentHistoryFullTab() {
   q.set('page', filter.page);
   q.set('pageSize', 15);
   const r = useData('/assignments/history?' + q.toString());
-  const set = (k, v) => setFilter(s => ({ ...s, [k]: v, page: k === 'page' ? v : 1 }));
+  const set = (k, v) => setFilter((s) => ({ ...s, [k]: v, page: k === 'page' ? v : 1 }));
 
   return (
     <>
       <div className="filter-bar" style={{ marginBottom: '14px' }}>
         <Field label="Lọc trạng thái lệnh">
-          <select value={filter.status} onChange={e => set('status', e.target.value)}>
+          <select value={filter.status} onChange={(e) => set('status', e.target.value)}>
             <option value="">Tất cả kết quả</option>
             <option value="Accepted">Đã nhận việc (Accepted)</option>
             <option value="Rejected">KTV từ chối (Rejected)</option>
@@ -715,20 +1014,40 @@ function AssignmentHistoryFullTab() {
         </Field>
       </div>
       <ErrorBox error={r.error} />
-      {r.loading ? <Loading /> : (
+      {r.loading ? (
+        <Loading />
+      ) : (
         <Card>
           <Table
-            headers={['Mã lệnh', 'Đơn dịch vụ', 'Kỹ thuật viên', 'Thời điểm gửi', 'Thời hạn', 'Trạng thái', 'Ghi chú / Lý do']}
+            headers={[
+              'Mã lệnh',
+              'Đơn dịch vụ',
+              'Kỹ thuật viên',
+              'Thời điểm gửi',
+              'Thời hạn',
+              'Trạng thái',
+              'Ghi chú / Lý do',
+            ]}
             rows={r.data}
             empty="Chưa có dữ liệu lịch sử lệnh điều phối."
-            render={a => (
+            render={(a) => (
               <tr key={a.id}>
-                <td><b style={{ color: '#116a4e' }}>LDP-{String(a.id).padStart(4, '0')}</b></td>
-                <td><Link to={'/orders/' + a.orderId} className="text-link">{code(a.orderId)}</Link></td>
-                <td><b>{a.technicianName || '—'}</b></td>
+                <td>
+                  <b style={{ color: '#116a4e' }}>LDP-{String(a.id).padStart(4, '0')}</b>
+                </td>
+                <td>
+                  <Link to={'/orders/' + a.orderId} className="text-link">
+                    {code(a.orderId)}
+                  </Link>
+                </td>
+                <td>
+                  <b>{a.technicianName || '—'}</b>
+                </td>
                 <td>{date(a.createdAt)}</td>
                 <td>{date(a.expiresAt)}</td>
-                <td><Badge value={a.status} /></td>
+                <td>
+                  <Badge value={a.status} />
+                </td>
                 <td>{a.reason ? <span style={{ color: '#d93025' }}>{a.reason}</span> : '—'}</td>
               </tr>
             )}
@@ -736,9 +1055,21 @@ function AssignmentHistoryFullTab() {
         </Card>
       )}
       <div className="pagination">
-        <button className="btn" disabled={filter.page === 1} onClick={() => set('page', filter.page - 1)}>Trang trước</button>
+        <button
+          className="btn"
+          disabled={filter.page === 1}
+          onClick={() => set('page', filter.page - 1)}
+        >
+          Trang trước
+        </button>
         <span>Trang {filter.page}</span>
-        <button className="btn" disabled={!r.data || r.data.length < 15} onClick={() => set('page', filter.page + 1)}>Trang sau</button>
+        <button
+          className="btn"
+          disabled={!r.data || r.data.length < 15}
+          onClick={() => set('page', filter.page + 1)}
+        >
+          Trang sau
+        </button>
       </div>
     </>
   );
@@ -756,8 +1087,6 @@ export function CancellationManager() {
   const [cancelReason, setCancelReason] = useState('Khách hàng đổi ý, không còn nhu cầu sửa chữa');
   const [customCancelReason, setCustomCancelReason] = useState('');
   const [customNote, setCustomNote] = useState('');
-  const [cancelFee, setCancelFee] = useState('0');
-  const [customFee, setCustomFee] = useState('50000');
 
   const REASONS = [
     'Khách hàng đổi ý, không còn nhu cầu sửa chữa',
@@ -765,32 +1094,28 @@ export function CancellationManager() {
     'Không liên lạc được với khách hàng qua số điện thoại',
     'Kỹ thuật viên gặp sự cố bất khả kháng trên đường di chuyển',
     'Thiết bị hỏng hóc quá nặng, khách từ chối chi phí sửa',
-    'Sai lệch thông tin địa chỉ hoặc ngoài phạm vi phục vụ'
+    'Sai lệch thông tin địa chỉ hoặc ngoài phạm vi phục vụ',
   ];
 
   useEffect(() => {
     if (!selectedOrder) return;
     setCustomCancelReason('');
-    const defaultFee = selectedOrder.status === 'DangDiChuyen' ? String(selectedOrder.cancellationFeeSnapshot ?? 50000) : '0';
-    const presetFees = ['0', '50000', '60000', '100000', '150000', '200000', '300000'];
-    const normalizedFee = presetFees.includes(defaultFee) ? defaultFee : 'custom';
-    setCancelFee(normalizedFee);
-    setCustomFee(normalizedFee === 'custom' ? defaultFee : (defaultFee || '50000'));
   }, [selectedOrder]);
 
   const handleCancelOrder = () => {
     if (!selectedOrder) return;
     const selectedReason = cancelReason === 'Lý do khác' ? customCancelReason.trim() : cancelReason;
-    const finalReason = customNote.trim() ? `${selectedReason} (${customNote.trim()})` : selectedReason;
-    const chosenFee = cancelFee === 'custom' ? Number(customFee || 0) : Number(cancelFee || 0);
+    const finalReason = customNote.trim()
+      ? `${selectedReason} (${customNote.trim()})`
+      : selectedReason;
 
     a.run(async () => {
       await api(`/orders/${selectedOrder.id}/cancel`, {
         method: 'POST',
         body: {
           reason: finalReason,
-          expectedVersion: selectedOrder.version
-        }
+          expectedVersion: selectedOrder.version,
+        },
       });
       setSelectedOrder(null);
       setCustomCancelReason('');
@@ -812,160 +1137,226 @@ export function CancellationManager() {
       <div className="dpv-cancellation-manager">
         {/* Bảng quản lý & chọn đơn cần hủy */}
         <Card title="Yêu cầu hủy do khách gửi">
-            <ErrorBox error={cancellationRequests.error} />
-            {cancellationRequests.loading ? <Loading /> : (
-              <Table
-                headers={['Mã đơn', 'Dịch vụ', 'Khách hàng', 'Lý do khách hủy', 'Trạng thái hiện tại', 'KTV phụ trách', 'Thao tác']}
-                rows={cancellationRequests.data || []}
-                empty="Chưa có yêu cầu hủy nào do khách gửi tới."
-                render={o => {
-                  const isSelected = selectedOrder?.id === o.id;
-                  const enRoute = o.status === 'DangDiChuyen';
+          <ErrorBox error={cancellationRequests.error} />
+          {cancellationRequests.loading ? (
+            <Loading />
+          ) : (
+            <Table
+              headers={[
+                'Mã đơn',
+                'Dịch vụ',
+                'Khách hàng',
+                'Lý do khách hủy',
+                'Trạng thái hiện tại',
+                'KTV phụ trách',
+                'Thao tác',
+              ]}
+              rows={cancellationRequests.data || []}
+              empty="Chưa có yêu cầu hủy nào do khách gửi tới."
+              render={(o) => {
+                const isSelected = selectedOrder?.id === o.id;
+                const enRoute = o.status === 'DangDiChuyen';
 
-                  return (
-                    <tr key={o.id} style={{ background: isSelected ? '#fef2f2' : undefined }}>
-                      <td><b>{code(o.id)}</b></td>
-                      <td>{o.serviceName}</td>
-                      <td>{o.contactName}<small>{o.contactPhone}</small></td>
-                      <td><small className="pre-wrap">{o.cancelReason || 'Khách chưa ghi lý do.'}</small></td>
-                      <td><Badge value={o.status} /></td>
-                      <td>{o.technicianName || <small style={{ color: '#94a3b8' }}>Chưa có</small>}</td>
-                      <td>
-                        <button
-                          className={`btn small ${enRoute ? 'danger' : ''}`}
-                          onClick={() => setSelectedOrder(o)}
-                        >
-                          <Ban size={14} /> Xử lý hủy
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                }}
-              />
-            )}
+                return (
+                  <tr key={o.id} style={{ background: isSelected ? '#fef2f2' : undefined }}>
+                    <td>
+                      <b>{code(o.id)}</b>
+                    </td>
+                    <td>{o.serviceName}</td>
+                    <td>
+                      {o.contactName}
+                      <small>{o.contactPhone}</small>
+                    </td>
+                    <td>
+                      <small className="pre-wrap">
+                        {o.cancelReason || 'Khách chưa ghi lý do.'}
+                      </small>
+                    </td>
+                    <td>
+                      <Badge value={o.status} />
+                    </td>
+                    <td>
+                      {o.technicianName || <small style={{ color: '#94a3b8' }}>Chưa có</small>}
+                    </td>
+                    <td>
+                      <button
+                        className={`btn small ${enRoute ? 'danger' : ''}`}
+                        onClick={() => setSelectedOrder(o)}
+                      >
+                        <Ban size={14} /> Xử lý hủy
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }}
+            />
+          )}
         </Card>
 
         {/* Lịch sử các đơn đã hủy */}
         <Card title="Nhật ký các đơn đã hủy & Đối soát phí di chuyển" style={{ marginTop: '20px' }}>
-            <Table
-              headers={['Mã đơn', 'Dịch vụ', 'Khách hàng', 'Thời điểm hủy', 'Phí di chuyển', 'Lý do hủy']}
-              rows={cancelledOrders.data}
-              empty="Chưa có đơn hàng nào bị hủy."
-              render={o => (
-                <tr key={o.id}>
-                  <td><b>{code(o.id)}</b></td>
-                  <td>{o.serviceName}</td>
-                  <td>{o.contactName}</td>
-                  <td>{date(o.updatedAt || o.createdAt)}</td>
-                  <td>
-                    {Number(o.cancellationFee) > 0 ? (
-                      <span className="badge red" style={{ fontWeight: 700 }}>
-                        {money(o.cancellationFee)}
-                      </span>
-                    ) : (
-                      <span style={{ color: '#64748b' }}>Miễn phí (0đ)</span>
-                    )}
-                  </td>
-                  <td><small style={{ color: '#991b1b' }}>{o.cancelReason || 'Khách hủy'}</small></td>
-                </tr>
-              )}
-            />
+          <Table
+            headers={[
+              'Mã đơn',
+              'Dịch vụ',
+              'Khách hàng',
+              'Thời điểm hủy',
+              'Phí di chuyển',
+              'Lý do hủy',
+            ]}
+            rows={cancelledOrders.data}
+            empty="Chưa có đơn hàng nào bị hủy."
+            render={(o) => (
+              <tr key={o.id}>
+                <td>
+                  <b>{code(o.id)}</b>
+                </td>
+                <td>{o.serviceName}</td>
+                <td>{o.contactName}</td>
+                <td>{date(o.updatedAt || o.createdAt)}</td>
+                <td>
+                  {Number(o.cancellationFee) > 0 ? (
+                    <span className="badge red" style={{ fontWeight: 700 }}>
+                      {money(o.cancellationFee)}
+                    </span>
+                  ) : (
+                    <span style={{ color: '#64748b' }}>Miễn phí (0đ)</span>
+                  )}
+                </td>
+                <td>
+                  <small style={{ color: '#991b1b' }}>{o.cancelReason || 'Khách hủy'}</small>
+                </td>
+              </tr>
+            )}
+          />
         </Card>
       </div>
 
       {/* Form xác nhận hủy và phí di chuyển */}
-      {selectedOrder && <Modal
-        title="Xử lý hủy đơn & Phí bồi hoàn di chuyển"
-        onClose={() => setSelectedOrder(null)}
-        className="dpv-cancel-modal"
-      >
-        <div className="dpv-cancel-dialog">
-          <div className="dpv-cancel-order-summary">
-            <div className="dpv-cancel-order-heading">
-              <b>{code(selectedOrder.id)}</b>
-              <Badge value={selectedOrder.status} />
-            </div>
-            <dl className="dpv-cancel-order-details">
-              <div><dt>Dịch vụ</dt><dd>{selectedOrder.serviceName}</dd></div>
-              <div><dt>Khách hàng</dt><dd>{selectedOrder.contactName}<small>{selectedOrder.contactPhone}</small></dd></div>
-              <div><dt>Kỹ thuật viên</dt><dd>{selectedOrder.technicianName || 'Chưa gán thợ'}</dd></div>
-              <div className="dpv-cancel-customer-reason"><dt>Lý do khách hủy</dt><dd className="pre-wrap">{selectedOrder.cancelReason || 'Khách chưa ghi lý do.'}</dd></div>
-            </dl>
-          </div>
-
-          {/* Banner giải trình quy tắc tính phí di chuyển */}
-          {hasSelectedFee ? (
-            <div className="dpv-cancel-notice danger">
-              <AlertTriangle size={24} style={{ flexShrink: 0, marginTop: 2 }} />
-              <div>
-                <b>ÁP DỤNG PHÍ HỦY: {money(selectedFeeValue)}</b>
-                <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
-                  {isEnRoute
-                    ? 'Kỹ thuật viên đang trên đường di chuyển đến nhà khách. Điều phối viên có thể điều chỉnh mức phí hủy phù hợp với chính sách đang áp dụng cho đơn này.'
-                    : 'Đơn hàng được áp dụng phí hủy theo mức đã chọn. Khách hàng sẽ phải thanh toán khoản này nếu xác nhận hủy.'}
-                </p>
+      {selectedOrder && (
+        <Modal
+          title="Xử lý hủy đơn & Phí bồi hoàn di chuyển"
+          onClose={() => setSelectedOrder(null)}
+          className="dpv-cancel-modal"
+        >
+          <div className="dpv-cancel-dialog">
+            <div className="dpv-cancel-order-summary">
+              <div className="dpv-cancel-order-heading">
+                <b>{code(selectedOrder.id)}</b>
+                <Badge value={selectedOrder.status} />
               </div>
+              <dl className="dpv-cancel-order-details">
+                <div>
+                  <dt>Dịch vụ</dt>
+                  <dd>{selectedOrder.serviceName}</dd>
+                </div>
+                <div>
+                  <dt>Khách hàng</dt>
+                  <dd>
+                    {selectedOrder.contactName}
+                    <small>{selectedOrder.contactPhone}</small>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Kỹ thuật viên</dt>
+                  <dd>{selectedOrder.technicianName || 'Chưa gán thợ'}</dd>
+                </div>
+                <div className="dpv-cancel-customer-reason">
+                  <dt>Lý do khách hủy</dt>
+                  <dd className="pre-wrap">
+                    {selectedOrder.cancelReason || 'Khách chưa ghi lý do.'}
+                  </dd>
+                </div>
+              </dl>
             </div>
-          ) : (
-            <div className="dpv-cancel-notice warning">
-              <ShieldCheck size={24} style={{ flexShrink: 0, marginTop: 2 }} />
-              <div>
-                <b>HỦY MIỄN PHÍ (0đ)</b>
-                <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
-                  Đơn hàng chưa bắt đầu di chuyển hoặc mức phí hủy được chọn là 0đ. Khách hàng và thợ được miễn phí hủy đơn hoàn toàn.
-                </p>
+
+            {/* Banner giải trình quy tắc tính phí di chuyển */}
+            {hasSelectedFee ? (
+              <div className="dpv-cancel-notice danger">
+                <AlertTriangle size={24} style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <b>ÁP DỤNG PHÍ HỦY: {money(selectedFeeValue)}</b>
+                  <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+                    {isEnRoute
+                      ? 'Kỹ thuật viên đang trên đường di chuyển đến nhà khách. Điều phối viên có thể điều chỉnh mức phí hủy phù hợp với chính sách đang áp dụng cho đơn này.'
+                      : 'Đơn hàng được áp dụng phí hủy theo mức đã chọn. Khách hàng sẽ phải thanh toán khoản này nếu xác nhận hủy.'}
+                  </p>
+                </div>
               </div>
+            ) : (
+              <div className="dpv-cancel-notice warning">
+                <ShieldCheck size={24} style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <b>HỦY MIỄN PHÍ (0đ)</b>
+                  <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>
+                    Đơn hàng chưa bắt đầu di chuyển hoặc mức phí hủy được chọn là 0đ. Khách hàng và
+                    thợ được miễn phí hủy đơn hoàn toàn.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="dpv-cancel-fee-box">
+              <div className="dpv-cancel-fee-total">
+                <span>Phí hủy / phí di chuyển</span>
+                <b className={selectedFeeValue > 0 ? 'has-fee' : ''}>{money(selectedFeeValue)}</b>
+              </div>
+              <p>Phí áp dụng theo chính sách được lưu khi khách đặt đơn.</p>
             </div>
-          )}
 
-          <div className="dpv-cancel-fee-box">
-            <div className="dpv-cancel-fee-total">
-              <span>Phí hủy / phí di chuyển</span>
-              <b className={selectedFeeValue > 0 ? 'has-fee' : ''}>{money(selectedFeeValue)}</b>
-            </div>
-            <p>Phí áp dụng theo chính sách được lưu khi khách đặt đơn.</p>
-          </div>
+            <Field label="Lý do hủy tiêu chuẩn">
+              <select value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}>
+                {REASONS.map((r, idx) => (
+                  <option key={idx} value={r}>
+                    {r}
+                  </option>
+                ))}
+                <option value="Lý do khác">Lý do khác</option>
+              </select>
+            </Field>
 
-          <Field label="Lý do hủy tiêu chuẩn">
-            <select value={cancelReason} onChange={e => setCancelReason(e.target.value)}>
-              {REASONS.map((r, idx) => <option key={idx} value={r}>{r}</option>)}
-              <option value="Lý do khác">Lý do khác</option>
-            </select>
-          </Field>
+            {cancelReason === 'Lý do khác' && (
+              <Field label="Nhập lý do hủy" hint="Vui lòng nhập ít nhất 5 ký tự.">
+                <textarea
+                  rows={3}
+                  required
+                  minLength={5}
+                  maxLength={1000}
+                  placeholder="Nhập lý do hủy..."
+                  value={customCancelReason}
+                  onChange={(e) => setCustomCancelReason(e.target.value)}
+                />
+              </Field>
+            )}
 
-          {cancelReason === 'Lý do khác' && (
-            <Field label="Nhập lý do hủy" hint="Vui lòng nhập ít nhất 5 ký tự.">
+            <Field label="Ghi chú bổ sung của điều phối viên">
               <textarea
                 rows={3}
-                required
-                minLength={5}
-                maxLength={1000}
-                placeholder="Nhập lý do hủy..."
-                value={customCancelReason}
-                onChange={e => setCustomCancelReason(e.target.value)}
+                placeholder="Nhập thông tin chi tiết giải trình việc hủy đơn..."
+                value={customNote}
+                onChange={(e) => setCustomNote(e.target.value)}
               />
             </Field>
-          )}
 
-          <Field label="Ghi chú bổ sung của điều phối viên">
-            <textarea
-              rows={3}
-              placeholder="Nhập thông tin chi tiết giải trình việc hủy đơn..."
-              value={customNote}
-              onChange={e => setCustomNote(e.target.value)}
-            />
-          </Field>
+            <ErrorBox error={a.error} />
 
-          <ErrorBox error={a.error} />
-
-          <div className="dpv-cancel-actions">
-            <button type="button" className="btn" onClick={() => setSelectedOrder(null)}>Hủy bỏ</button>
-            <button className="btn primary" disabled={a.busy || (cancelReason === 'Lý do khác' && customCancelReason.trim().length < 5)} onClick={handleCancelOrder}>
-              <Ban size={15} /> Xác nhận hủy đơn
-            </button>
+            <div className="dpv-cancel-actions">
+              <button type="button" className="btn" onClick={() => setSelectedOrder(null)}>
+                Hủy bỏ
+              </button>
+              <button
+                className="btn primary"
+                disabled={
+                  a.busy || (cancelReason === 'Lý do khác' && customCancelReason.trim().length < 5)
+                }
+                onClick={handleCancelOrder}
+              >
+                <Ban size={15} /> Xác nhận hủy đơn
+              </button>
+            </div>
           </div>
-        </div>
-      </Modal>}
+        </Modal>
+      )}
     </>
   );
 }
@@ -978,7 +1369,11 @@ function Table({ headers, rows, render, empty = 'Chưa có dữ liệu' }) {
     <div className="table-wrap">
       <table>
         <thead>
-          <tr>{headers.map(h => <th key={h}>{h}</th>)}</tr>
+          <tr>
+            {headers.map((h) => (
+              <th key={h}>{h}</th>
+            ))}
+          </tr>
         </thead>
         <tbody>{rows.map(render)}</tbody>
       </table>
@@ -1017,7 +1412,7 @@ export function DispatcherHub({ initialTab = 'diagnostics' }) {
       quotes: '/dispatch/quotes',
       assign: '/dispatch/assign',
       cancellations: '/dispatch/cancellations',
-      messages: '/dispatch/messages'
+      messages: '/dispatch/messages',
     };
     navigate(routes[tabKey]);
   };
@@ -1033,19 +1428,29 @@ export function DispatcherHub({ initialTab = 'diagnostics' }) {
         title="Bàn làm việc Điều phối viên"
         text="Theo dõi công việc, chẩn đoán lỗi từ xa, lập báo giá sơ bộ, điều phối thợ và xử lý hủy đơn, phí di chuyển."
       >
-        <Link to="/orders" className="btn"><FileText size={16} /> Danh sách tất cả đơn</Link>
+        <Link to="/orders" className="btn">
+          <FileText size={16} /> Danh sách tất cả đơn
+        </Link>
       </PageHead>
 
       {/* Thanh điều hướng các module điều phối */}
       <div className="dpv-hub-nav">
-        <button className={`dpv-hub-tab ${activeTab === 'messages' ? 'active' : ''}`} onClick={() => switchTab('messages')}><MessageSquare size={17} /> Tin nhắn khách hàng{attention.chatUnread > 0 && <span className="badge-count">{attention.chatUnread}</span>}</button>
+        <button
+          className={`dpv-hub-tab ${activeTab === 'messages' ? 'active' : ''}`}
+          onClick={() => switchTab('messages')}
+        >
+          <MessageSquare size={17} /> Tin nhắn khách hàng
+          {attention.chatUnread > 0 && <span className="badge-count">{attention.chatUnread}</span>}
+        </button>
         <button
           className={`dpv-hub-tab ${activeTab === 'diagnostics' ? 'active' : ''}`}
           onClick={() => switchTab('diagnostics')}
         >
           <Camera size={17} />
           Chẩn đoán từ xa (Ảnh & Chat)
-          {(waitingOrders.data?.length || 0) > 0 && <span className="badge-count">{waitingOrders.data.length}</span>}
+          {(waitingOrders.data?.length || 0) > 0 && (
+            <span className="badge-count">{waitingOrders.data.length}</span>
+          )}
         </button>
 
         <button
@@ -1062,7 +1467,9 @@ export function DispatcherHub({ initialTab = 'diagnostics' }) {
         >
           <Users size={17} />
           Điều phối kỹ thuật viên
-          {(pendingOrders.data?.length || 0) > 0 && <span className="badge-count">{pendingOrders.data.length}</span>}
+          {(pendingOrders.data?.length || 0) > 0 && (
+            <span className="badge-count">{pendingOrders.data.length}</span>
+          )}
         </button>
 
         <button
