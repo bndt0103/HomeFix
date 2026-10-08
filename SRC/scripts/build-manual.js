@@ -57,7 +57,7 @@ fs.writeFileSync(
 );
 fs.writeFileSync(
   path.join(output, 'manual.hhp'),
-  `[OPTIONS]\nCompatibility=1.1 or later\nCompiled file=${artifact}\nContents file=contents.hhc\nIndex file=index.hhk\nDefault topic=welcome.html\nDefault Window=main\nDisplay compile progress=No\nFull-text search=Yes\nLanguage=0x42a Vietnamese\nTitle=HomeFix - User Manual\n\n[WINDOWS]\nmain="HomeFix - User Manual","contents.hhc","index.hhk","welcome.html","welcome.html",,,,,0x63520,260,0x104e,[100,60,1200,850],,,,,,,0\n\n[FILES]\nmanual.css\n${topics.map((topic) => topic.id + '.html').join('\n')}\n`,
+  `[OPTIONS]\nCompatibility=1.1 or later\nCompiled file=${artifact}\nContents file=contents.hhc\nIndex file=index.hhk\nDefault topic=welcome.html\nDefault Window=main\nDisplay compile progress=No\nFull-text search=Yes\nLanguage=0x42a Vietnamese\nTitle=HomeFix - User Manual\n\n[WINDOWS]\nmain="HomeFix - User Manual","contents.hhc","index.hhk","welcome.html","welcome.html",,,,,0x63520,330,0x104e,[40,30,1480,930],,,,,,,0\n\n[FILES]\nmanual.css\n${topics.map((topic) => topic.id + '.html').join('\n')}\n`,
 );
 if (process.argv.includes('--html-only')) {
   console.log(output);
