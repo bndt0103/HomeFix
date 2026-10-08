@@ -48,12 +48,6 @@ Chờ 60 giây giữa các lần gửi, tối đa 5 mã/giờ/email và 10 yêu 
 Xác thực và cập nhật tài khoản cùng transaction để chống dùng lại mã. Đổi mật khẩu thu hồi mọi phiên cũ và ghi nhật ký.
 Quên mật khẩu không thông báo email có tồn tại hay không. Lỗi dịch vụ email không được coi là gửi thành công.
 
-## Kiểm thử
-```powershell
-npm run test:otp
-npm run test:otp:ui
-```
-Test tích hợp dùng SQL Server với database tạm riêng, tự dọn sau khi chạy; cần quyền tạo/xóa database. Provider được giả lập, không gửi thư thật.
-Test Playwright kiểm tra cả ba luồng email trên màn hình điện thoại, không có bộ chọn kênh, có đếm ngược gửi lại.
-Bộ kiểm thử OTP bao gồm Gmail SMTP, Resend và kiểm thử SQL Server cho cả ba luồng xác thực.
-Giao nhận email thật cần cấu hình đúng dịch vụ gửi đã chọn. Các kiểm thử tự động không xác nhận email thực sự đã tới hộp thư.
+## Kiểm tra cấu hình
+
+Trong `SRC`, chạy `npm.cmd run email:check` để kiểm tra kết nối dịch vụ email mà không gửi thư. Sau đó thử đăng ký hoặc quên mật khẩu bằng email của nhóm để kiểm tra mã OTP thực sự đến hộp thư.

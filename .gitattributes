@@ -1,0 +1,3 @@
+# Giữ nguyên nội dung bản Web và APK khi thành viên checkout trên Windows.
+BIN/Web/** -text
+BIN/*.apk -text

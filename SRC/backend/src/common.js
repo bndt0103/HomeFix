@@ -15,14 +15,15 @@ export const decisionSchema=z.strictObject({decision:z.enum(['Approved','Rejecte
 export function checkVersion(row,expected){if(!row)fail(404,'NOT_FOUND','Không tìm thấy dữ liệu.');if(!row.version||row.version.toString('base64')!==expected)fail(409,'VERSION_CONFLICT','Dữ liệu vừa thay đổi. Hãy tải lại trước khi thao tác.');}
 export function state(row,...allowed){if(!allowed.includes(row.status))fail(409,'INVALID_STATE','Thao tác không phù hợp trạng thái hiện tại.');}
 export async function audit(t,user,action,entity,entityId,detail=''){await q('INSERT dbo.NhatKy(actorId,action,entity,entityId,detail) VALUES(@actorId,@action,@entity,@entityId,@detail)',{actorId:user?.id,action,entity,entityId,detail},t);}
+export async function notifyRole(t,role,orderId,title,body=''){const users=await q('Select id From dbo.NguoiDung Where role=@role And isActive=1',{role},t);for(const user of users)await notify(t,user.id,orderId,title,body);}
 export async function notify(t,userId,orderId,title,body=''){await q('INSERT dbo.ThongBao(userId,orderId,title,body) VALUES(@userId,@orderId,@title,@body)',{userId,orderId,title,body},t);}
 export async function transition(t,order,user,next,reason,expected){
  const r=new sql.Request(t);r.input('OrderId',sql.Int,order.id).input('ActorId',sql.Int,user?.id??null).input('ExpectedVersion',sql.Binary(8),expected?Buffer.from(expected,'base64'):null).input('NextStatus',sql.VarChar(30),next).input('Reason',sql.NVarChar(1000),reason);await r.execute('dbo.sp_ChuyenTrangThaiDon');
 }
-export async function touch(t,orderId){await q('UPDATE dbo.DonHang SET updatedAt=SYSUTCDATETIME() WHERE id=@id',{id:orderId},t);}
+export async function touch(t,orderId){await q('UPDATE dbo.ChiTietDonHang SET updatedAt=SYSUTCDATETIME() WHERE id=@id',{id:orderId},t);}
 export async function getOrder(orderId,user,t){
  const o=await one(`SELECT d.*,CASE WHEN p.id IS NULL THEN 'Unpaid' ELSE 'Paid' END paymentStatus,n.fullName technicianName
- FROM dbo.DonHang d LEFT JOIN dbo.ThanhToan p ON p.orderId=d.id LEFT JOIN dbo.NguoiDung n ON n.id=d.assignedTechnicianId WHERE d.id=@id`,{id:orderId},t);
+ FROM dbo.ChiTietDonHang d LEFT JOIN dbo.ThanhToan p ON p.orderId=d.id LEFT JOIN dbo.NguoiDung n ON n.id=d.assignedTechnicianId WHERE d.id=@id`,{id:orderId},t);
  if(!o)fail(404,'NOT_FOUND','Không tìm thấy đơn.');
  if(user.role==='KH'&&o.customerId!==user.id)fail(404,'NOT_FOUND','Không tìm thấy đơn.');
  if(user.role==='KTV'&&!await one("SELECT TOP 1 id FROM dbo.LenhDieuPhoi WHERE orderId=@id AND technicianId=@uid AND (isActive=1 OR status='Accepted')",{id:orderId,uid:user.id},t))fail(404,'NOT_FOUND','Không tìm thấy đơn.');

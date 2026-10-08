@@ -1,5 +1,5 @@
-IF COL_LENGTH('dbo.NguoiDung','lockedUntil') IS NULL
- ALTER TABLE dbo.NguoiDung ADD lockedUntil datetime2 NULL;
+If COL_LENGTH('dbo.NguoiDung','lockedUntil') Is Null
+ Alter Table dbo.NguoiDung Add lockedUntil Datetime2 Null;
 GO
-IF NOT EXISTS(SELECT 1 FROM dbo.SchemaVersion WHERE version=7)
- INSERT dbo.SchemaVersion(version) VALUES(7);
+If Not Exists(Select 1 From dbo.SchemaVersion Where version=7)
+ Insert dbo.SchemaVersion(version) Values(7);

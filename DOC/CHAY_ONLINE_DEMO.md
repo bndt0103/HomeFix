@@ -82,14 +82,7 @@ Link tunnel công khai trên Internet; giao diện vẫn chứa tài khoản dem
 - Link hết hạn: lấy link mới từ terminal của máy chủ. Các thành viên không thể dùng link cũ sau khi tunnel đã dừng.
 - `DNS_PROBE_FINISHED_NXDOMAIN` hoặc không tìm thấy tên miền: DNS của mạng có thể chưa nhận link mới. Chờ một lúc, thử mạng 4G/5G hoặc bật Secure DNS trong trình duyệt với Cloudflare/Google. Script kiểm tra link có cơ chế thử DNS Cloudflare khi DNS hệ thống thất bại; không thay đổi DNS Windows.
 
-Kiểm thử luồng nhiều tài khoản (tạo một đơn thử và thực hiện nghiệp vụ, có ghi database):
-
-```powershell
-$env:HOMEFIX_TEST_URL=(Get-Content .\online-url.txt -Raw).Trim()
-node tests/ui-workflow.mjs
-```
-
-Script kiểm thử hiện dùng Microsoft Edge trên Windows và tài khoản mẫu chưa đổi mật khẩu.
+Để kiểm tra luồng nhiều tài khoản, các thành viên mở cùng URL bằng trình duyệt riêng, đăng nhập đúng vai trò và thực hiện kịch bản trong [hướng dẫn sử dụng](../HUONG_DAN_CAI_DAT.md). Thao tác tạo đơn và xử lý nghiệp vụ sẽ ghi vào database của máy chủ.
 
 Tài liệu chính thức: [Cloudflare Quick Tunnels](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/), [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/). Quick Tunnel dành cho thử nghiệm, không có cam kết uptime.
 

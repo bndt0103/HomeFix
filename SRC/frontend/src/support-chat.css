@@ -1,0 +1,7 @@
+@import './dispatch-inbox.css';
+.support-chat-layout { align-items: start; }
+.support-chat-layout > *, .support-chat-detail { min-width: 0; }
+.support-chat-layout .conversation-list .badge { margin-left: 6px; }
+.ai-chat-consent { margin-top: 12px; }
+.ai-chat-consent .checkbox { font-size: 12px; line-height: 1.5; }
+@media (max-width: 760px) { .support-chat-layout { grid-template-columns: minmax(0,1fr); } }

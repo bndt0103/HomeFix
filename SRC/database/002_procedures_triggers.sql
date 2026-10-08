@@ -1,86 +1,86 @@
-SET ANSI_NULLS ON;
-SET QUOTED_IDENTIFIER ON;
+Set Ansi_Nulls On;
+Set Quoted_Identifier On;
 GO
-CREATE OR ALTER PROCEDURE dbo.sp_ChuyenTrangThaiDon
- @OrderId int, @ActorId int, @ExpectedVersion binary(8), @NextStatus varchar(30), @Reason nvarchar(1000)
-AS
-BEGIN
- SET NOCOUNT ON; SET XACT_ABORT ON;
- DECLARE @Previous varchar(30), @CurrentVersion binary(8);
- SELECT @Previous=status,@CurrentVersion=version FROM dbo.DonHang WITH(UPDLOCK,HOLDLOCK) WHERE id=@OrderId;
- IF @Previous IS NULL THROW 51004,'ORDER_NOT_FOUND',1;
- IF @ExpectedVersion IS NOT NULL AND @ExpectedVersion<>@CurrentVersion THROW 51009,'VERSION_CONFLICT',1;
- IF NOT (
-  (@Previous='ChoTiepNhan' AND @NextStatus IN('ChoDuyetSoBo','Huy')) OR
-  (@Previous='ChoDuyetSoBo' AND @NextStatus IN('ChoPhanCong','Huy')) OR
-  (@Previous='ChoPhanCong' AND @NextStatus IN('ChoNhan','Huy')) OR
-  (@Previous='ChoNhan' AND @NextStatus IN('DaTiepNhan','ChoPhanCong','Huy')) OR
-  (@Previous='DaTiepNhan' AND @NextStatus IN('DangDiChuyen','Huy')) OR
-  (@Previous='DangDiChuyen' AND @NextStatus IN('DaDenNoi','Huy')) OR
-  (@Previous='DaDenNoi' AND @NextStatus='DangXuLy') OR
-  (@Previous='DangXuLy' AND @NextStatus='ChoNghiemThu') OR
-  (@Previous='ChoNghiemThu' AND @NextStatus IN('HoanThanh','DangXuLy'))
- ) THROW 51009,'INVALID_TRANSITION',1;
- UPDATE dbo.DonHang SET status=@NextStatus, updatedAt=SYSUTCDATETIME(),
-  departedAt=CASE WHEN @NextStatus='DangDiChuyen' THEN SYSUTCDATETIME() ELSE departedAt END WHERE id=@OrderId;
- INSERT dbo.LichSuDonHang(orderId,fromStatus,toStatus,actorId,reason) VALUES(@OrderId,@Previous,@NextStatus,@ActorId,@Reason);
-END;
+Create Or Alter Procedure dbo.sp_ChuyenTrangThaiDon
+ @OrderId Int, @ActorId Int, @ExpectedVersion Binary(8), @NextStatus Varchar(30), @Reason Nvarchar(1000)
+As
+Begin
+ Set Nocount On; Set Xact_Abort On;
+ Declare @Previous Varchar(30), @CurrentVersion Binary(8);
+ Select @Previous=status,@CurrentVersion=version From dbo.ChiTietDonHang With(UPDLOCK,HOLDLOCK) Where id=@OrderId;
+ If @Previous Is Null Throw 51004,'ORDER_NOT_FOUND',1;
+ If @ExpectedVersion Is Not Null And @ExpectedVersion<>@CurrentVersion Throw 51009,'VERSION_CONFLICT',1;
+ If Not (
+  (@Previous='ChoTiepNhan' And @NextStatus In('ChoDuyetSoBo','Huy')) Or
+  (@Previous='ChoDuyetSoBo' And @NextStatus In('ChoPhanCong','Huy')) Or
+  (@Previous='ChoPhanCong' And @NextStatus In('ChoNhan','Huy')) Or
+  (@Previous='ChoNhan' And @NextStatus In('DaTiepNhan','ChoPhanCong','Huy')) Or
+  (@Previous='DaTiepNhan' And @NextStatus In('DangDiChuyen','Huy')) Or
+  (@Previous='DangDiChuyen' And @NextStatus In('DaDenNoi','Huy')) Or
+  (@Previous='DaDenNoi' And @NextStatus='DangXuLy') Or
+  (@Previous='DangXuLy' And @NextStatus='ChoNghiemThu') Or
+  (@Previous='ChoNghiemThu' And @NextStatus In('HoanThanh','DangXuLy'))
+ ) Throw 51009,'INVALID_TRANSITION',1;
+ Update dbo.ChiTietDonHang Set status=@NextStatus, updatedAt=SYSUTCDATETIME(),
+  departedAt=Case When @NextStatus='DangDiChuyen' Then SYSUTCDATETIME() Else departedAt End Where id=@OrderId;
+ Insert dbo.LichSuDonHang(orderId,fromStatus,toStatus,actorId,reason) Values(@OrderId,@Previous,@NextStatus,@ActorId,@Reason);
+End;
 GO
-CREATE OR ALTER PROCEDURE dbo.sp_DoiSoatCOD
- @SettlementId int, @ActorId int, @ExpectedVersion binary(8)
-AS
-BEGIN
- SET NOCOUNT ON; SET XACT_ABORT ON;
- DECLARE @KTV int,@Amount decimal(18,2),@State varchar(10),@Version binary(8);
- SELECT @KTV=technicianId,@Amount=commissionAmount,@State=status,@Version=version FROM dbo.DoiSoat WITH(UPDLOCK,HOLDLOCK) WHERE id=@SettlementId;
- IF @KTV IS NULL THROW 51004,'SETTLEMENT_NOT_FOUND',1;
- IF @State<>'Pending' OR @Version<>@ExpectedVersion THROW 51009,'SETTLEMENT_ALREADY_CONFIRMED_OR_STALE',1;
- IF NOT EXISTS(SELECT 1 FROM dbo.NguoiDung WHERE id=@ActorId AND role='KT' AND isActive=1) THROW 51003,'FORBIDDEN',1;
- IF (SELECT balance FROM dbo.KyThuatVien WITH(UPDLOCK,HOLDLOCK) WHERE id=@KTV)<@Amount THROW 51009,'INSUFFICIENT_BALANCE',1;
+Create Or Alter Procedure dbo.sp_DoiSoatCOD
+ @SettlementId Int, @ActorId Int, @ExpectedVersion Binary(8)
+As
+Begin
+ Set Nocount On; Set Xact_Abort On;
+ Declare @KTV Int,@Amount Decimal(18,2),@State Varchar(10),@Version Binary(8);
+ Select @KTV=technicianId,@Amount=commissionAmount,@State=status,@Version=version From dbo.DoiSoat With(UPDLOCK,HOLDLOCK) Where id=@SettlementId;
+ If @KTV Is Null Throw 51004,'SETTLEMENT_NOT_FOUND',1;
+ If @State<>'Pending' Or @Version<>@ExpectedVersion Throw 51009,'SETTLEMENT_ALREADY_CONFIRMED_OR_STALE',1;
+ If Not Exists(Select 1 From dbo.NguoiDung Where id=@ActorId And role='KT' And isActive=1) Throw 51003,'FORBIDDEN',1;
+ If (Select balance From dbo.KyThuatVien With(UPDLOCK,HOLDLOCK) Where id=@KTV)<@Amount Throw 51009,'INSUFFICIENT_BALANCE',1;
  -- Called inside the command transaction; trigger maintains the cached balance from immutable ledger.
- IF @Amount>0 INSERT dbo.GiaoDichVi(technicianId,type,amount,referenceType,referenceId,actorId,note)
- VALUES(@KTV,'Commission',-@Amount,'Settlement',@SettlementId,@ActorId,N'Đối soát hoa hồng công sửa chữa COD');
- UPDATE dbo.DoiSoat SET status='Confirmed',confirmedBy=@ActorId,confirmedAt=SYSUTCDATETIME() WHERE id=@SettlementId;
- INSERT dbo.NhatKy(actorId,action,entity,entityId) VALUES(@ActorId,'ConfirmSettlement','DoiSoat',@SettlementId);
-END;
+ If @Amount>0 Insert dbo.GiaoDichVi(technicianId,type,amount,referenceType,referenceId,actorId,note)
+ Values(@KTV,'Commission',-@Amount,'Settlement',@SettlementId,@ActorId,N'Đối soát hoa hồng công sửa chữa COD');
+ Update dbo.DoiSoat Set status='Confirmed',confirmedBy=@ActorId,confirmedAt=SYSUTCDATETIME() Where id=@SettlementId;
+ Insert dbo.NhatKy(actorId,action,entity,entityId) Values(@ActorId,'ConfirmSettlement','DoiSoat',@SettlementId);
+End;
 GO
-CREATE OR ALTER PROCEDURE dbo.sp_DonHangCuaKhach @CustomerId int
-AS
-BEGIN
- SET NOCOUNT ON;
- SELECT d.*, CASE WHEN t.id IS NULL THEN 'Unpaid' ELSE 'Paid' END paymentStatus
- FROM dbo.DonHang d LEFT JOIN dbo.ThanhToan t ON t.orderId=d.id WHERE customerId=@CustomerId ORDER BY d.id DESC;
-END;
+Create Or Alter Procedure dbo.sp_DonHangCuaKhach @CustomerId Int
+As
+Begin
+ Set Nocount On;
+ Select d.*, Case When t.id Is Null Then 'Unpaid' Else 'Paid' End paymentStatus
+ From dbo.ChiTietDonHang d Left Join dbo.ThanhToan t On t.orderId=d.id Where customerId=@CustomerId Order By d.id Desc;
+End;
 GO
-CREATE OR ALTER TRIGGER dbo.trg_Vi_GhiSo ON dbo.GiaoDichVi AFTER INSERT
-AS
-BEGIN
- SET NOCOUNT ON;
- ;WITH Delta AS(SELECT technicianId,SUM(amount) amount FROM inserted GROUP BY technicianId)
- UPDATE k SET balance=k.balance+d.amount FROM dbo.KyThuatVien k JOIN Delta d ON d.technicianId=k.id;
-END;
+Create Or Alter Trigger dbo.trg_Vi_GhiSo On dbo.GiaoDichVi After Insert
+As
+Begin
+ Set Nocount On;
+ ;With Delta As(Select technicianId,Sum(amount) amount From inserted Group By technicianId)
+ Update k Set balance=k.balance+d.amount From dbo.KyThuatVien k Join Delta d On d.technicianId=k.id;
+End;
 GO
-CREATE OR ALTER TRIGGER dbo.trg_Vi_BatBien ON dbo.GiaoDichVi INSTEAD OF UPDATE,DELETE
-AS BEGIN SET NOCOUNT ON; THROW 51009,'LEDGER_IMMUTABLE',1; END;
+Create Or Alter Trigger dbo.trg_Vi_BatBien On dbo.GiaoDichVi INSTEAD OF Update,Delete
+As Begin Set Nocount On; Throw 51009,'LEDGER_IMMUTABLE',1; End;
 GO
-CREATE OR ALTER TRIGGER dbo.trg_ThanhToan_BatBien ON dbo.ThanhToan INSTEAD OF UPDATE,DELETE
-AS BEGIN SET NOCOUNT ON; THROW 51009,'PAYMENT_IMMUTABLE',1; END;
+Create Or Alter Trigger dbo.trg_ThanhToan_BatBien On dbo.ThanhToan INSTEAD OF Update,Delete
+As Begin Set Nocount On; Throw 51009,'PAYMENT_IMMUTABLE',1; End;
 GO
-CREATE OR ALTER TRIGGER dbo.trg_DonHang_Audit ON dbo.DonHang AFTER UPDATE
-AS
-BEGIN
- SET NOCOUNT ON;
- INSERT dbo.NhatKy(action,entity,entityId,detail)
- SELECT 'OrderStatus','DonHang',i.id,CONCAT(d.status,' -> ',i.status) FROM inserted i JOIN deleted d ON d.id=i.id WHERE i.status<>d.status;
-END;
+Create Or Alter Trigger dbo.trg_DonHang_Audit On dbo.ChiTietDonHang After Update
+As
+Begin
+ Set Nocount On;
+ Insert dbo.NhatKy(action,entity,entityId,detail)
+ Select 'OrderStatus','DonHang',i.id,CONCAT(d.status,' -> ',i.status) From inserted i Join deleted d On d.id=i.id Where i.status<>d.status;
+End;
 GO
-CREATE OR ALTER TRIGGER dbo.trg_DanhGia_DieuKien ON dbo.DanhGia AFTER INSERT,UPDATE
-AS
-BEGIN
- SET NOCOUNT ON;
- IF EXISTS(SELECT 1 FROM inserted i JOIN dbo.DonHang d ON d.id=i.orderId
- LEFT JOIN dbo.ThanhToan p ON p.orderId=d.id
- WHERE i.customerId<>d.customerId OR d.status<>'HoanThanh' OR p.id IS NULL OR i.technicianId<>p.receivedBy)
- THROW 51009,'REVIEW_NOT_ELIGIBLE',1;
-END;
+Create Or Alter Trigger dbo.trg_DanhGia_DieuKien On dbo.DanhGia After Insert,Update
+As
+Begin
+ Set Nocount On;
+ If Exists(Select 1 From inserted i Join dbo.ChiTietDonHang d On d.id=i.orderId
+ Left Join dbo.ThanhToan p On p.orderId=d.id
+ Where i.customerId<>d.customerId Or d.status<>'HoanThanh' Or p.id Is Null Or i.technicianId<>p.receivedBy)
+ Throw 51009,'REVIEW_NOT_ELIGIBLE',1;
+End;
 GO

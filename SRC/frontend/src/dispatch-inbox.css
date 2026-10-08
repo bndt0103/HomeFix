@@ -1,0 +1,12 @@
+.dispatch-inbox { align-items: start; }
+.dispatch-inbox > *, .conversation-detail { min-width: 0; }
+.conversation-list { display: grid; gap: 10px; }
+.conversation-list > button { width: 100%; text-align: left; padding: 14px; border: 1px solid #dce5df; border-radius: 12px; background: #fff; color: #253d34; cursor: pointer; overflow-wrap: anywhere; }
+.conversation-list > button[aria-pressed="true"] { border-color: #087b4b; background: #eff8f3; }
+.conversation-list > button:focus-visible { outline: 2px solid #087b4b; outline-offset: 2px; }
+.conversation-list .row { flex-wrap: wrap; }
+.conversation-list p { white-space: pre-wrap; margin: 8px 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.conversation-list small { display: block; margin-bottom: 8px; }
+.conversation-detail .notes { max-height: 480px; overflow: auto; overflow-wrap: anywhere; }
+.conversation-detail .notes p { white-space: pre-wrap; }
+@media (max-width: 760px) { .dispatch-inbox { grid-template-columns: minmax(0, 1fr); } }

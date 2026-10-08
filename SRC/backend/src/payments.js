@@ -24,7 +24,7 @@ export async function selectPayment(t,order,acceptance,method,bankAccountId,acto
   if(Number(acceptance.total)<=0)fail(409,'ZERO_TRANSFER','Đơn không phát sinh tiền không cần chuyển khoản.');
  }
  if(old)await q("UPDATE dbo.YeuCauThanhToan SET status='Cancelled',isActive=0,decidedAt=SYSUTCDATETIME(),reason=N'Khách đổi phương thức trước khi báo chuyển tiền' WHERE id=@id",{id:old.id},t);
- await q('UPDATE dbo.DonHang SET paymentMethod=@method,updatedAt=SYSUTCDATETIME() WHERE id=@id',{method,id:order.id},t);
+ await q('UPDATE dbo.ChiTietDonHang SET paymentMethod=@method,updatedAt=SYSUTCDATETIME() WHERE id=@id',{method,id:order.id},t);
  let request=null;
  if(account){
   request=await one(`INSERT dbo.YeuCauThanhToan(orderId,acceptanceId,customerId,bankAccountId,bankCode,bankName,accountNumber,accountHolder,amount)

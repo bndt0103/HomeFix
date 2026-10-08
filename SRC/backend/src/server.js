@@ -1,6 +1,9 @@
+import { serviceOrdersRouter } from './service-orders.js';
+import { communicationRouter } from './order-communication.js';
 import { reportsRouter, sendReportNotifications } from './reports.js';
 import {paymentsRouter} from './payments.js';
 import express from 'express'; import cors from 'cors'; import helmet from 'helmet'; import fs from 'node:fs'; import path from 'node:path'; import crypto from 'node:crypto'; import { ZodError } from 'zod';
+import {supportChatRouter,recoverStaleSupportChats} from './support-chat.js';
 import { config, backendDir } from './config.js'; import { pool, close } from './db.js'; import { ok, wrap } from './common.js'; import { authRouter } from './auth.js'; import { ordersRouter, expireAssignments } from './orders.js'; import { quotesRouter } from './quotes.js'; import { uploadsRouter, publicUploadsRouter } from './uploads.js'; import { financeRouter } from './finance.js'; import { adminRouter, publicServices } from './admin.js'; import { supportRouter } from './support.js';
 if (!config.secret || config.secret.length < 32 || config.secret.startsWith('replace-')) throw new Error('Chạy npm run db:init hoặc đặt JWT_SECRET ngẫu nhiên tối thiểu 32 ký tự trong backend/.env.');
 export const app = express(); app.disable('x-powered-by');
@@ -26,7 +29,7 @@ app.use((req, res, next) => cors({ origin: (origin, cb) => { const self = `${req
 app.use(express.json({ limit: '256kb' }));
 app.get('/api/health', wrap(async (req, res) => { await pool(); ok(res, { status: 'ok' }); }));
 app.get('/api/services', publicServices);
-app.use('/api', publicUploadsRouter, authRouter, ordersRouter, quotesRouter, uploadsRouter, financeRouter, adminRouter, supportRouter, paymentsRouter, reportsRouter);
+app.use('/api', publicUploadsRouter, authRouter, serviceOrdersRouter, communicationRouter, supportChatRouter, ordersRouter, quotesRouter, uploadsRouter, financeRouter, adminRouter, supportRouter, paymentsRouter, reportsRouter);
 app.use('/api', (req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Không tìm thấy API.' }, requestId: req.requestId }));
 const dist = path.resolve(backendDir, '../frontend/dist'); app.use(express.static(dist, { index: false }));
 app.get(/.*/, (req, res) => { const index = path.join(dist, 'index.html'); if (fs.existsSync(index)) res.sendFile(index); else res.status(503).type('text').send('HomeFix API đang chạy. Build frontend bằng npm run build để mở website tại đây.'); });
@@ -43,9 +46,9 @@ app.use((err, req, res, next) => {
     if (status >= 500) { console.error(JSON.stringify({ requestId: req.requestId, code: err.code, number: num || undefined, message: err.message })); if (!(status === 503 && ['OTP_NOT_CONFIGURED', 'OTP_DELIVERY_FAILED'].includes(code))) { code = 'INTERNAL_ERROR'; message = 'Có lỗi xử lý. Vui lòng thử lại hoặc cung cấp mã yêu cầu cho nhóm hỗ trợ.'; } }
     res.status(status).json({ error: { code, message, ...(details ? { details } : {}) }, requestId: req.requestId });
 });
-await pool(); await expireAssignments();
+await pool(); await expireAssignments(); await recoverStaleSupportChats();
 const server = app.listen(config.port, process.env.HOST || '0.0.0.0', () => console.log(`HomeFix running at http://localhost:${config.port}`));
-let sweeping = false; const interval = setInterval(async () => { if (sweeping) return; sweeping = true; try { await expireAssignments(); } catch (e) { console.error('Assignment sweep:', e.message); } finally { sweeping = false; } }, 10000); interval.unref();
+let sweeping = false; const interval = setInterval(async () => { if (sweeping) return; sweeping = true; try { await expireAssignments(); await recoverStaleSupportChats(); } catch (e) { console.error('Background recovery:', e.message); } finally { sweeping = false; } }, 10000); interval.unref();
 let reporting = false; const reportInterval = setInterval(async () => { if (reporting) return; reporting = true; try { await sendReportNotifications(); } catch (e) { console.error('Report monitoring:', e.message); } finally { reporting = false; } }, 60000); reportInterval.unref();
 async function shutdown() { clearInterval(reportInterval); clearInterval(interval); server.close(async () => { await close(); process.exit(0) }); }
 process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);

@@ -89,7 +89,7 @@ supportRouter.get('/support/reviews', roles('CSKH', 'GD', 'ADMIN'), wrap(async (
     FROM dbo.DanhGia r
     JOIN dbo.NguoiDung c ON c.id = r.customerId
     JOIN dbo.NguoiDung k ON k.id = r.technicianId
-    JOIN dbo.DonHang d ON d.id = r.orderId
+    JOIN dbo.ChiTietDonHang d ON d.id = r.orderId
     WHERE ${where}
     ORDER BY r.id DESC
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -122,7 +122,7 @@ supportRouter.get('/support/summary', roles('CSKH', 'GD', 'ADMIN'), wrap(async (
            ktv.fullName technicianName
     FROM dbo.YeuCauHoTro t
     JOIN dbo.NguoiDung n ON n.id = t.customerId
-    JOIN dbo.DonHang d ON d.id = t.orderId
+    JOIN dbo.ChiTietDonHang d ON d.id = t.orderId
     LEFT JOIN dbo.NguoiDung ktv ON ktv.id = d.assignedTechnicianId
     ORDER BY CASE WHEN t.status IN ('Open', 'InProgress') THEN 0 ELSE 1 END, t.id DESC
   `);
@@ -135,7 +135,7 @@ supportRouter.get('/support/summary', roles('CSKH', 'GD', 'ADMIN'), wrap(async (
     FROM dbo.DanhGia r
     JOIN dbo.NguoiDung c ON c.id = r.customerId
     JOIN dbo.NguoiDung k ON k.id = r.technicianId
-    JOIN dbo.DonHang d ON d.id = r.orderId
+    JOIN dbo.ChiTietDonHang d ON d.id = r.orderId
     WHERE r.rating <= 3
     ORDER BY r.id DESC
   `);
@@ -176,7 +176,7 @@ supportRouter.get('/support/orders/search', roles('CSKH', 'ADMIN'), wrap(async (
            ktv.fullName technicianName, ktv.phone technicianPhone,
            a.decidedAt acceptanceDate,
            (SELECT COUNT(*) FROM dbo.YeuCauHoTro WHERE orderId=d.id AND status IN ('Open', 'InProgress')) activeTicketsCount
-    FROM dbo.DonHang d
+    FROM dbo.ChiTietDonHang d
     LEFT JOIN dbo.NguoiDung ktv ON ktv.id = d.assignedTechnicianId
     LEFT JOIN dbo.PhieuNghiemThu a ON a.orderId = d.id AND a.status = 'Approved'
     WHERE (@numId > 0 AND d.id = @numId)
@@ -280,7 +280,7 @@ supportRouter.get('/support/tickets', roles('KH', 'CSKH', 'ADMIN'), wrap(async (
            staff.fullName assignedStaffName
     FROM dbo.YeuCauHoTro t
     JOIN dbo.NguoiDung n ON n.id = t.customerId
-    JOIN dbo.DonHang d ON d.id = t.orderId
+    JOIN dbo.ChiTietDonHang d ON d.id = t.orderId
     LEFT JOIN dbo.NguoiDung ktvUser ON ktvUser.id = d.assignedTechnicianId
     LEFT JOIN dbo.NguoiDung staff ON staff.id = t.assignedTo
     WHERE ${where}
@@ -386,7 +386,7 @@ supportRouter.get('/support/tickets/:id', roles('KH', 'CSKH', 'ADMIN'), wrap(asy
   const order = await one(`
     SELECT d.*, n.fullName technicianName, n.phone technicianPhone,
            c.fullName customerName, c.phone customerPhone
-    FROM dbo.DonHang d
+    FROM dbo.ChiTietDonHang d
     JOIN dbo.NguoiDung c ON c.id = d.customerId
     LEFT JOIN dbo.NguoiDung n ON n.id = d.assignedTechnicianId
     WHERE d.id = @id

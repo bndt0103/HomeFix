@@ -69,10 +69,10 @@ function AdminUsers() {
     return '—';
   };
 
-  if (view.type === 'detail') return <UserDetail record={view.record} onBack={() => setView({ type: 'list', record: null })} onSecurity={u => setView({ type: 'security', record: u })} />;
+  if (view.type === 'detail') return <UserDetail record={view.record} onBack={() => setView({ type: 'list', record: null })} onSecurity={u => setView({ type: 'security', record: u })} onSaved={user => {setView({type:'detail',record:user});r.reload();}} />;
   if (view.type === 'security') return <UserSecurity record={view.record} onBack={() => setView({ type: 'list', record: null })} onLocked={user => { r.setData(users => users?.map(item => item.id === user.id ? { ...item, ...user } : item)); setView({ type: 'list', record: null }); }} />;
 
-  return <><PageHead eyebrow="QUẢN TRỊ HOMEFIX" title="Danh sách tài khoản hệ thống" text="Tra cứu thông tin, vai trò, trạng thái hoạt động thực tế trên HomeFix">
+  return <><PageHead eyebrow="QUẢN TRỊ HOMEFIX" title="Danh sách tài khoản hệ thống" text="Tra cứu tài khoản, vai trò và trạng thái hoạt động.">
     <button className="btn" onClick={refresh}><RefreshCw size={16} /> Cập nhật</button>
     <button className="btn primary" onClick={() => setView({ type: 'create', record: {} })}><Plus size={17} /> Thêm tài khoản</button>
   </PageHead>
@@ -95,7 +95,7 @@ function AdminUsers() {
           <td>
             <div style={{ display: 'flex', gap: '4px' }}>
               <button className="icon-btn small" onClick={() => setView({ type: 'detail', record: u })} title="Chi tiết tài khoản"><Pencil size={14} /></button>
-              <button className="icon-btn small" onClick={() => setView({ type: 'security', record: u })} title="Khóa/Xóa tài khoản" style={{ color: '#d93025' }}><Lock size={14} /></button>
+              <button className="icon-btn small" onClick={() => setView({ type: 'security', record: u })} title="Khóa tài khoản tạm thời" style={{ color: '#d93025' }}><Lock size={14} /></button>
             </div>
           </td>
         </tr>
@@ -110,7 +110,7 @@ function AdminUsers() {
     {view.type === 'create' && <Editor section="users" record={view.record} onClose={() => setView({ type: 'list', record: null })} onDone={() => { setView({ type: 'list', record: null }); r.reload(); }} />}
   </>;
 }
-function UserDetail({ record, onBack, onSecurity }) {
+function UserDetail({ record, onBack, onSecurity, onSaved }) {
   const a = useAction();
   const [form, setForm] = useState({
     fullName: record.fullName || '',
@@ -121,38 +121,13 @@ function UserDetail({ record, onBack, onSecurity }) {
   });
   const set = (k, v) => setForm(s => ({ ...s, [k]: v }));
 
-  const PERMS_DEF = [
-    { key: 'xem_bao_cao', label: 'Xem báo cáo' },
-    { key: 'dieu_phoi_don', label: 'Điều phối đơn' },
-    { key: 'phe_duyet_vi', label: 'Phê duyệt ví' },
-    { key: 'quan_ly_tk', label: 'Quản lý tài khoản' },
-    { key: 'xem_tai_chinh', label: 'Xem tài chính' },
-    { key: 'chinh_sua_dich_vu', label: 'Chỉnh sửa dịch vụ' },
-    { key: 'xem_nhat_ky', label: 'Xem nhật ký hệ thống' },
-    { key: 'cau_hinh_he_thong', label: 'Cấu hình hệ thống' }
-  ];
-  const defaultPerms = () => Object.fromEntries(PERMS_DEF.map(p => [p.key, ['ADMIN'].includes(record.role)]));
-  const [perms, setPerms] = useState(defaultPerms);
-  const togglePerm = k => setPerms(s => ({ ...s, [k]: !s[k] }));
-
-  const MODULES = [
-    { mod: 'Quản lý tài khoản', cols: ['Xem', 'Thêm', 'Sửa', 'Duyệt', 'Xóa'], vals: [1, 1, 1, 0, 0] },
-    { mod: 'Đơn hàng & sửa chữa', cols: ['Xem', 'Thêm', 'Sửa', 'Duyệt', 'Xóa'], vals: [1, 1, 1, 1, 0] },
-    { mod: 'Dịch vụ & bảng giá', cols: ['Xem', 'Thêm', 'Sửa', 'Duyệt', 'Xóa'], vals: [1, 0, 0, 0, 0] },
-    { mod: 'Tài chính & Ví KTV', cols: ['Xem', 'Thêm', 'Sửa', 'Duyệt', 'Xóa'], vals: [1, 1, 0, 0, 0] },
-    { mod: 'Cấu hình hệ thống', cols: ['Xem', 'Thêm', 'Sửa', 'Duyệt', 'Xóa'], vals: [1, 0, 0, 0, 0] }
-  ];
-  const [modulePerms, setModulePerms] = useState(() => Object.fromEntries(MODULES.map(m => [m.mod, m.vals.map(Boolean)])));
-  const toggleModulePerm = (mod, idx) => setModulePerms(s => ({ ...s, [mod]: s[mod].map((v, i) => i === idx ? !v : v) }));
-
   const save = () => a.run(async () => {
-    await api('/users/' + record.id, { method: 'PATCH', body: { fullName: form.fullName, role: form.role, skillGroup: form.skillGroup, isActive: form.isActive, expectedVersion: record.version } });
+    const updated=await api('/users/' + record.id, { method: 'PATCH', body: { fullName: form.fullName, role: form.role, skillGroup: form.skillGroup, isActive: form.isActive, expectedVersion: record.version } });
+    onSaved(updated.data);
   }, 'Đã cập nhật tài khoản thành công.');
 
   const logs = useData(record.id ? '/audit-logs' : '');
   const userLogs = (logs.data || []).filter(l => l.actorId === record.id).slice(0, 5);
-
-  const hasDeletePerm = Object.values(modulePerms).some(cols => cols[4]);
 
   return <div className="user-detail-page">
     <div className="breadcrumb" style={{ display: 'flex', gap: '8px', alignItems: 'center', color: '#5f6368', marginBottom: '24px' }}>
@@ -185,14 +160,11 @@ function UserDetail({ record, onBack, onSecurity }) {
             {Object.entries(roleNames).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
           </select>
         </Field>
-        <Field label="Bộ phận trực thuộc">
-          <select value={form.skillGroup} onChange={e => set('skillGroup', e.target.value)}>
-            <option value="DienLanh">Đội Kỹ thuật số 1</option>
-            <option value="DienNuoc">Đội Kỹ thuật số 2</option>
-            <option value="DienGiaDung">Đội CSKH Online</option>
-            <option value="VeSinh">Đội Kế toán Tổng hợp</option>
+        {form.role === 'KTV' && <Field label="Chuyên môn">
+          <select value={form.skillGroup} onChange={e => set('skillGroup',e.target.value)}>
+            {Object.entries(groups).map(([key,name])=><option key={key} value={key}>{name}</option>)}
           </select>
-        </Field>
+        </Field>}
         <label className="checkbox" style={{ marginTop: '12px' }}>
           <input type="checkbox" checked={form.isActive} onChange={e => set('isActive', e.target.checked)} /> Tài khoản hoạt động
         </label>
@@ -208,159 +180,50 @@ function UserDetail({ record, onBack, onSecurity }) {
         </div>
       </Card>
 
-      <Card title="Ma trận phân quyền chi tiết theo module">
-        <p style={{ color: '#5f6368', fontSize: '14px', marginBottom: '16px' }}>Nhấp trực tiếp để tích chọn hoặc bỏ chọn từng quyền cụ thể của tài khoản</p>
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Module Hệ Thống</th><th style={{ textAlign: 'center' }}>Xem</th><th style={{ textAlign: 'center' }}>Thêm</th><th style={{ textAlign: 'center' }}>Sửa</th><th style={{ textAlign: 'center' }}>Duyệt</th><th style={{ textAlign: 'center' }}>Xóa</th></tr></thead>
-            <tbody>
-              {MODULES.map(m => <tr key={m.mod}>
-                <td><b>{m.mod}</b></td>
-                {modulePerms[m.mod].map((checked, i) => <td key={i} style={{ textAlign: 'center' }}>
-                  <input type="checkbox" checked={checked} onChange={() => toggleModulePerm(m.mod, i)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#116a4e' }} />
-                </td>)}
-              </tr>)}
-            </tbody>
-          </table>
-        </div>
-
-        <b style={{ display: 'block', margin: '20px 0 12px' }}>Quyền nghiệp vụ nhanh</b>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          {PERMS_DEF.map(p => <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: '1px solid ' + (perms[p.key] ? '#116a4e' : '#e0e0e0'), borderRadius: '8px', cursor: 'pointer', background: perms[p.key] ? '#f0faf5' : '#fff', transition: 'all .15s' }}>
-            <input type="checkbox" checked={perms[p.key]} onChange={() => togglePerm(p.key)} style={{ accentColor: '#116a4e', width: '15px', height: '15px' }} />
-            <span style={{ fontSize: '13px', fontWeight: '500' }}>{p.label}</span>
-          </label>)}
-        </div>
-
-        {hasDeletePerm && <div style={{ background: '#fce8e6', padding: '16px', borderRadius: '8px', marginTop: '16px', display: 'flex', gap: '12px' }}>
-          <ShieldCheck size={24} color="#d93025" />
-          <div>
-            <b style={{ color: '#d93025', display: 'block' }}>Cảnh báo: Đang cấp quyền Xóa</b>
-            <small style={{ color: '#d93025' }}>Tài khoản này đang được cấp quyền Xóa dữ liệu — đây là quyền nhạy cảm cao. Hãy chắc chắn người dùng đủ tin cậy trước khi lưu thay đổi.</small>
-          </div>
-        </div>}
+      <Card title="Quyền theo vai trò">
+        <p>Quyền truy cập được áp dụng theo vai trò đã chọn: <b>{roleNames[form.role]}</b>.</p>
+        <p>{({
+          KH:'Đặt dịch vụ, duyệt báo giá, nghiệm thu, thanh toán và gửi yêu cầu hỗ trợ cho đơn của mình.',
+          KTV:'Phản hồi phân công, cập nhật công việc, kê khai vật tư đã thống nhất với khách, lập nghiệm thu, ghi nhận thu tiền mặt và quản lý ví.',
+          DPV:'Trao đổi với khách hàng, lập báo giá sơ bộ, phân công kỹ thuật viên và xử lý yêu cầu hủy.',
+          CSKH:'Tiếp nhận hỗ trợ, xử lý khiếu nại và bảo hành, theo dõi đánh giá chất lượng dịch vụ.',
+          KT:'Xác minh chuyển khoản, đối soát, duyệt yêu cầu ví và xem báo cáo tài chính.',
+          GD:'Xem báo cáo vận hành, chất lượng, tài chính và phê duyệt đề xuất chính sách.',
+          ADMIN:'Quản lý tài khoản, dịch vụ, cấu hình, tài khoản nhận tiền; duyệt hồ sơ kỹ thuật viên và tra cứu nhật ký.'
+        })[form.role]}</p>
       </Card>
     </div>
   </div>;
 }
-function UserSecurity({ record, onBack, onLocked }) {
-  const [tab, setTab] = useState('lock');
-  const [lockDuration, setLockDuration] = useState(1);
-  const [lockDurationUnit, setLockDurationUnit] = useState('day');
-  const [disciplineReason, setDisciplineReason] = useState('Tự ý tăng giá vật tư thay thế cho khách hàng vượt mức 40% mà không qua hệ thống kiểm duyệt.');
-  const [otp, setOtp] = useState('');
-  const [otpChallenge, setOtpChallenge] = useState(null);
-  const otpAction = useAction();
-  const isDelete = tab === 'delete';
-  const isTemporarilyLocked = record.lockedUntil && new Date(record.lockedUntil) > new Date();
-  const requestOtp = () => otpAction.run(async () => {
-    const response = await api('/admin/security/otp', { method: 'POST' });
-    setOtpChallenge(response.data);
-    setOtp('');
-  }, 'Mã OTP đã được gửi đến email quản trị viên.');
-  const confirmTemporaryLock = () => otpAction.run(async () => {
-    const response = await api('/users/' + record.id + (isTemporarilyLocked ? '/unlock' : '/temporary-lock'), { method: 'POST', body: isTemporarilyLocked ? { challengeId: otpChallenge.challengeId, otp } : { duration: Number(lockDuration), unit: lockDurationUnit, reason: disciplineReason, challengeId: otpChallenge.challengeId, otp } });
-    setOtp('');
-    setOtpChallenge(null);
+function UserSecurity({record,onBack,onLocked}) {
+  const [duration,setDuration]=useState(1),[unit,setUnit]=useState('day'),[reason,setReason]=useState('');
+  const [otp,setOtp]=useState(''),[challenge,setChallenge]=useState(null), action=useAction();
+  const locked=record.lockedUntil && new Date(record.lockedUntil)>new Date();
+  const requestOtp=()=>action.run(async()=>{
+    const response=await api('/admin/security/otp',{method:'POST'}); setChallenge(response.data); setOtp('');
+  },'Mã OTP đã được gửi đến email quản trị viên.');
+  const confirm=()=>action.run(async()=>{
+    const response=await api('/users/'+record.id+(locked?'/unlock':'/temporary-lock'),{method:'POST',body:locked?
+      {challengeId:challenge.challengeId,otp}:{duration:Number(duration),unit,reason:reason.trim(),challengeId:challenge.challengeId,otp}});
     onLocked(response.data);
-  }, isTemporarilyLocked ? 'Đã hủy khóa tài khoản.' : 'Đã khóa tài khoản tạm thời.');
+  },locked?'Đã hủy khóa tài khoản.':'Đã khóa tài khoản tạm thời.');
   return <div className="user-security-page">
-    <div className="breadcrumb" style={{ display: 'flex', gap: '8px', alignItems: 'center', color: '#5f6368', marginBottom: '24px' }}>
-      <span onClick={onBack} style={{ cursor: 'pointer', fontWeight: '500' }}>Quản lý tài khoản</span>
-      <ChevronRight size={16} />
-      <b style={{ color: '#202124' }}>Quản trị rủi ro & Khóa/Xóa</b>
-    </div>
-
-    <PageHead title="Hành động rủi ro & Bảo mật tài khoản" text="Quản lý tập trung các tài khoản cần tạm dừng hoạt động hoặc thu hồi vĩnh viễn quyền truy cập" />
-
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-      <Card title="Danh sách tài khoản cần rà soát đặc biệt">
-        <div style={{ border: '1px solid #116a4e', borderRadius: '8px', padding: '16px', marginBottom: '12px', background: '#f8fdfa', display: 'flex', justifyContent: 'space-between' }}>
-          <div>
-            <b>{record.fullName}</b> <small style={{ color: '#5f6368' }}>{roleNames[record.role]}</small>
-            <div style={{ color: '#d93025', fontSize: '13px', margin: '4px 0' }}>Lý do: Tự ý tăng giá vật tư thay thế cho khách hàng</div>
-            <small style={{ color: '#888' }}>Lần cuối: Đăng nhập 2 phút trước</small>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <Badge value="Yêu cầu rà soát" />
-            <div style={{ color: '#1a73e8', fontSize: '13px', marginTop: '16px', cursor: 'pointer' }}>Đang xử lý →</div>
-          </div>
-        </div>
-      </Card>
-
-      <Card title={"Xử lý kỷ luật tài khoản: " + record.role + "-" + String(record.id).padStart(4, '0')}>
-        <p style={{ color: '#5f6368', marginBottom: '16px', fontSize: '14px' }}>Áp dụng cho: {record.fullName}</p>
-
-        <div style={{ display: 'flex', background: '#f1f3f4', borderRadius: '8px', padding: '4px', marginBottom: '24px' }}>
-          <div
-            onClick={() => setTab('lock')}
-            style={{
-              flex: 1, textAlign: 'center', padding: '8px', borderRadius: '6px', fontWeight: '500', cursor: 'pointer', transition: 'all .15s',
-              background: !isDelete ? '#fff' : 'transparent',
-              color: !isDelete ? '#202124' : '#5f6368',
-              boxShadow: !isDelete ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-            }}>Khóa tài khoản tạm thời</div>
-          <div
-            onClick={() => setTab('delete')}
-            style={{
-              flex: 1, textAlign: 'center', padding: '8px', borderRadius: '6px', fontWeight: '500', cursor: 'pointer', transition: 'all .15s',
-              background: isDelete ? '#fff' : 'transparent',
-              color: isDelete ? '#d93025' : '#5f6368',
-              boxShadow: isDelete ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-            }}>Xóa vĩnh viễn dữ liệu</div>
-        </div>
-
-        {isDelete && <div style={{ background: '#fce8e6', border: '1px solid #f5c6c2', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px' }}>
-          <ShieldCheck size={20} color="#d93025" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div>
-            <b style={{ color: '#d93025', display: 'block', marginBottom: '4px' }}>Cảnh báo: Hành động không thể hoàn tác</b>
-            <small style={{ color: '#c62828' }}>Toàn bộ dữ liệu tài khoản sẽ bị xóa vĩnh viễn khỏi hệ thống. Hãy chắc chắn đã sao lưu đầy đủ trước khi thực hiện.</small>
-          </div>
-        </div>}
-
-        {!isDelete && isTemporarilyLocked && <div className="notice warning">Tài khoản đang bị khóa đến {date(record.lockedUntil)}. Nhận và nhập OTP quản trị để hủy khóa sớm.</div>}
-
-        {!isTemporarilyLocked && <Field label="Lý do áp dụng biện pháp"><textarea rows={2} value={disciplineReason} onChange={event => setDisciplineReason(event.target.value)} /></Field>}
-
-        {!isDelete && !isTemporarilyLocked && <div className="form-grid">
-          <Field label="Thời hạn khóa">
-            <input type="number" min="1" max="365" step="1" value={lockDuration} onChange={event => setLockDuration(event.target.value)} />
-          </Field>
-          <Field label="Đơn vị thời hạn khóa">
-            <select value={lockDurationUnit} onChange={event => setLockDurationUnit(event.target.value)}>
-              <option value="day">Ngày</option>
-              <option value="week">Tuần</option>
-              <option value="month">Tháng</option>
-              <option value="year">Năm</option>
-            </select>
-          </Field>
-        </div>}
-
-        <Field label="Chuyển giao công việc & dữ liệu">
-          <select><option>Bàn giao cho KTV Lê Anh Tuấn</option></select>
-        </Field>
-        <small style={{ color: '#5f6368', display: 'block', marginBottom: '24px' }}>
-          {isDelete ? 'Dữ liệu công việc đang dở dang sẽ được chuyển sang người nhận bàn giao trước khi xóa.' : 'Hệ thống sẽ tự động gán lại 4 đơn bảo trì đang dở dang sang KTV nhận bàn giao.'}
-        </small>
-
-        <div style={{ border: '1px solid #eee', padding: '16px', borderRadius: '8px' }}>
-          <b style={{ display: 'block', marginBottom: '12px' }}>Xác nhận OTP Quản trị để thực thi</b>
-          <ErrorBox error={otpAction.error} />
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <input className="admin-otp-input" type="text" value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="Nhập OTP" aria-label="Mã OTP quản trị" style={{ width: '120px', letterSpacing: '4px', textAlign: 'center', color: '#d93025', fontWeight: 'bold', fontSize: '18px' }} />
-            <button type="button" className={'btn ' + (otpChallenge ? 'otp-request-btn' : '')} disabled={otpAction.busy} onClick={requestOtp}>{otpAction.busy ? 'Đang gửi…' : otpChallenge ? 'Gửi lại mã' : 'Nhận mã OTP'}</button>
-          </div>
-          <small style={{ color: '#5f6368', display: 'block', marginTop: '10px' }}>{otpChallenge ? 'Mã đã gửi về email quản trị viên và có hiệu lực trong 5 phút.' : 'Nhấn “Nhận mã OTP” để gửi mã xác thực về email quản trị viên.'}</small>
-          <button type="button" className="btn primary" disabled={isDelete || otpAction.busy || !otpChallenge || otp.length !== 6} onClick={confirmTemporaryLock} style={{ background: isTemporarilyLocked ? '#116a4e' : '#d93025', width: '100%', marginTop: '16px', borderColor: isTemporarilyLocked ? '#116a4e' : '#d93025' }}>
-            {isDelete ? 'XÁC NHẬN XÓA VĨNH VIỄN TÀI KHOẢN' : isTemporarilyLocked ? 'HỦY KHÓA TÀI KHOẢN' : 'XÁC NHẬN KHÓA TÀI KHOẢN NGAY'}
-          </button>
-        </div>
-      </Card>
-    </div>
+    <PageHead title="Khóa tài khoản tạm thời" text="Chọn thời hạn và ghi rõ lý do khóa tài khoản."><button className="btn" onClick={onBack}>Quay lại danh sách</button></PageHead>
+    <Card title={record.fullName}><p>{roleNames[record.role]} · {record.phone} · {record.email||'Chưa có email'}</p>
+      {locked && <div className="notice warning">Tài khoản đang bị khóa đến {date(record.lockedUntil)}. Xác nhận OTP quản trị để hủy khóa sớm.</div>}
+      <ErrorBox error={action.error}/>
+      {!locked && <><Field label="Lý do khóa"><textarea required minLength={5} maxLength={1000} value={reason} onChange={event=>setReason(event.target.value)} placeholder="Nhập lý do thực tế cần khóa tài khoản"/></Field>
+        <div className="form-grid"><Field label="Thời hạn khóa"><input type="number" min="1" max="365" step="1" value={duration} onChange={event=>setDuration(event.target.value)}/></Field>
+        <Field label="Đơn vị thời hạn khóa"><select value={unit} onChange={event=>setUnit(event.target.value)}><option value="day">Ngày</option><option value="week">Tuần</option><option value="month">Tháng</option><option value="year">Năm</option></select></Field></div>
+        <p>Kỹ thuật viên phải hoàn tất hoặc được điều phối lại công việc đang giữ trước khi khóa tài khoản.</p></>}
+      <Field label="Mã OTP quản trị"><input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={event=>setOtp(event.target.value.replace(/\D/g,''))}/></Field>
+      {challenge && <p>Mã xác thực đã gửi đến {challenge.destination || 'email quản trị viên'}.</p>}
+      <div className="actions"><button className="btn" disabled={action.busy} onClick={requestOtp}>{challenge?'Gửi lại mã':'Nhận mã OTP'}</button>
+        <button className="btn primary" disabled={action.busy||!challenge||otp.length!==6||(!locked&&reason.trim().length<5)} onClick={confirm}>{locked?'Xác nhận hủy khóa':'Xác nhận khóa tài khoản'}</button></div>
+    </Card>
   </div>;
 }
-
-export function Management() { const { toast } = useApp(), { section } = useParams(); if (section === 'orders') return <AdminOrders />; if (section === 'users') return <AdminUsers />; const path = { services: '/admin/services', settings: '/settings', audit: '/audit-logs' }[section]; const r = useData(path), [edit, setEdit] = useState(null); const title = { services: 'Danh mục dịch vụ', settings: 'Cấu hình nghiệp vụ', audit: 'Nhật ký hệ thống' }[section]; const refresh = () => { r.reload(); toast('Đã gửi yêu cầu tải lại dữ liệu.'); }; return <><PageHead eyebrow="QUẢN TRỊ HOMEFIX" title={title || 'Quản trị'} text={section === 'audit' ? 'Các thao tác quan trọng được ghi lại để tra cứu.' : 'Dữ liệu được lưu trên máy chủ và áp dụng thống nhất cho web/mobile.'}>{['services'].includes(section) && <button className="btn primary" onClick={() => setEdit({})}><Plus size={17} /> Thêm dịch vụ</button>}<button className="btn" onClick={refresh}><RefreshCw size={16} /> Cập nhật</button></PageHead><ErrorBox error={r.error} />{r.loading ? <Loading /> : <Card>{section === 'services' && <Table headers={['Dịch vụ', 'Nhóm', 'Phí kiểm tra / công', 'Hoa hồng', 'Trạng thái', '']} rows={r.data} render={s => <tr key={s.id}><td><b>{s.name}</b><small>{s.description}</small></td><td>{groups[s.groupCode]}</td><td>{money(s.inspectionFee)}<small>{money(s.laborFee)} tiền công</small></td><td>{Number(s.commissionRatePercent)}%</td><td><span className={'badge ' + (s.isActive ? 'green' : 'red')}>{s.isActive ? 'Đang cung cấp' : 'Đã ẩn'}</span></td><td><button className="btn small" onClick={() => setEdit(s)}><Pencil size={14} /> Sửa</button></td></tr>} />}{section === 'settings' && <Table headers={['Tham số', 'Giá trị', 'Thao tác']} rows={r.data} render={s => <tr key={s.key}><td><b>{s.label}</b><small>{s.key}</small></td><td>{s.key === 'signatureRequired' ? (s.value === 'true' ? 'Bắt buộc' : 'Không bắt buộc') : s.value}</td><td><button className="btn small" onClick={() => setEdit(s)}>Điều chỉnh</button></td></tr>} />}{section === 'audit' && <Table headers={['Thời gian', 'Người thực hiện', 'Thao tác', 'Đối tượng', 'Chi tiết']} rows={r.data} render={a => <tr key={a.id}><td>{date(a.createdAt)}</td><td>{a.actorName || 'Hệ thống / trigger'}</td><td>{a.action}</td><td>{a.entity} #{a.entityId || '—'}</td><td>{a.detail || '—'}</td></tr>} />}</Card>}{section === 'settings' && <BankAccounts />}{edit && <Editor section={section} record={edit} onClose={() => setEdit(null)} onDone={() => { setEdit(null); r.reload(); }} />}</>; }
+export function Management() { const { toast } = useApp(), { section } = useParams(); if (section === 'orders') return <AdminOrders />; if (section === 'users') return <AdminUsers />; const path = { services: '/admin/services', settings: '/settings', audit: '/audit-logs' }[section]; const r = useData(path), [edit, setEdit] = useState(null); const title = { services: 'Danh mục dịch vụ', settings: 'Cấu hình nghiệp vụ', audit: 'Nhật ký hệ thống' }[section]; const refresh = () => { r.reload(); toast('Đã gửi yêu cầu tải lại dữ liệu.'); }; return <><PageHead eyebrow="QUẢN TRỊ HOMEFIX" title={title || 'Quản trị'} text={section === 'audit' ? 'Các thao tác quan trọng được ghi lại để tra cứu.' : 'Điều chỉnh danh mục dịch vụ và các quy định vận hành.'}>{['services'].includes(section) && <button className="btn primary" onClick={() => setEdit({})}><Plus size={17} /> Thêm dịch vụ</button>}<button className="btn" onClick={refresh}><RefreshCw size={16} /> Cập nhật</button></PageHead><ErrorBox error={r.error} />{r.loading ? <Loading /> : <Card>{section === 'services' && <Table headers={['Dịch vụ', 'Nhóm', 'Phí kiểm tra / công', 'Hoa hồng', 'Trạng thái', '']} rows={r.data} render={s => <tr key={s.id}><td><b>{s.name}</b><small>{s.description}</small></td><td>{groups[s.groupCode]}</td><td>{money(s.inspectionFee)}<small>{money(s.laborFee)} tiền công</small></td><td>{Number(s.commissionRatePercent)}%</td><td><span className={'badge ' + (s.isActive ? 'green' : 'red')}>{s.isActive ? 'Đang cung cấp' : 'Đã ẩn'}</span></td><td><button className="btn small" onClick={() => setEdit(s)}><Pencil size={14} /> Sửa</button></td></tr>} />}{section === 'settings' && <Table headers={['Tham số', 'Giá trị', 'Thao tác']} rows={r.data} render={s => <tr key={s.key}><td><b>{s.label}</b><small>{s.key}</small></td><td>{s.key === 'signatureRequired' ? (s.value === 'true' ? 'Bắt buộc' : 'Không bắt buộc') : s.value}</td><td><button className="btn small" onClick={() => setEdit(s)}>Điều chỉnh</button></td></tr>} />}{section === 'audit' && <Table headers={['Thời gian', 'Người thực hiện', 'Thao tác', 'Đối tượng', 'Chi tiết']} rows={r.data} render={a => <tr key={a.id}><td>{date(a.createdAt)}</td><td>{a.actorName || 'Hệ thống / trigger'}</td><td>{a.action}</td><td>{a.entity} #{a.entityId || '—'}</td><td>{a.detail || '—'}</td></tr>} />}</Card>}{section === 'settings' && <BankAccounts />}{edit && <Editor section={section} record={edit} onClose={() => setEdit(null)} onDone={() => { setEdit(null); r.reload(); }} />}</>; }
 function Editor({ section, record, onClose, onDone }) {
   const a = useAction(); const [form, setForm] = useState(section === 'users' ? { fullName: record.fullName || '', phone: record.phone || '', email: record.email || '', role: record.role || 'KH', initialPassword: '', isActive: record.isActive ?? true, skillGroup: 'DienLanh', serviceArea: 'TP.HCM' } : section === 'services' ? { name: record.name || '', groupCode: record.groupCode || 'DienLanh', description: record.description || '', inspectionFee: String(record.inspectionFee || '50000'), laborFee: String(record.laborFee || '300000'), commissionRatePercent: String(record.commissionRatePercent || '15'), isActive: record.isActive ?? true } : { value: record.value }); const set = (k, v) => setForm(s => ({ ...s, [k]: v })); const input = (k, label, type = 'text', required = true) => <Field label={label}><input type={type} required={required} value={form[k]} onChange={e => set(k, e.target.value)} /></Field>;
   return <Modal title={section === 'settings' ? 'Điều chỉnh ' + record.label : (record.id ? 'Cập nhật' : 'Thêm') + ' ' + (section === 'users' ? 'tài khoản' : 'dịch vụ')} onClose={onClose}><form onSubmit={e => { e.preventDefault(); a.run(async () => { let path, body; if (section === 'users') { path = '/users' + (record.id ? '/' + record.id : ''); body = record.id ? { fullName: form.fullName, role: form.role, skillGroup: form.skillGroup, isActive: form.isActive, expectedVersion: record.version } : { fullName: form.fullName, phone: form.phone, email: form.email || null, role: form.role, initialPassword: form.initialPassword, ...(form.role === 'KTV' ? { technicianProfile: { skillGroup: form.skillGroup, serviceArea: form.serviceArea } } : {}) }; } else if (section === 'services') { path = '/services' + (record.id ? '/' + record.id : ''); body = { ...form, ...(record.id ? { expectedVersion: record.version } : {}) }; } else { path = '/settings/' + record.key; body = { value: form.value, expectedVersion: record.version }; } await api(path, { method: record.id || section === 'settings' ? 'PATCH' : 'POST', body }); onDone(); }); }}><ErrorBox error={a.error} />{section === 'users' && <>{input('fullName', 'Họ và tên')}{!record.id && <>{input('phone', 'Số điện thoại')}{input('email', 'Email', 'email', false)}<Field label="Vai trò"><select value={form.role} onChange={e => set('role', e.target.value)}>{Object.entries(roleNames).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></Field>{input('initialPassword', 'Mật khẩu ban đầu (từ 8 ký tự)', 'password')}{form.role === 'KTV' && <><Field label="Chuyên môn"><select value={form.skillGroup} onChange={e => set('skillGroup', e.target.value)}>{Object.entries(groups).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></Field>{input('serviceArea', 'Khu vực phục vụ')}</>}</>}{record.id && <><p>{record.phone} · {roleNames[record.role]}</p><label className="checkbox"><input type="checkbox" checked={form.isActive} onChange={e => set('isActive', e.target.checked)} /> Tài khoản được hoạt động</label><small>Khóa tài khoản sẽ thu hồi các phiên đăng nhập.</small></>}</>}{section === 'services' && <>{input('name', 'Tên dịch vụ')}<Field label="Nhóm dịch vụ"><select value={form.groupCode} onChange={e => set('groupCode', e.target.value)}>{Object.entries(groups).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></Field><Field label="Mô tả"><textarea required minLength={5} value={form.description} onChange={e => set('description', e.target.value)} /></Field><div className="form-grid">{input('inspectionFee', 'Phí kiểm tra (đ)', 'number')}{input('laborFee', 'Tiền công (đ)', 'number')}{input('commissionRatePercent', 'Hoa hồng trên tiền công (%)', 'number')}</div><label className="checkbox"><input type="checkbox" checked={form.isActive} onChange={e => set('isActive', e.target.checked)} /> Dịch vụ đang được cung cấp</label><small>Giá mới áp dụng cho báo giá lập sau khi lưu. Không sửa chi phí đã được khách duyệt.</small></>}{section === 'settings' && (record.key === 'signatureRequired' ? <Field label="Yêu cầu chữ ký"><select value={form.value} onChange={e => set('value', e.target.value)}><option value="false">Không bắt buộc</option><option value="true">Bắt buộc ảnh chữ ký KH</option></select></Field> : input('value', 'Giá trị mới', 'number'))}<div className="form-actions"><button className="btn" type="button" onClick={onClose}>Hủy</button><Submit busy={a.busy} /></div></form></Modal>;
@@ -423,6 +286,7 @@ function CSKHDashboard({ onNavigate }) {
   return (
     <>
       <PageHead eyebrow="CHĂM SÓC KHÁCH HÀNG" title="Tổng quan CSKH" text="Theo dõi phiếu hỗ trợ, khiếu nại và đánh giá chất lượng dịch vụ.">
+        <Link className="btn" to="/support/messages">Hộp thư hỗ trợ</Link>
         <button className="btn primary" onClick={() => onNavigate('create-complaint')}>
           <Plus size={16} /> Lập phiếu khiếu nại
         </button>
@@ -1234,6 +1098,7 @@ function CSKHCustomerView() {
   return (
     <>
       <PageHead eyebrow="HỖ TRỢ KHÁCH HÀNG" title="Yêu cầu hỗ trợ của tôi" text='Mở đơn dịch vụ và chọn "Gửi yêu cầu hỗ trợ" để tạo phiếu mới.'>
+        <Link className="btn" to="/support/chat">Chat hỗ trợ</Link>
         <Link className="btn primary" to="/orders">Chọn đơn cần hỗ trợ</Link>
       </PageHead>
       <ErrorBox error={r.error} />
@@ -1272,7 +1137,7 @@ function FinancialBreakdown({ rows }) {
  if (!rows) return null;
  const sum = (key, predicate = () => true) => rows.filter(predicate).reduce((total, row) => total + Number(row[key] || 0), 0);
  const collected=sum('amount'),commission=sum('commissionAmount'),materials=sum('materialTotal');
- return <div className="two-column"><Card title="Dòng tiền đã thu trong kỳ"><div className="money-lines"><div><span>Khách thanh toán tiền mặt</span><b>{money(sum('amount',r=>r.method==='COD'))}</b></div><div><span>Khách chuyển khoản về HomeFix</span><b>{money(sum('amount',r=>r.method==='BANK'))}</b></div><div className="total"><span>Tổng giá trị đơn đã thu</span><strong>{money(collected)}</strong></div></div><p>{rows.length} giao dịch thanh toán trong kỳ.</p></Card><Card title="Phân bổ doanh thu & chi phí dịch vụ"><div className="money-lines"><div><span>Vật tư được khách duyệt</span><b>{money(materials)}</b></div><div><span>Phí kiểm tra & tiền công</span><b>{money(sum('inspectionFee')+sum('laborFee'))}</b></div><div><span>Hoa hồng của HomeFix</span><b>{money(commission)}</b></div><div><span>Trong đó đã đối soát</span><b>{money(sum('commissionAmount',r=>r.settlementStatus==='Confirmed'))}</b></div><div className="total"><span>Phần thuộc KTV, gồm hoàn chi vật tư</span><strong>{money(collected-commission)}</strong></div></div><small>Chưa tính lợi nhuận ròng vì hệ thống chưa ghi nhận chi phí vận hành. Hoa hồng là khoản thu của HomeFix; không đồng nhất với toàn bộ tiền khách trả.</small></Card></div>;
+ return <div className="two-column"><Card title="Dòng tiền đã thu trong kỳ"><div className="money-lines"><div><span>Khách thanh toán tiền mặt</span><b>{money(sum('amount',r=>r.method==='COD'))}</b></div><div><span>Khách chuyển khoản về HomeFix</span><b>{money(sum('amount',r=>r.method==='BANK'))}</b></div><div className="total"><span>Tổng giá trị đơn đã thu</span><strong>{money(collected)}</strong></div></div><p>{rows.length} giao dịch thanh toán trong kỳ.</p></Card><Card title="Phân bổ doanh thu & chi phí dịch vụ"><div className="money-lines"><div><span>Vật tư đã thống nhất với khách</span><b>{money(materials)}</b></div><div><span>Phí kiểm tra & tiền công</span><b>{money(sum('inspectionFee')+sum('laborFee'))}</b></div><div><span>Hoa hồng của HomeFix</span><b>{money(commission)}</b></div><div><span>Trong đó đã đối soát</span><b>{money(sum('commissionAmount',r=>r.settlementStatus==='Confirmed'))}</b></div><div className="total"><span>Phần thuộc KTV, gồm hoàn chi vật tư</span><strong>{money(collected-commission)}</strong></div></div><small>Chưa tính lợi nhuận ròng vì hệ thống chưa ghi nhận chi phí vận hành. Hoa hồng là khoản thu của HomeFix; không đồng nhất với toàn bộ tiền khách trả.</small></Card></div>;
 }
 
 /* ============================

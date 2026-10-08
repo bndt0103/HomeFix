@@ -1,0 +1,16 @@
+.notification-container { position: relative; }
+.notification-popover { position: absolute; z-index: 100; top: calc(100% + 12px); right: 0; width: min(390px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: 14px; background: #fff; color: #25352c; box-shadow: 0 12px 40px #152c2426; text-align: left; }
+.notification-popover > header, .notification-popover > footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; }
+.notification-popover > header { border-bottom: 1px solid var(--border); }
+.notification-popover > footer { border-top: 1px solid var(--border); }
+.notification-popover-scroll { max-height: min(520px, calc(100dvh - 200px)); overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
+.notification-popover-scroll > p { padding: 12px 16px; }
+.bell-notification { padding: 14px 16px; border-bottom: 1px solid #edf1ee; }
+.bell-notification.unread { background: #f0faf5; border-left: 3px solid #087c46; }
+.bell-notification strong { font-size: 14px; }
+.bell-notification p { font-size: 13px; margin: 6px 0; }
+.bell-notification small { color: #6b7771; font-size: 12px; }
+.bell-notification .actions { margin-top: 8px; flex-wrap: wrap; font-size: 12px; }
+.notification-popover a { color: #087c46; font-weight: 600; }
+.bell-pending { display: grid; gap: 10px; padding: 16px; background: #fffbef; font-size: 13px; }
+@media (max-width: 600px) { .notification-popover { position: fixed; right: 16px; top: 72px; } }

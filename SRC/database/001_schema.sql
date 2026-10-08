@@ -1,172 +1,505 @@
 -- HomeFix Final v1. Execute inside a NEW database. init-db.js never drops a database.
-SET ANSI_NULLS ON;
-SET QUOTED_IDENTIFIER ON;
+Set Ansi_Nulls On;
+Set Quoted_Identifier On;
 GO
-CREATE TABLE dbo.SchemaVersion (version int NOT NULL PRIMARY KEY, appliedAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME());
-CREATE TABLE dbo.NguoiDung (
- id int IDENTITY PRIMARY KEY, fullName nvarchar(120) NOT NULL, phone varchar(15) NOT NULL UNIQUE,
- email nvarchar(200) NULL, cccd varchar(12) NULL, passwordHash varchar(100) NOT NULL,
- role varchar(10) NOT NULL CHECK(role IN('KH','KTV','DPV','CSKH','KT','ADMIN','GD')),
- defaultAddress nvarchar(500) NULL, isActive bit NOT NULL DEFAULT 1, tokenVersion int NOT NULL DEFAULT 0,
- createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), version rowversion
+/*====================================================
+SchemaVersion
+====================================================*/
+/*====================================================
+SchemaVersion
+====================================================*/
+Create Table dbo.SchemaVersion
+(
+    version Int Not Null Primary Key,
+    appliedAt Datetime2 Not Null Default SYSUTCDATETIME()
 );
-CREATE UNIQUE INDEX UX_User_Email ON dbo.NguoiDung(email) WHERE email IS NOT NULL;
-CREATE UNIQUE INDEX UX_User_CCCD ON dbo.NguoiDung(cccd) WHERE cccd IS NOT NULL;
-CREATE TABLE dbo.KyThuatVien (
- id int PRIMARY KEY REFERENCES dbo.NguoiDung(id), skillGroup nvarchar(60) NOT NULL, serviceArea nvarchar(120) NOT NULL,
- availability varchar(15) NOT NULL DEFAULT 'TamBan' CHECK(availability IN('SanSang','TamBan','DangBan')),
- balance decimal(18,2) NOT NULL DEFAULT 0 CHECK(balance>=0), latitude decimal(10,7) NULL,
- longitude decimal(10,7) NULL, accuracyMeters decimal(12,2) NULL, positionUpdatedAt datetime2 NULL,
- version rowversion,
- CHECK(latitude BETWEEN -90 AND 90), CHECK(longitude BETWEEN -180 AND 180)
+/*====================================================
+NguoiDung
+====================================================*/
+/*====================================================
+NguoiDung
+====================================================*/
+Create Table dbo.NguoiDung
+(
+    id Int Identity Primary Key,
+    fullName Nvarchar(120) Not Null,
+    phone Varchar(15) Not Null Unique,
+    email Nvarchar(200) Null,
+    cccd Varchar(12) Null,
+    passwordHash Varchar(100) Not Null,
+    role Varchar(10) Not Null Check(role In('KH','KTV','DPV','CSKH','KT','ADMIN','GD')),
+    defaultAddress Nvarchar(500) Null,
+    isActive Bit Not Null Default 1,
+    tokenVersion Int Not Null Default 0,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    version Rowversion
 );
-CREATE TABLE dbo.DichVu (
- id int IDENTITY PRIMARY KEY, name nvarchar(150) NOT NULL, groupCode nvarchar(60) NOT NULL,
- description nvarchar(1500) NOT NULL, inspectionFee decimal(18,2) NOT NULL CHECK(inspectionFee>=0),
- laborFee decimal(18,2) NOT NULL CHECK(laborFee>=0), commissionRatePercent decimal(5,2) NOT NULL CHECK(commissionRatePercent BETWEEN 0 AND 100),
- isPopular bit NOT NULL DEFAULT 0,
- isActive bit NOT NULL DEFAULT 1, version rowversion
+Create Unique Index UX_User_Email On dbo.NguoiDung(email) Where email Is Not Null;
+Create Unique Index UX_User_CCCD On dbo.NguoiDung(cccd) Where cccd Is Not Null;
+/*====================================================
+KyThuatVien
+====================================================*/
+/*====================================================
+KyThuatVien
+====================================================*/
+Create Table dbo.KyThuatVien
+(
+    id Int Primary Key References dbo.NguoiDung(id),
+    skillGroup Nvarchar(60) Not Null,
+    serviceArea Nvarchar(120) Not Null,
+    availability Varchar(15) Not Null Default 'TamBan' Check(availability In('SanSang','TamBan','DangBan')),
+    balance Decimal(18,2) Not Null Default 0 Check(balance>=0),
+    latitude Decimal(10,7) Null,
+    longitude Decimal(10,7) Null,
+    accuracyMeters Decimal(12,2) Null,
+    positionUpdatedAt Datetime2 Null,
+    version Rowversion,
+    Check(latitude Between -90 And 90),
+    Check(longitude Between -180 And 180)
 );
-CREATE TABLE dbo.DonHang (
- id int IDENTITY PRIMARY KEY, customerId int NOT NULL REFERENCES dbo.NguoiDung(id), serviceId int NOT NULL REFERENCES dbo.DichVu(id),
- serviceName nvarchar(150) NOT NULL, serviceGroup nvarchar(60) NOT NULL,
- contactName nvarchar(120) NOT NULL, contactPhone varchar(15) NOT NULL, address nvarchar(500) NOT NULL,
- description nvarchar(2000) NOT NULL, scheduledAt datetime2 NULL,
- status varchar(30) NOT NULL DEFAULT 'ChoTiepNhan' CHECK(status IN('ChoTiepNhan','ChoDuyetSoBo','ChoPhanCong','ChoNhan','DaTiepNhan','DangDiChuyen','DaDenNoi','DangXuLy','ChoNghiemThu','HoanThanh','Huy')),
- assignedTechnicianId int NULL REFERENCES dbo.KyThuatVien(id), departedAt datetime2 NULL,
- cancelReason nvarchar(1000) NULL, cancellationFee decimal(18,2) NOT NULL DEFAULT 0 CHECK(cancellationFee>=0),
- cancellationPaymentStatus varchar(10) NOT NULL DEFAULT 'Unpaid', cancelledAt datetime2 NULL,
- createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), updatedAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), version rowversion
+/*====================================================
+DichVu
+====================================================*/
+/*====================================================
+DichVu
+====================================================*/
+Create Table dbo.DichVu
+(
+    id Int Identity Primary Key,
+    name Nvarchar(150) Not Null,
+    groupCode Nvarchar(60) Not Null,
+    description Nvarchar(1500) Not Null,
+    inspectionFee Decimal(18,2) Not Null Check(inspectionFee>=0),
+    laborFee Decimal(18,2) Not Null Check(laborFee>=0),
+    commissionRatePercent Decimal(5,2) Not Null Check(commissionRatePercent Between 0 And 100),
+    isPopular Bit Not Null Default 0,
+    isActive Bit Not Null Default 1,
+    version Rowversion
 );
-CREATE INDEX IX_Order_Customer ON dbo.DonHang(customerId,createdAt DESC);
-CREATE INDEX IX_Order_Status ON dbo.DonHang(status,createdAt);
-CREATE TABLE dbo.BaoGiaSoBo (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL UNIQUE REFERENCES dbo.DonHang(id), diagnosis nvarchar(2000) NOT NULL,
- inspectionFee decimal(18,2) NOT NULL CHECK(inspectionFee>=0), laborFee decimal(18,2) NOT NULL CHECK(laborFee>=0),
- commissionRatePercent decimal(5,2) NOT NULL CHECK(commissionRatePercent BETWEEN 0 AND 100),
- total AS CAST(inspectionFee+laborFee AS decimal(18,2)), status varchar(10) NOT NULL DEFAULT 'Pending' CHECK(status IN('Pending','Approved','Rejected')),
- createdBy int NOT NULL REFERENCES dbo.NguoiDung(id), decidedBy int NULL REFERENCES dbo.NguoiDung(id),
- reason nvarchar(1000) NULL, createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), decidedAt datetime2 NULL, version rowversion
+/* Đơn chung: mỗi khách có thể đặt nhiều đơn, mỗi đơn có nhiều chi tiết. */
+/*====================================================
+DonHang
+====================================================*/
+/*====================================================
+DonHang
+====================================================*/
+Create Table dbo.DonHang
+(
+    MaDonHang Int Identity Primary Key,
+    MaKhachHang Int Not Null References dbo.NguoiDung(id),
+    DiaChi Nvarchar(500) Not Null,
+    MoTa Nvarchar(2000) Not Null,
+    NgayHen Datetime2 Null,
+    NgayTao Datetime2 Not Null Default SysUtcDateTime()
 );
-CREATE TABLE dbo.LenhDieuPhoi (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL REFERENCES dbo.DonHang(id), technicianId int NOT NULL REFERENCES dbo.KyThuatVien(id),
- status varchar(10) NOT NULL DEFAULT 'Pending' CHECK(status IN('Pending','Accepted','Rejected','Expired')),
- isActive bit NOT NULL DEFAULT 1, expiresAt datetime2 NOT NULL, createdBy int NOT NULL REFERENCES dbo.NguoiDung(id),
- reason nvarchar(1000) NULL, createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), decidedAt datetime2 NULL, version rowversion
+/*====================================================
+ChiTietDonHang
+====================================================*/
+/*====================================================
+ChiTietDonHang
+====================================================*/
+Create Table dbo.ChiTietDonHang
+(
+    MaDonHang Int Not Null,
+    id Int Identity Primary Key,
+    customerId Int Not Null References dbo.NguoiDung(id),
+    serviceId Int Not Null References dbo.DichVu(id),
+    serviceName Nvarchar(150) Not Null,
+    serviceGroup Nvarchar(60) Not Null,
+    contactName Nvarchar(120) Not Null,
+    contactPhone Varchar(15) Not Null,
+    address Nvarchar(500) Not Null,
+    description Nvarchar(2000) Not Null,
+    scheduledAt Datetime2 Null,
+    status Varchar(30) Not Null Default 'ChoTiepNhan' Check(status In('ChoTiepNhan','ChoDuyetSoBo','ChoPhanCong','ChoNhan','DaTiepNhan','DangDiChuyen','DaDenNoi','DangXuLy','ChoNghiemThu','HoanThanh','Huy')),
+    assignedTechnicianId Int Null References dbo.KyThuatVien(id),
+    departedAt Datetime2 Null,
+    cancelReason Nvarchar(1000) Null,
+    cancellationFee Decimal(18,2) Not Null Default 0 Check(cancellationFee>=0),
+    cancellationPaymentStatus Varchar(10) Not Null Default 'Unpaid',
+    cancelledAt Datetime2 Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    updatedAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    version Rowversion
 );
-CREATE UNIQUE INDEX UX_Assignment_Order ON dbo.LenhDieuPhoi(orderId) WHERE isActive=1;
+Create Index IX_Order_Customer On dbo.ChiTietDonHang(customerId,createdAt Desc);
+Create Index IX_Order_Status On dbo.ChiTietDonHang(status,createdAt);
+/*====================================================
+BaoGiaSoBo
+====================================================*/
+/*====================================================
+BaoGiaSoBo
+====================================================*/
+Create Table dbo.BaoGiaSoBo
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null Unique References dbo.ChiTietDonHang(id),
+    diagnosis Nvarchar(2000) Not Null,
+    inspectionFee Decimal(18,2) Not Null Check(inspectionFee>=0),
+    laborFee Decimal(18,2) Not Null Check(laborFee>=0),
+    commissionRatePercent Decimal(5,2) Not Null Check(commissionRatePercent Between 0 And 100),
+    total As Cast(inspectionFee+laborFee As Decimal(18,2)),
+    status Varchar(10) Not Null Default 'Pending' Check(status In('Pending','Approved','Rejected')),
+    createdBy Int Not Null References dbo.NguoiDung(id),
+    decidedBy Int Null References dbo.NguoiDung(id),
+    reason Nvarchar(1000) Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    decidedAt Datetime2 Null,
+    version Rowversion
+);
+/*====================================================
+LenhDieuPhoi
+====================================================*/
+/*====================================================
+LenhDieuPhoi
+====================================================*/
+Create Table dbo.LenhDieuPhoi
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null References dbo.ChiTietDonHang(id),
+    technicianId Int Not Null References dbo.KyThuatVien(id),
+    status Varchar(10) Not Null Default 'Pending' Check(status In('Pending','Accepted','Rejected','Expired')),
+    isActive Bit Not Null Default 1,
+    expiresAt Datetime2 Not Null,
+    createdBy Int Not Null References dbo.NguoiDung(id),
+    reason Nvarchar(1000) Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    decidedAt Datetime2 Null,
+    version Rowversion
+);
+Create Unique Index UX_Assignment_Order On dbo.LenhDieuPhoi(orderId) Where isActive=1;
 -- Deliberately conservative semester project: at most one reserved/working order per technician.
-CREATE UNIQUE INDEX UX_Assignment_Technician ON dbo.LenhDieuPhoi(technicianId) WHERE isActive=1;
-CREATE TABLE dbo.DeXuatVatTu (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL REFERENCES dbo.DonHang(id), revision int NOT NULL, isCurrent bit NOT NULL DEFAULT 1,
- note nvarchar(1000) NULL, total decimal(18,2) NOT NULL DEFAULT 0 CHECK(total>=0),
- status varchar(10) NOT NULL DEFAULT 'Pending' CHECK(status IN('Pending','Approved','Rejected')),
- createdBy int NOT NULL REFERENCES dbo.NguoiDung(id), decidedBy int NULL REFERENCES dbo.NguoiDung(id), reason nvarchar(1000) NULL,
- createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), decidedAt datetime2 NULL, version rowversion,
- UNIQUE(orderId,revision)
+Create Unique Index UX_Assignment_Technician On dbo.LenhDieuPhoi(technicianId) Where isActive=1;
+/*====================================================
+DeXuatVatTu
+====================================================*/
+/*====================================================
+DeXuatVatTu
+====================================================*/
+Create Table dbo.DeXuatVatTu
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null References dbo.ChiTietDonHang(id),
+    revision Int Not Null,
+    isCurrent Bit Not Null Default 1,
+    note Nvarchar(1000) Null,
+    total Decimal(18,2) Not Null Default 0 Check(total>=0),
+    status Varchar(10) Not Null Default 'Pending' Check(status In('Pending','Approved','Rejected')),
+    createdBy Int Not Null References dbo.NguoiDung(id),
+    decidedBy Int Null References dbo.NguoiDung(id),
+    reason Nvarchar(1000) Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    decidedAt Datetime2 Null,
+    version Rowversion,
+    Unique(orderId,revision)
 );
-CREATE UNIQUE INDEX UX_Material_Current ON dbo.DeXuatVatTu(orderId) WHERE isCurrent=1;
-CREATE TABLE dbo.ChiTietDeXuatVatTu (
- id int IDENTITY PRIMARY KEY, quoteId int NOT NULL REFERENCES dbo.DeXuatVatTu(id), name nvarchar(200) NOT NULL,
- quantity decimal(10,2) NOT NULL CHECK(quantity>0 AND quantity<=999.99), unit nvarchar(30) NOT NULL,
- unitPrice decimal(18,2) NOT NULL CHECK(unitPrice>=0 AND unitPrice<=100000000),
- lineTotal AS CAST(ROUND(quantity*unitPrice,2) AS decimal(18,2)) PERSISTED,
- warrantyMonths int NOT NULL DEFAULT 0 CHECK(warrantyMonths BETWEEN 0 AND 60)
+Create Unique Index UX_Material_Current On dbo.DeXuatVatTu(orderId) Where isCurrent=1;
+/*====================================================
+ChiTietDeXuatVatTu
+====================================================*/
+/*====================================================
+ChiTietDeXuatVatTu
+====================================================*/
+Create Table dbo.ChiTietDeXuatVatTu
+(
+    id Int Identity Primary Key,
+    quoteId Int Not Null References dbo.DeXuatVatTu(id),
+    name Nvarchar(200) Not Null,
+    quantity Decimal(10,2) Not Null Check(quantity>0 And quantity<=999.99),
+    unit Nvarchar(30) Not Null,
+    unitPrice Decimal(18,2) Not Null Check(unitPrice>=0 And unitPrice<=100000000),
+    lineTotal As Cast(Round(quantity*unitPrice,2) As Decimal(18,2)) Persisted,
+    warrantyMonths Int Not Null Default 0 Check(warrantyMonths Between 0 And 60)
 );
-CREATE TABLE dbo.PhieuNghiemThu (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL REFERENCES dbo.DonHang(id), technicianId int NOT NULL REFERENCES dbo.KyThuatVien(id),
- revision int NOT NULL, cause nvarchar(2000) NOT NULL, solution nvarchar(2000) NOT NULL,
- materialQuoteId int NULL REFERENCES dbo.DeXuatVatTu(id), inspectionFee decimal(18,2) NOT NULL CHECK(inspectionFee>=0),
- laborFee decimal(18,2) NOT NULL CHECK(laborFee>=0), materialTotal decimal(18,2) NOT NULL CHECK(materialTotal>=0),
- total AS CAST(inspectionFee+laborFee+materialTotal AS decimal(18,2)),
- status varchar(10) NOT NULL DEFAULT 'Pending' CHECK(status IN('Pending','Approved','Rejected')),
- decidedBy int NULL REFERENCES dbo.NguoiDung(id), reason nvarchar(1000) NULL, signatureId int NULL,
- createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), decidedAt datetime2 NULL, version rowversion,
- UNIQUE(orderId,revision)
+/*====================================================
+PhieuNghiemThu
+====================================================*/
+/*====================================================
+PhieuNghiemThu
+====================================================*/
+Create Table dbo.PhieuNghiemThu
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null References dbo.ChiTietDonHang(id),
+    technicianId Int Not Null References dbo.KyThuatVien(id),
+    revision Int Not Null,
+    cause Nvarchar(2000) Not Null,
+    solution Nvarchar(2000) Not Null,
+    materialQuoteId Int Null References dbo.DeXuatVatTu(id),
+    inspectionFee Decimal(18,2) Not Null Check(inspectionFee>=0),
+    laborFee Decimal(18,2) Not Null Check(laborFee>=0),
+    materialTotal Decimal(18,2) Not Null Check(materialTotal>=0),
+    total As Cast(inspectionFee+laborFee+materialTotal As Decimal(18,2)),
+    status Varchar(10) Not Null Default 'Pending' Check(status In('Pending','Approved','Rejected')),
+    decidedBy Int Null References dbo.NguoiDung(id),
+    reason Nvarchar(1000) Null,
+    signatureId Int Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    decidedAt Datetime2 Null,
+    version Rowversion,
+    Unique(orderId,revision)
 );
-CREATE UNIQUE INDEX UX_Acceptance_Pending ON dbo.PhieuNghiemThu(orderId) WHERE status='Pending';
-CREATE UNIQUE INDEX UX_Acceptance_Approved ON dbo.PhieuNghiemThu(orderId) WHERE status='Approved';
-CREATE TABLE dbo.TepDinhKem (
- id int IDENTITY PRIMARY KEY, ownerId int NOT NULL REFERENCES dbo.NguoiDung(id), orderId int NULL REFERENCES dbo.DonHang(id),
- acceptanceId int NULL REFERENCES dbo.PhieuNghiemThu(id), purpose varchar(30) NOT NULL CHECK(purpose IN('OrderFault','MaterialEvidence','AcceptancePhoto','CustomerSignature','WalletProof','TechnicianDocument')),
- storageKey varchar(100) NOT NULL UNIQUE, originalName nvarchar(255) NOT NULL, mimeType varchar(50) NOT NULL,
- size int NOT NULL CHECK(size>0 AND size<=5242880), createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+Create Unique Index UX_Acceptance_Pending On dbo.PhieuNghiemThu(orderId) Where status='Pending';
+Create Unique Index UX_Acceptance_Approved On dbo.PhieuNghiemThu(orderId) Where status='Approved';
+/*====================================================
+TepDinhKem
+====================================================*/
+/*====================================================
+TepDinhKem
+====================================================*/
+Create Table dbo.TepDinhKem
+(
+    id Int Identity Primary Key,
+    ownerId Int Not Null References dbo.NguoiDung(id),
+    orderId Int Null References dbo.ChiTietDonHang(id),
+    acceptanceId Int Null References dbo.PhieuNghiemThu(id),
+    purpose Varchar(30) Not Null Check(purpose In('OrderFault','MaterialEvidence','AcceptancePhoto','CustomerSignature','WalletProof','TechnicianDocument')),
+    storageKey Varchar(100) Not Null Unique,
+    originalName Nvarchar(255) Not Null,
+    mimeType Varchar(50) Not Null,
+    size Int Not Null Check(size>0 And size<=5242880),
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME()
 );
-ALTER TABLE dbo.PhieuNghiemThu ADD CONSTRAINT FK_Acceptance_Signature FOREIGN KEY(signatureId) REFERENCES dbo.TepDinhKem(id);
-CREATE TABLE dbo.ThanhToan (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL UNIQUE REFERENCES dbo.DonHang(id), acceptanceId int NOT NULL UNIQUE REFERENCES dbo.PhieuNghiemThu(id),
- amount decimal(18,2) NOT NULL CHECK(amount>=0), method varchar(10) NOT NULL DEFAULT 'COD' CHECK(method='COD'),
- status varchar(10) NOT NULL DEFAULT 'Paid' CHECK(status='Paid'), receivedBy int NOT NULL REFERENCES dbo.KyThuatVien(id),
- paidAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+Alter Table dbo.PhieuNghiemThu Add Constraint FK_Acceptance_Signature Foreign Key(signatureId) References dbo.TepDinhKem(id);
+/*====================================================
+ThanhToan
+====================================================*/
+/*====================================================
+ThanhToan
+====================================================*/
+Create Table dbo.ThanhToan
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null Unique References dbo.ChiTietDonHang(id),
+    acceptanceId Int Not Null Unique References dbo.PhieuNghiemThu(id),
+    amount Decimal(18,2) Not Null Check(amount>=0),
+    method Varchar(10) Not Null Default 'COD' Check(method='COD'),
+    status Varchar(10) Not Null Default 'Paid' Check(status='Paid'),
+    receivedBy Int Not Null References dbo.KyThuatVien(id),
+    paidAt Datetime2 Not Null Default SYSUTCDATETIME()
 );
-CREATE TABLE dbo.DoiSoat (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL UNIQUE REFERENCES dbo.DonHang(id), technicianId int NOT NULL REFERENCES dbo.KyThuatVien(id),
- paymentId int NOT NULL UNIQUE REFERENCES dbo.ThanhToan(id), laborFee decimal(18,2) NOT NULL CHECK(laborFee>=0),
- commissionRatePercent decimal(5,2) NOT NULL CHECK(commissionRatePercent BETWEEN 0 AND 100),
- commissionAmount AS CAST(ROUND(laborFee*commissionRatePercent/100,2) AS decimal(18,2)) PERSISTED,
- status varchar(10) NOT NULL DEFAULT 'Pending' CHECK(status IN('Pending','Confirmed')),
- confirmedBy int NULL REFERENCES dbo.NguoiDung(id), confirmedAt datetime2 NULL, version rowversion
+/*====================================================
+DoiSoat
+====================================================*/
+/*====================================================
+DoiSoat
+====================================================*/
+Create Table dbo.DoiSoat
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null Unique References dbo.ChiTietDonHang(id),
+    technicianId Int Not Null References dbo.KyThuatVien(id),
+    paymentId Int Not Null Unique References dbo.ThanhToan(id),
+    laborFee Decimal(18,2) Not Null Check(laborFee>=0),
+    commissionRatePercent Decimal(5,2) Not Null Check(commissionRatePercent Between 0 And 100),
+    commissionAmount As Cast(Round(laborFee*commissionRatePercent/100,2) As Decimal(18,2)) Persisted,
+    status Varchar(10) Not Null Default 'Pending' Check(status In('Pending','Confirmed')),
+    confirmedBy Int Null References dbo.NguoiDung(id),
+    confirmedAt Datetime2 Null,
+    version Rowversion
 );
-CREATE TABLE dbo.YeuCauVi (
- id int IDENTITY PRIMARY KEY, technicianId int NOT NULL REFERENCES dbo.KyThuatVien(id),
- type varchar(15) NOT NULL CHECK(type IN('Deposit','Withdrawal')), amount decimal(18,2) NOT NULL CHECK(amount>0),
- note nvarchar(1000) NOT NULL, proofId int NULL REFERENCES dbo.TepDinhKem(id),
- status varchar(10) NOT NULL DEFAULT 'Pending' CHECK(status IN('Pending','Approved','Rejected','Cancelled')),
- reason nvarchar(1000) NULL, decidedBy int NULL REFERENCES dbo.NguoiDung(id), decidedAt datetime2 NULL,
- createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), version rowversion
+/*====================================================
+YeuCauVi
+====================================================*/
+/*====================================================
+YeuCauVi
+====================================================*/
+Create Table dbo.YeuCauVi
+(
+    id Int Identity Primary Key,
+    technicianId Int Not Null References dbo.KyThuatVien(id),
+    type Varchar(15) Not Null Check(type In('Deposit','Withdrawal')),
+    amount Decimal(18,2) Not Null Check(amount>0),
+    note Nvarchar(1000) Not Null,
+    proofId Int Null References dbo.TepDinhKem(id),
+    status Varchar(10) Not Null Default 'Pending' Check(status In('Pending','Approved','Rejected','Cancelled')),
+    reason Nvarchar(1000) Null,
+    decidedBy Int Null References dbo.NguoiDung(id),
+    decidedAt Datetime2 Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    version Rowversion
 );
-CREATE TABLE dbo.GiaoDichVi (
- id int IDENTITY PRIMARY KEY, technicianId int NOT NULL REFERENCES dbo.KyThuatVien(id),
- type varchar(20) NOT NULL CHECK(type IN('Opening','Deposit','Withdrawal','Commission','Reversal')),
- amount decimal(18,2) NOT NULL CHECK(amount<>0), referenceType varchar(20) NOT NULL, referenceId int NOT NULL,
- actorId int NULL REFERENCES dbo.NguoiDung(id), note nvarchar(500) NOT NULL, createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(),
- UNIQUE(referenceType,referenceId)
+/*====================================================
+GiaoDichVi
+====================================================*/
+/*====================================================
+GiaoDichVi
+====================================================*/
+Create Table dbo.GiaoDichVi
+(
+    id Int Identity Primary Key,
+    technicianId Int Not Null References dbo.KyThuatVien(id),
+    type Varchar(20) Not Null Check(type In('Opening','Deposit','Withdrawal','Commission','Reversal')),
+    amount Decimal(18,2) Not Null Check(amount<>0),
+    referenceType Varchar(20) Not Null,
+    referenceId Int Not Null,
+    actorId Int Null References dbo.NguoiDung(id),
+    note Nvarchar(500) Not Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    Unique(referenceType,referenceId)
 );
-CREATE TABLE dbo.DanhGia (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL UNIQUE REFERENCES dbo.DonHang(id), customerId int NOT NULL REFERENCES dbo.NguoiDung(id),
- technicianId int NOT NULL REFERENCES dbo.KyThuatVien(id), rating int NOT NULL CHECK(rating BETWEEN 1 AND 5),
- comment nvarchar(1500) NOT NULL, createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+/*====================================================
+DanhGia
+====================================================*/
+/*====================================================
+DanhGia
+====================================================*/
+Create Table dbo.DanhGia
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null Unique References dbo.ChiTietDonHang(id),
+    customerId Int Not Null References dbo.NguoiDung(id),
+    technicianId Int Not Null References dbo.KyThuatVien(id),
+    rating Int Not Null Check(rating Between 1 And 5),
+    comment Nvarchar(1500) Not Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME()
 );
-CREATE TABLE dbo.LichSuDonHang (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL REFERENCES dbo.DonHang(id), fromStatus varchar(30) NULL, toStatus varchar(30) NOT NULL,
- actorId int NULL REFERENCES dbo.NguoiDung(id), reason nvarchar(1000) NOT NULL, happenedAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+/*====================================================
+LichSuDonHang
+====================================================*/
+/*====================================================
+LichSuDonHang
+====================================================*/
+Create Table dbo.LichSuDonHang
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null References dbo.ChiTietDonHang(id),
+    fromStatus Varchar(30) Null,
+    toStatus Varchar(30) Not Null,
+    actorId Int Null References dbo.NguoiDung(id),
+    reason Nvarchar(1000) Not Null,
+    happenedAt Datetime2 Not Null Default SYSUTCDATETIME()
 );
-CREATE TABLE dbo.NhatKy (
- id int IDENTITY PRIMARY KEY, actorId int NULL, action varchar(80) NOT NULL, entity varchar(60) NOT NULL, entityId int NULL,
- detail nvarchar(2000) NULL, createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+/*====================================================
+NhatKy
+====================================================*/
+/*====================================================
+NhatKy
+====================================================*/
+Create Table dbo.NhatKy
+(
+    id Int Identity Primary Key,
+    actorId Int Null,
+    action Varchar(80) Not Null,
+    entity Varchar(60) Not Null,
+    entityId Int Null,
+    detail Nvarchar(2000) Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME()
 );
-CREATE TABLE dbo.GhiChuDon (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL REFERENCES dbo.DonHang(id), authorId int NOT NULL REFERENCES dbo.NguoiDung(id),
- text nvarchar(2000) NOT NULL, visibility varchar(10) NOT NULL CHECK(visibility IN('Customer','Internal')), createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+/*====================================================
+GhiChuDon
+====================================================*/
+/*====================================================
+GhiChuDon
+====================================================*/
+Create Table dbo.GhiChuDon
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null References dbo.ChiTietDonHang(id),
+    authorId Int Not Null References dbo.NguoiDung(id),
+    text Nvarchar(2000) Not Null,
+    visibility Varchar(10) Not Null Check(visibility In('Customer','Internal')),
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME()
 );
-CREATE TABLE dbo.ThongBao (
- id int IDENTITY PRIMARY KEY, userId int NOT NULL REFERENCES dbo.NguoiDung(id), orderId int NULL REFERENCES dbo.DonHang(id),
- title nvarchar(200) NOT NULL, body nvarchar(1000) NOT NULL, readAt datetime2 NULL, createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+/*====================================================
+ThongBao
+====================================================*/
+/*====================================================
+ThongBao
+====================================================*/
+Create Table dbo.ThongBao
+(
+    id Int Identity Primary Key,
+    userId Int Not Null References dbo.NguoiDung(id),
+    orderId Int Null References dbo.ChiTietDonHang(id),
+    title Nvarchar(200) Not Null,
+    body Nvarchar(1000) Not Null,
+    readAt Datetime2 Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME()
 );
-CREATE TABLE dbo.YeuCauHoTro (
- id int IDENTITY PRIMARY KEY, orderId int NOT NULL REFERENCES dbo.DonHang(id), customerId int NOT NULL REFERENCES dbo.NguoiDung(id),
- type varchar(15) NOT NULL CHECK(type IN('Complaint','Warranty')), description nvarchar(2000) NOT NULL,
- status varchar(15) NOT NULL DEFAULT 'Open' CHECK(status IN('Open','InProgress','Resolved','Rejected')),
- assignedTo int NULL REFERENCES dbo.NguoiDung(id), resolution nvarchar(2000) NULL,
- createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), updatedAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), version rowversion
+/*====================================================
+YeuCauHoTro
+====================================================*/
+/*====================================================
+YeuCauHoTro
+====================================================*/
+Create Table dbo.YeuCauHoTro
+(
+    id Int Identity Primary Key,
+    orderId Int Not Null References dbo.ChiTietDonHang(id),
+    customerId Int Not Null References dbo.NguoiDung(id),
+    type Varchar(15) Not Null Check(type In('Complaint','Warranty')),
+    description Nvarchar(2000) Not Null,
+    status Varchar(15) Not Null Default 'Open' Check(status In('Open','InProgress','Resolved','Rejected')),
+    assignedTo Int Null References dbo.NguoiDung(id),
+    resolution Nvarchar(2000) Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    updatedAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    version Rowversion
 );
-CREATE TABLE dbo.LichSuHoTro (
- id int IDENTITY PRIMARY KEY, ticketId int NOT NULL REFERENCES dbo.YeuCauHoTro(id), actorId int NOT NULL REFERENCES dbo.NguoiDung(id),
- status varchar(15) NOT NULL, note nvarchar(2000) NOT NULL, createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+/*====================================================
+LichSuHoTro
+====================================================*/
+/*====================================================
+LichSuHoTro
+====================================================*/
+Create Table dbo.LichSuHoTro
+(
+    id Int Identity Primary Key,
+    ticketId Int Not Null References dbo.YeuCauHoTro(id),
+    actorId Int Not Null References dbo.NguoiDung(id),
+    status Varchar(15) Not Null,
+    note Nvarchar(2000) Not Null,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME()
 );
-CREATE TABLE dbo.HoSoKTV (
- id int IDENTITY PRIMARY KEY, userId int NOT NULL REFERENCES dbo.NguoiDung(id), skillGroup nvarchar(60) NOT NULL, serviceArea nvarchar(120) NOT NULL,
- experience nvarchar(2000) NOT NULL, status varchar(10) NOT NULL DEFAULT 'Pending' CHECK(status IN('Pending','Approved','Rejected')),
- reason nvarchar(1000) NULL, decidedBy int NULL REFERENCES dbo.NguoiDung(id), createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(), version rowversion
+/*====================================================
+HoSoKTV
+====================================================*/
+/*====================================================
+HoSoKTV
+====================================================*/
+Create Table dbo.HoSoKTV
+(
+    id Int Identity Primary Key,
+    userId Int Not Null References dbo.NguoiDung(id),
+    skillGroup Nvarchar(60) Not Null,
+    serviceArea Nvarchar(120) Not Null,
+    experience Nvarchar(2000) Not Null,
+    status Varchar(10) Not Null Default 'Pending' Check(status In('Pending','Approved','Rejected')),
+    reason Nvarchar(1000) Null,
+    decidedBy Int Null References dbo.NguoiDung(id),
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    version Rowversion
 );
-CREATE UNIQUE INDEX UX_Application_Pending ON dbo.HoSoKTV(userId) WHERE status='Pending';
-CREATE TABLE dbo.CauHinh (
- [key] varchar(80) PRIMARY KEY, value nvarchar(1000) NOT NULL, label nvarchar(200) NOT NULL, version rowversion
+Create Unique Index UX_Application_Pending On dbo.HoSoKTV(userId) Where status='Pending';
+/*====================================================
+CauHinh
+====================================================*/
+/*====================================================
+CauHinh
+====================================================*/
+Create Table dbo.CauHinh
+(
+    [key] Varchar(80) Primary Key,
+    value Nvarchar(1000) Not Null,
+    label Nvarchar(200) Not Null,
+    version Rowversion
 );
-CREATE TABLE dbo.Idempotency (
- actorId int NOT NULL REFERENCES dbo.NguoiDung(id), route varchar(160) NOT NULL, requestKey varchar(50) NOT NULL,
- payloadHash char(64) NOT NULL, resultJson nvarchar(max) NOT NULL CHECK(ISJSON(resultJson)=1), createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(),
- CONSTRAINT PK_Idempotency PRIMARY KEY(actorId,route,requestKey)
+/*====================================================
+Idempotency
+====================================================*/
+/*====================================================
+Idempotency
+====================================================*/
+Create Table dbo.Idempotency
+(
+    actorId Int Not Null References dbo.NguoiDung(id),
+    route Varchar(160) Not Null,
+    requestKey Varchar(50) Not Null,
+    payloadHash Char(64) Not Null,
+    resultJson Nvarchar(Max) Not Null Check(ISJSON(resultJson)=1),
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    Constraint PK_Idempotency Primary Key(actorId,route,requestKey)
 );
-INSERT dbo.SchemaVersion(version) VALUES(1);
+Insert dbo.SchemaVersion(version) Values(1);
 GO

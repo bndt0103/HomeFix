@@ -1,18 +1,25 @@
 -- Additive, repeatable migration: no existing account data is changed.
-IF OBJECT_ID('dbo.AuthOtp') IS NULL
-BEGIN
- CREATE TABLE dbo.AuthOtp (
-  id uniqueidentifier NOT NULL PRIMARY KEY,
-  purpose nvarchar(20) NOT NULL,
-  channel nvarchar(10) NOT NULL,
-  destination nvarchar(200) NOT NULL,
-  binding nvarchar(64) NOT NULL,
-  codeHash nvarchar(64) NOT NULL,
-  attempts int NOT NULL DEFAULT 0,
-  ready bit NOT NULL DEFAULT 0,
-  consumed bit NOT NULL DEFAULT 0,
-  createdAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(),
-  expiresAt datetime2 NOT NULL
- );
- CREATE INDEX IX_AuthOtp_Destination ON dbo.AuthOtp(destination, createdAt);
-END;
+If OBJECT_ID('dbo.AuthOtp') Is Null
+Begin
+ /*====================================================
+AuthOtp
+====================================================*/
+/*====================================================
+AuthOtp
+====================================================*/
+Create Table dbo.AuthOtp
+(
+    id uniqueidentifier Not Null Primary Key,
+    purpose Nvarchar(20) Not Null,
+    channel Nvarchar(10) Not Null,
+    destination Nvarchar(200) Not Null,
+    binding Nvarchar(64) Not Null,
+    codeHash Nvarchar(64) Not Null,
+    attempts Int Not Null Default 0,
+    ready Bit Not Null Default 0,
+    consumed Bit Not Null Default 0,
+    createdAt Datetime2 Not Null Default SYSUTCDATETIME(),
+    expiresAt Datetime2 Not Null
+);
+ Create Index IX_AuthOtp_Destination On dbo.AuthOtp(destination, createdAt);
+End;

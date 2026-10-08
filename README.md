@@ -2,7 +2,7 @@
 
 **Demo online nhiều máy, dùng chung database:** xem [hướng dẫn chạy online](DOC/CHAY_ONLINE_DEMO.md). Chạy `CHAY_ONLINE.bat` hoặc `npm.cmd run online:setup` rồi `npm.cmd run online` trong `SRC`. Máy chủ phải luôn bật; link HTTPS được in trong terminal.
 
-**Thành viên đã có source:** xem [cách pull và cập nhật database sau merge](DOC/CAP_NHAT_NHOM.md).
+**Nhánh bàn giao:** `cap-nhat/homefix-hoan-thien-20261008`. Xem [cách lấy nhánh và cập nhật database](DOC/CAP_NHAT_NHOM.md).
 
 Website desktop + giao diện mobile + APK Android + Express API + SQL Server, đồ án nhóm 08.
 
@@ -15,9 +15,10 @@ Tài khoản thử khách: `kh@homefix.local` / `HomeFix@123`. Đủ bảy vai t
 - `BIN/HomeFix-Android.apk`: ứng dụng Android để demo trong Wi-Fi cùng máy chủ.
 - `SRC/database`: schema, stored procedures, triggers và migration; khởi tạo bằng `npm run db:init`.
 - `REF/SoDo`: 12 lược đồ tuần tự theo mã nguồn và các sơ đồ kiến trúc/dữ liệu.
-- `REF/KiemThu`: kết quả và ảnh kiểm thử thực tế.
 
-Bản gốc của báo cáo và bộ bàn giao 14 ngày được giữ nguyên ngoài thư mục này. Không gửi `SRC/backend/.env`, `node_modules` hoặc `_work` lên GitHub. Đã kiểm thử local; cần nhóm kiểm tra APK trên thiết bị thật trước buổi bảo vệ. Các chức năng dự kiến chưa cài được ghi rõ trong báo cáo và hướng dẫn.
+Bản gốc của báo cáo được giữ nguyên. Source đã loại tệp kiểm thử, kết quả, log và bản mẫu cũ. Giữ các SQL migration và `.env.example` để cài máy mới; khóa riêng, ảnh người dùng, `node_modules` và `_work` không được đưa lên GitHub. Cần nhóm kiểm tra APK trên thiết bị thật trước buổi bảo vệ.
+
+Khách dùng nút **Chat AI** ở góc phải để chọn Gemini hoặc nhân viên. Gemini cần API key riêng trong `SRC/backend/.env`; xem [cấu hình AI](DOC/AI_GEMINI.md). Đơn nhiều dịch vụ cần database đã nâng cấp theo hướng dẫn cho nhóm.
 
 ### Cấu hình OTP
 

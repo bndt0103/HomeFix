@@ -63,7 +63,7 @@ Mật khẩu dữ liệu mẫu: `HomeFix@123`. Đây là tài khoản phục v�
 
 | Email | Vai trò | Việc cần thử |
 |---|---|---|
-| kh@homefix.local | Khách hàng | Đặt đơn, duyệt giá/vật tư/nghiệm thu, đánh giá, hỗ trợ |
+| kh@homefix.local | Khách hàng | Đặt đơn, duyệt giá, xem bảng kê vật tư, xác nhận nghiệm thu, đánh giá, hỗ trợ |
 | ktv@homefix.local | Kỹ thuật viên | Bật sẵn sàng, nhận ca, cập nhật, nghiệm thu, thu COD, ví |
 | dpv@homefix.local | Điều phối | Lập báo giá, chọn thợ, ghi chú, theo dõi đơn |
 | cskh@homefix.local | Chăm sóc KH | Xem và giải quyết phiếu hỗ trợ |
@@ -114,12 +114,12 @@ APK nằm ở `SRC/frontend/android/app/build/outputs/apk/debug/app-debug.apk`. 
 Mở bốn tab hoặc bốn cửa sổ để KH, ĐPV, KTV, KT cùng đăng nhập. Khi đổi vai trò đang xem cùng đơn, dùng nút “Tải lại đơn” để cập nhật ngay, không phải chờ chu kỳ 10 giây.
 
 1. KTV → Tổng quan → Bật sẵn sàng. Chuyên môn mẫu là Điện lạnh; chọn dịch vụ Sửa máy lạnh cho đúng nhóm. Một thợ chỉ giữ một lệnh/ca đang hoạt động.
-2. KH → Dịch vụ → Sửa máy lạnh → điền địa chỉ, mô tả lỗi và ảnh nếu có → Gửi yêu cầu. Để trống lịch hẹn khi cần sớm nhất; nếu đặt lịch, chọn 08:00–17:30, đúng khung 30 phút.
+2. KH → Dịch vụ → Sửa máy lạnh → điền địa chỉ, mô tả lỗi và ảnh nếu có → Gửi yêu cầu. Để trống lịch hẹn khi cần sớm nhất; nếu đặt lịch, chọn ngày và giờ bất kỳ trong tương lai.
 3. ĐPV → Điều phối đơn → mở đúng mã HF → Lập báo giá sơ bộ → nhập chẩn đoán. Giá mẫu: kiểm tra 50.000 + tiền công 300.000 = 350.000 đồng.
 4. KH → Đơn của tôi → mở đơn → Đồng ý báo giá. Không điều phối khi KH chưa duyệt.
 5. ĐPV → Phân công kỹ thuật viên → chọn thợ Minh → Xác nhận. KTV có 10 phút theo cấu hình để trả lời; quá hạn đơn trở lại chờ phân công và thợ về tạm nghỉ.
 6. KTV → Công việc → mở đơn → Phản hồi lệnh nhận việc → Chấp nhận. Lần lượt bấm Bắt đầu di chuyển → Xác nhận đã đến nơi → Bắt đầu xử lý.
-7. KTV → Đề xuất vật tư → nhập Van máy lạnh, số lượng 1, đơn giá 220000, đơn vị cái, bảo hành 6 tháng. KH → Đồng ý thay vật tư.
+7. KTV trao đổi trực tiếp với khách về vật tư và giá. Khi khách đồng ý: KTV → Kê khai vật tư → nhập Van máy lạnh, số lượng 1, đơn giá 220000, đơn vị cái, bảo hành 6 tháng → đánh dấu khách đã đồng ý trực tiếp → Lưu bảng kê vật tư. Khách không phải duyệt vật tư trên ứng dụng. Khi bổ sung, giữ đủ các vật tư đã dùng trong bảng kê mới; phiên bản trước được lưu lịch sử.
 8. KTV → Lập phiếu nghiệm thu → nhập nguyên nhân, biện pháp và ít nhất một ảnh sau sửa → Xác nhận. Tổng hiện 570.000 đồng.
 9. KH → Xác nhận nghiệm thu → đánh dấu đã kiểm tra thiết bị. Nếu chưa đạt thì Yêu cầu xử lý lại, hệ thống giữ lịch sử và cho tạo phiếu phiên bản mới.
 10. KTV nhận tiền mặt trong kịch bản thực tế rồi bấm Xác nhận đã thu COD. Trong buổi demo hãy nói rõ đây là thao tác giả lập, không có tiền được chuyển qua cổng thanh toán.
@@ -155,11 +155,9 @@ Khi đã demo trước đó, số dư/tổng báo cáo có thể khác ví dụ;
 | Mở APK báo không cài được | Android ≥7 và WebView cập nhật; gỡ APK thử khác chữ ký; cài đúng file trong BIN |
 | Mục lục Word chưa cập nhật | Mở Word, Ctrl+A → F9 → Update entire table; bản PDF đã được xuất sẵn |
 
-## 8. Kiểm thử, lưu dữ liệu và giới hạn
+## 8. Kiểm tra bản cài, lưu dữ liệu và giới hạn
 
-Trong `SRC`, chạy `npm test` khi máy chủ đã chạy và SQL dùng cấu hình đúng. Bộ test tạo dữ liệu thử riêng, có truy cập SQL kiểm tra trigger; không dùng trên database có dữ liệu thật. `npm run test:e2e` dùng Edge đã cài, kiểm thử 34 trang và luồng 15 thao tác. Có thể đặt `EDGE_PATH` cho đường dẫn Edge khác trong smoke test; workflow test đang dùng đường dẫn Edge chuẩn Windows.
-
-Kết quả JSON và ảnh thực tế nằm ở `SRC/test-results`; bản bằng chứng bàn giao nằm trong `REF/KiemThu`. Các ca này kiểm tra tính đúng đắn trong môi trường local, không chứng minh chịu tải lớn hoặc thay cho việc thử trên điện thoại thật.
+Trong `SRC`, chạy `npm.cmd run build`, khởi động máy chủ rồi mở `http://localhost:3000/api/health`. API phải trả `status: ok`; đăng nhập từng vai trò để kiểm tra màn hình và luồng của nhóm. Tệp kiểm thử, ảnh kết quả và log phát triển đã được loại khỏi nhánh bàn giao.
 
 Sao lưu bằng SSMS: nhấp phải `HomeFix_Final` → Tasks → Back Up → Full → chọn file `.bak` mới. Copy thêm `SRC/backend/uploads` để giữ ảnh. Giữ hai phần cùng thời điểm; không chỉ copy mã nguồn rồi cho rằng đã sao lưu dữ liệu. Khi phục hồi trên máy mới, restore vào tên database mới, sửa DB_NAME và chạy `npm run db:init` để áp dụng migration còn thiếu; không ghi đè database khác. File `.env` chứa khóa riêng của từng máy, không đưa lên GitHub hoặc gửi trong nhóm chat.
 
@@ -169,10 +167,10 @@ Bản này dùng HTTP trong mạng riêng để dễ demo. Khi triển khai Inte
 
 | Thành viên | Phần phải hiểu và tự chỉnh sửa thử | Tệp chính | Bài kiểm tra khi tiếp nhận |
 |---|---|---|---|
-| Nguyễn Quốc Việt — 24110381 | API, SQL, giao dịch, phân quyền | backend/src, database, scripts/init-db.js | Tự giải thích 409, rowversion, idempotency; thêm một kiểm tra đầu vào; chạy 35 ca |
+| Nguyễn Quốc Việt — 24110381 | API, SQL, giao dịch, phân quyền | backend/src, database, scripts/init-db.js | Tự giải thích 409, rowversion, idempotency; thêm một kiểm tra đầu vào; kiểm tra API theo luồng demo |
 | Đỗ Anh Tuấn — 24110369 | Website khách và điều phối | frontend/src/main.jsx, pages.jsx, order-detail.jsx, style.css | Tự chỉnh một màn theo Figma; demo đặt → duyệt → giao thợ, kiểm tra không gọi SQL trực tiếp |
 | Bùi Nguyễn Duy Trung — 24110363 | Giao diện mobile KTV, build Android | frontend/src/order-detail.jsx, management.jsx, android | Sửa một lỗi hiển thị 390 px; build APK; thử Wi-Fi và chụp ảnh nghiệm thu trên điện thoại thật |
-| Lê Tấn Tài — 24110319 | Ví, hỗ trợ, báo cáo, kiểm thử và tài liệu | backend/src/finance.js, support.js, admin.js; frontend/src/management.jsx; tests | Sửa một chức năng nhỏ ở báo cáo/hỗ trợ; giải thích 570.000/45.000/955.000; đối chiếu DOC/PDF |
+| Lê Tấn Tài — 24110319 | Ví, hỗ trợ, báo cáo và tài liệu | backend/src/finance.js, support.js, admin.js; frontend/src/management.jsx | Sửa một chức năng nhỏ ở báo cáo/hỗ trợ; giải thích số liệu thanh toán; đối chiếu DOC/PDF |
 
 Mã nguồn hiện tại được xây dựng với AI hỗ trợ. Bảng này là trách nhiệm tiếp nhận và kiểm chứng; không khẳng định từng sinh viên đã tự viết các tệp được liệt kê. Mỗi người cần đọc, chạy, chỉnh và giải thích phần của mình, lưu commit thực tế để điền bảng đóng góp trước khi nộp.
 
@@ -180,4 +178,23 @@ Ngày 1–2: cả nhóm cài trên máy mình và thực hiện luồng demo. Ng
 
 ## 10. Các thư mục trong gói nộp
 
-`DOC`: báo cáo Word và tài liệu. `PDF`: bản đọc/in. `SRC`: toàn bộ mã nguồn, SQL, Android native và kiểm thử. `BIN`: APK và bản web đã build. `REF`: lược đồ, giao diện nguồn, bằng chứng kiểm thử và nguồn tham khảo. `SOFTS`: liên kết phần mềm cần cài. `README.md`: điểm bắt đầu. `_work`: chỉ là môi trường tạo bản bàn giao trên máy tác giả, không cần để chạy sản phẩm và không nằm trong ZIP nộp.
+`DOC`: báo cáo Word và tài liệu cần cho nhóm. `PDF`: bản đọc/in. `SRC`: mã nguồn, SQL và Android. `BIN`: APK và bản web đã build. `REF`: lược đồ, giao diện nguồn và nguồn tham khảo. `SOFTS`: liên kết phần mềm cần cài. `README.md`: điểm bắt đầu. `_work`: tệp phát triển và bản lưu cục bộ, không đưa lên GitHub.
+# Cập nhật nghiệp vụ ngày 07/10/2026
+
+Một đơn có nhiều chi tiết dịch vụ, kể cả khác chuyên môn. Báo giá, phân công kỹ thuật viên, tiến độ, nghiệm thu và thanh toán theo từng chi tiết. Khách có thể bổ sung dịch vụ trong trang tổng hợp đơn. Kỹ thuật viên ghi nhận vật tư sau khi khách đồng ý trực tiếp tại hiện trường; không có bước chờ khách duyệt vật tư trực tuyến.
+
+Máy hiện tại dùng `HomeFix_Final_20261007`; `HomeFix_Final` được giữ làm bản trước chuyển đổi. Máy mới vẫn dùng bộ cài bình thường. Nếu máy đã có database một dịch vụ, công cụ khởi tạo sẽ dừng để bảo vệ dữ liệu; chuyển sang database mới bằng lệnh dưới đây tại thư mục `SRC`, rồi đổi `DB_NAME` trong `backend/.env` sang database đích và khởi động lại:
+
+```powershell
+npm run db:upgrade:orders -- --source HomeFix_Final --target HomeFix_Final_Multi
+```
+
+Database đích phải chưa tồn tại. Công cụ giữ nguyên database nguồn, đối chiếu dữ liệu trước khi báo thành công. Sau chuyển đổi, đăng nhập lại để tải các phiên bản bản ghi mới. Chi tiết đối chiếu báo cáo: [DOC/DOI_CHIEU_BAO_CAO_20261007.md](DOC/DOI_CHIEU_BAO_CAO_20261007.md).
+
+## Chat hỗ trợ và Gemini
+
+Khách chọn **Hỗ trợ → Chat hỗ trợ → Gặp nhân viên**. CSKH mở **Hộp thư hỗ trợ**, tiếp nhận và trả lời. Tin nhắn cũng xuất hiện trong chuông thông báo. Chat với điều phối viên về báo giá vẫn nằm trong chi tiết dịch vụ.
+
+Máy đã có database nhiều dịch vụ cần chạy `npm run db:migrate:support-chat` tại `SRC` rồi khởi động lại backend. Máy mới dùng `npm run db:init` như trước.
+
+Gemini đã được kết nối. Khách bấm **Chat AI → Trợ lý AI** hoặc mở **Hỗ trợ → Chat hỗ trợ → Trợ lý AI**, chọn đồng ý ngay trong khung chat rồi bắt đầu; không có hộp thông báo bật lên. Có thể chọn **Gặp nhân viên** bất cứ lúc nào. Key riêng nằm trong `SRC/backend/.env`, cờ `GEMINI_ENABLED=true`; khởi động lại backend khi đổi key hoặc cấu hình. Hướng dẫn: [DOC/AI_GEMINI.md](DOC/AI_GEMINI.md).

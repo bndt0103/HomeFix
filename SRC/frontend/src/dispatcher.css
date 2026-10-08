@@ -21,8 +21,8 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 0 auto;
+  min-width: max-content;
   padding: 10px 18px;
   border-radius: 8px;
   border: none;
@@ -225,9 +225,11 @@
 }
 
 .dpv-diagnostics-messages {
-  flex: 0 1 auto;
-  min-height: 180px;
+  flex: 0 0 360px;
+  height: 360px;
+  min-height: 360px;
   max-height: 360px;
+  overflow-wrap: anywhere;
 }
 
 .dpv-diagnostics-chat-input {
@@ -295,28 +297,6 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.dpv-chat-bubble {
-  max-width: 82%;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.dpv-chat-bubble.dpv {
-  align-self: flex-end;
-  background: #116a4e;
-  color: #ffffff;
-  border-bottom-right-radius: 2px;
-}
-
-.dpv-chat-bubble.customer {
-  align-self: flex-start;
-  background: #f1f5f9;
-  color: #1e293b;
-  border-bottom-left-radius: 2px;
 }
 
 .dpv-quick-prompts {
@@ -585,23 +565,31 @@
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  margin-bottom: 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
   background: #ffffff;
   transition: all 0.15s ease;
   cursor: pointer;
+  min-height: 72px;
 }
 
-.dpv-candidate-card:hover {
+.dpv-candidate-card:hover:not(.busy) {
   border-color: #116a4e;
   background: #f0fdf4;
   transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 106, 78, 0.08);
 }
 
 .dpv-candidate-card.selected {
   border: 2px solid #116a4e;
   background: #f0fdf4;
+  box-shadow: 0 2px 12px rgba(16, 106, 78, 0.12);
+}
+
+.dpv-candidate-card.busy {
+  background: #fafafa;
+  opacity: 0.7;
+  cursor: default;
 }
 
 .dpv-candidate-badge-best {
@@ -614,6 +602,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 /* ==========================================================================

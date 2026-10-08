@@ -58,7 +58,7 @@ export function AuthForm(){
    <Submit busy={busy}>{mode==='login'?'Đăng nhập':!flow.challenge?(register?'Đăng ký tài khoản':'Đặt lại mật khẩu'):register?'Xác nhận đăng ký':'Xác nhận đặt lại mật khẩu'}</Submit>
   </fieldset></form>
   <div className="auth-switch auth-links"><button className="text-btn" disabled={busy} onClick={()=>changeMode(register?'login':'register')}>{register?'Đăng nhập':'Đăng ký ngay'}</button><span>·</span><button className="text-btn" disabled={busy} onClick={()=>changeMode(forgot?'login':'forgot')}>{forgot?'Quay lại đăng nhập':'Quên mật khẩu?'}</button></div>
-  {mode==='login'&&<details className="demo-help"><summary>Tài khoản dùng thử cho đồ án</summary><p>Mật khẩu chung: <code>HomeFix@123</code></p><div className="demo-roles">{Object.entries(roleNames).map(([r,name])=><button key={r} type="button" disabled={busy} onClick={()=>setValues(s=>({...s,identifier:r.toLowerCase()+'@homefix.local',password:'HomeFix@123'}))}>{name}</button>)}</div></details>}
+  {mode==='login'&&<details className="demo-help"><summary>Tài khoản dùng thử</summary><p>Mật khẩu chung: <code>HomeFix@123</code></p><div className="demo-roles">{Object.entries(roleNames).map(([r,name])=><button key={r} type="button" disabled={busy} onClick={()=>setValues(s=>({...s,identifier:r.toLowerCase()+'@homefix.local',password:'HomeFix@123'}))}>{name}</button>)}</div></details>}
  </>;
 }
 

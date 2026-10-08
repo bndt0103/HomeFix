@@ -19,7 +19,7 @@ Idempotency-Key bắt buộc cho tạo đơn, thu COD, đối soát và yêu c�
 | POST /auth/login | identifier, password → accessToken, user, expiresIn |
 | POST /auth/register | fullName, phone, email tùy chọn/null, password; tự tạo KH |
 | POST /uploads | multipart: file, purpose, orderId tùy loại; trả id ảnh |
-| POST /orders | serviceId, address chuỗi 10–500 ký tự, description, scheduledAt ISO/null, attachmentIds[] |
+| POST /orders | serviceId, address chuỗi 10–500 ký tự, description, scheduledAt ISO/null (giờ bất kỳ trong tương lai), attachmentIds[] |
 | POST /orders/:id/preliminary-quotes | diagnosis, expectedVersion của đơn |
 | POST /orders/:id/preliminary-quotes/:qid/decision | decision Approved/Rejected, reason khi từ chối, expectedVersion của báo giá |
 | POST /orders/:id/assignments | technicianId, expectedVersion của đơn |
@@ -130,7 +130,7 @@ Danh mục được trích từ các khai báo route cuối cùng. Các route kh
 
 ## Cách thử
 
-Chạy máy chủ, dùng npm test để thực hiện 35 ca đã viết. Xem tests/api.test.js để có chuỗi request, dữ liệu và cách lấy phiên bản thực từ phản hồi. Không lấy token/ID/expectedVersion cũ trong ví dụ rồi dùng lại cho dữ liệu khác. Tài liệu thiết kế 14 ngày là bản đề xuất trước triển khai; bảng này và mã nguồn cuối là nguồn đối chiếu khi sửa client.
+Chạy máy chủ và kiểm tra `/api/health`, sau đó đăng nhập đúng vai trò để thử API theo luồng nghiệp vụ. Luôn lấy ID và `expectedVersion` mới từ phản hồi; không dùng lại token hoặc phiên bản cũ trong ví dụ cho dữ liệu khác. Bảng này và mã nguồn là nguồn đối chiếu khi sửa client. Tệp kiểm thử phát triển đã được loại khỏi bản bàn giao.
 
 ## Bổ sung sau merge: danh mục và thanh toán
 
@@ -150,3 +150,36 @@ Dịch vụ có thêm isPopular (boolean); ADMIN có thể đặt khi POST /api/
 Các POST chọn phương thức, gửi chứng từ và quyết định kế toán cần Idempotency-Key UUID. Gửi lại đúng request dùng cùng key; thao tác mới dùng key mới. Khi KH duyệt nghiệm thu, gửi paymentMethod COD/BANK và bankAccountId nếu BANK. Ảnh chuyển khoản dùng purpose PaymentProof tại /api/uploads, có orderId; chỉ KH sở hữu ảnh và KT xem được ảnh. Gửi chứng từ không tự đánh dấu đã thanh toán. Xem [quy trình thanh toán](THANH_TOAN.md).
 
 OTP gửi qua Gmail được giới hạn ở mức 3 mã/giờ cho mỗi địa chỉ, cooldown 90 giây và tối đa 10 yêu cầu/15 phút cho một địa chỉ IP. Mã hết hạn sau 5 phút, dùng một lần và bị khóa sau 5 lần nhập sai.
+
+## Hộp thư điều phối và trạng thái đã đọc
+
+| API | Vai trò | Nội dung |
+|---|---|---|
+| GET /dispatch/conversations | DPV | Hội thoại theo chi tiết dịch vụ, gồm cả đơn đã gửi báo giá; phân trang page/pageSize |
+| GET, POST /orders/:id/chat | KH sở hữu đơn, DPV | Đọc hoặc gửi text; tin gửi thông báo đến bên nhận |
+| POST /orders/:id/chat/read | KH sở hữu đơn, DPV | throughId là tin đã hiển thị; không xóa trạng thái chưa đọc của tin đến sau |
+
+## Chat hỗ trợ khách hàng
+
+| API | Vai trò | Nội dung |
+|---|---|---|
+| GET /support-chat/status | KH, CSKH, ADMIN | available theo cờ bật, key và model Gemini ở backend; không trả key |
+| GET /support-chat/me | KH | Hội thoại của chính khách, hoặc null |
+| POST /support-chat | KH | Body {}; tạo hoặc dùng lại hội thoại, mặc định NhanVien |
+| GET /support-chat/conversations | CSKH | Hội thoại NhanVien chưa phân công hoặc thuộc nhân viên, có số tin chưa đọc; page/pageSize |
+| GET /support-chat/:id | KH sở hữu, CSKH | Thông tin hội thoại |
+| PATCH /support-chat/:id/mode | KH sở hữu | mode AI hoặc NhanVien; chọn AI bắt buộc aiConsent: true và Gemini sẵn sàng |
+| POST /support-chat/:id/claim | CSKH | Body {}; tiếp nhận hội thoại đang ở chế độ NhanVien |
+| GET /support-chat/:id/messages | KH sở hữu, CSKH | 50 tin gần nhất; before để đọc tin cũ, meta.hasOlder/nextCursor |
+| POST /support-chat/:id/messages | KH sở hữu, CSKH đã tiếp nhận | text 1–2000 ký tự; bắt buộc Idempotency-Key UUID. Chế độ AI trả message/reply/pending/mode; lỗi AI giữ câu hỏi và chuyển NhanVien |
+| POST /support-chat/:id/read | KH sở hữu, CSKH | throughId; con trỏ chỉ tăng và giữ tin đến sau ở trạng thái chưa đọc |
+
+Chat hỗ trợ tách khỏi chat báo giá của điều phối. Không có chế độ nhân viên tự trả lời theo ca. Cấu hình và tình trạng Gemini: [AI_GEMINI.md](AI_GEMINI.md).
+
+Lặp cùng key không gọi AI thêm. Đang xử lý tin AI khác trả 409 `AI_REPLY_PENDING`; thiếu đồng ý trả 422 `AI_CONSENT_REQUIRED`; Gemini tắt trả 422 `AI_UNAVAILABLE` khi chọn chế độ. Khách chọn NhanVien trong lúc chờ sẽ hủy việc thêm câu trả lời AI muộn. Hạn mức và lỗi Google chuyển hội thoại sang nhân viên, kèm tin hệ thống và thông báo CSKH.
+
+## Chuông thông báo
+
+`GET /notifications` chỉ trả thông báo của người đang đăng nhập. `PATCH /notifications/:id/read` không cho sửa thông báo của người khác. `DuongDan` mới dùng cho chat hỗ trợ, được backend tạo; các thông báo đơn cũ vẫn dùng orderId.
+
+`GET /attention-summary` có thêm chatUnread (DPV), supportChat (CSKH), policies (GD). Các việc đang chờ không phải thông báo chưa đọc; giao diện trình bày hai nhóm riêng. Đọc thông báo không làm mất việc chưa xử lý.

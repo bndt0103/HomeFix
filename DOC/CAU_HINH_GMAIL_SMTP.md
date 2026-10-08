@@ -46,9 +46,8 @@ Gmail có giới hạn gửi và có thể chặn đăng nhập/gửi thư; phù
 - SMTP từ chối người nhận hoặc lỗi đăng nhập không được báo gửi thành công.
 - Không đổi giao diện email-only hay các giới hạn OTP. Không cần migration mới.
 
-## Kiểm thử
-npm run test:otp kiểm tra nhà cung cấp Gmail/Resend và luồng OTP trên database tạm. SMTP và dịch vụ email được giả lập; không gửi thư thật.
-Kiểm thử tự động không xác nhận email đã đến hộp thư. Sau khi điền mật khẩu ứng dụng, chạy email:check và thử website.
+## Kiểm tra cấu hình
+Sau khi điền mật khẩu ứng dụng, chạy `npm.cmd run email:check` trong `SRC` và thử nhận OTP trên website bằng email của nhóm.
 
 ## Xác nhận kiểm tra local ngày 27/09/2026
 - Code Gmail SMTP được triển khai tại commit `1adc907`; giao diện chỉ dùng email, không chọn SMS.

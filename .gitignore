@@ -11,3 +11,14 @@ SRC/frontend/android/.gradle/
 SRC/frontend/android/**/build/
 *.log
 *.zip
+SRC/tests/
+SRC/test-results/
+SRC/reports/
+REF/KiemThu/
+SRC/frontend/android/app/src/test/
+SRC/frontend/android/app/src/androidTest/
+SRC/scripts/seed-*-test.js
+*.tmp
+*.bak
+Thumbs.db
+.DS_Store

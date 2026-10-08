@@ -1,3 +1,7 @@
+import {CustomerSupportChat,StaffSupportMessages} from './support-chat';
+import {CustomerChatWidget} from './customer-chat-widget';
+import {NotificationBell} from './notification-bell';
+import { ServiceOrders, ServiceOrderDetail } from './service-orders';
 import { AttentionProvider, AttentionDot, AttentionPanel, useAttention, needsAttention } from './attention';
 import { AuthForm } from './auth-forms';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -68,7 +72,7 @@ function AuthPage() {
             <span><CheckCircle2 /> Có nghiệm thu</span>
           </div>
         </div>
-        <small>HomeFix · Nhóm 08 · Đồ án Công nghệ phần mềm</small>
+        <small>HomeFix · Dịch vụ sửa chữa và bảo trì</small>
       </section>
       <section className="auth-form-panel">
         <div className="mobile-brand brand"><span className="brand-mark"><House /></span>HomeFix.</div>
@@ -89,9 +93,10 @@ const menuByRole = {
   DPV: [
     ['/', 'Tổng quan', House],
     ['/dispatch', 'Điều phối', Users],
+    ['/dispatch/messages', 'Tin nhắn khách hàng', Bell],
     ['/orders', 'Tất cả đơn', ClipboardList]
   ],
-  CSKH: [['/', 'Tổng quan', House], ['/support', 'Yêu cầu hỗ trợ', Headphones], ['/orders', 'Tra cứu đơn', ClipboardList]],
+  CSKH: [['/', 'Tổng quan', House], ['/support', 'Yêu cầu hỗ trợ', Headphones], ['/support/messages', 'Hộp thư hỗ trợ', Bell], ['/orders', 'Tra cứu đơn', ClipboardList]],
   KT: [['/', 'Tổng quan tài chính', ChartNoAxesCombined], ['/finance?tab=settlements', 'Đối soát doanh thu', ClipboardList], ['/finance?tab=wallet', 'Duyệt Ví KTV', Wallet], ['/finance?tab=bank', 'Giao dịch', ArrowDownUp], ['/reports', 'Báo cáo dòng tiền', ChartNoAxesCombined]],
   ADMIN: [['/', 'Tổng quan hệ thống', House], ['/admin/users', 'Quản lý tài khoản', Users], ['/admin/orders', 'Đơn sửa chữa & Bảo trì', ClipboardList], ['/applications', 'Duyệt hồ sơ KTV', FileCheck2], ['/admin/services', 'Danh mục dịch vụ', Wrench], ['/admin/audit', 'Nhật ký hệ thống', ShieldCheck], ['/admin/settings', 'Cấu hình hệ thống', Settings]],
   GD: [['/', 'Tổng quan điều hành', ChartNoAxesCombined], ['/?tab=policies', 'Phê duyệt chính sách', ClipboardList], ['/reports?tab=quality', 'Khách hàng & chất lượng', ShieldCheck], ['/reports', 'Báo cáo tài chính', Wallet], ['/reports?tab=technicians', 'Hiệu suất KTV', Users]]
@@ -110,13 +115,13 @@ function LayoutContent() {
   const customer = user.role === 'KH', technician = user.role === 'KTV', accountant = user.role === 'KT', menus = menuByRole[user.role];
 
   const isMenuActive = url => {
-    if (user.role === 'DPV' && url === '/dispatch' && location.pathname.startsWith('/dispatch/')) return true;
+    if (user.role === 'DPV' && url === '/dispatch' && location.pathname.startsWith('/dispatch/') && location.pathname !== '/dispatch/messages') return true;
     if (user.role === 'GD' && location.pathname === '/reports' && url.startsWith('/reports')) {
       const params = new URLSearchParams(location.search), view = params.get('view') || params.get('tab') || 'finance';
       const target = view === 'quality' ? '/reports?tab=quality' : ['technicians', 'performance'].includes(view) ? '/reports?tab=technicians' : '/reports';
       return url === target;
     }
-    return url.includes('?') ? location.pathname === url.split('?')[0] && location.search === url.slice(url.indexOf('?')) : location.pathname === url && !location.search;
+    return url.includes('?') ? location.pathname === url.split('?')[0] && location.search === url.slice(url.indexOf('?')) : location.pathname === url && (url !== '/' || !location.search);
   };
 
   return (
@@ -135,7 +140,7 @@ function LayoutContent() {
           <div className="sidebar-bottom accountant-sidebar-bottom">
             <Link to="/profile" className="accountant-profile">
               <span className="avatar">{user.fullName.split(' ').at(-1).slice(0, 1)}</span>
-              <span><b>{user.fullName}</b><small>Trưởng Bộ Phận Kế Toán</small></span>
+              <span><b>{user.fullName}</b><small>Kế toán</small></span>
             </Link>
             <button onClick={logout}><LogOut size={18} /> Đăng xuất khỏi hệ thống</button>
           </div>
@@ -143,7 +148,7 @@ function LayoutContent() {
           <div className="sidebar-bottom">
             <NavLink to="/profile"><UserRound size={18} /> Hồ sơ cá nhân</NavLink>
             <button onClick={logout}><LogOut size={18} /> Đăng xuất</button>
-            <small>HomeFix · Nhóm 08</small>
+            <small>HomeFix</small>
           </div>
         )}
       </aside>
@@ -167,18 +172,7 @@ function LayoutContent() {
             <div className="topbar-title">{roleNames[user.role]}<span>Không gian làm việc HomeFix</span></div>
           )}
           <div className="topbar-actions">
-            <Link
-              className="icon-btn notification-bell"
-              to="/notifications"
-              aria-label="Thông báo"
-              title={`${attention.unread} thông báo chưa đọc`}
-            >
-              <Bell size={20} />
-              <AttentionDot
-                show={attention.unread > 0 || attention.orderIds.length > 0 || needsAttention(attention, '/finance') || attention.support > 0 || attention.applications > 0}
-                label="Có thông báo hoặc việc cần xử lý"
-              />
-            </Link>
+            <NotificationBell />
             <Link className="profile-chip" to="/profile">
               <span className="avatar">
                 {user.avatarUrl ? (
@@ -205,7 +199,9 @@ function LayoutContent() {
             <Route path="/admin/:section" element={<Guard roles={['ADMIN']}><Management /></Guard>} />
             <Route path="/applications" element={<Guard roles={['ADMIN', 'KH']}><Applications /></Guard>} />
             <Route path="/finance" element={<Guard roles={['KT']}><Finance /></Guard>} />
-            <Route path="/wallet" element={<Guard roles={['KTV']}><WalletPage /></Guard>} />
+            <Route path="/service-orders" element={<Guard roles={['KH']}><ServiceOrders /></Guard>} /><Route path="/service-orders/:id" element={<Guard roles={['KH']}><ServiceOrderDetail /></Guard>} /><Route path="/wallet" element={<Guard roles={['KTV']}><WalletPage /></Guard>} />
+            <Route path="/support/chat" element={<Guard roles={['KH']}><CustomerSupportChat /></Guard>} />
+            <Route path="/support/messages" element={<Guard roles={['CSKH']}><StaffSupportMessages /></Guard>} />
             <Route path="/support" element={<Guard roles={['KH', 'CSKH']}><Support /></Guard>} />
             <Route path="/reports" element={<Guard roles={['GD', 'KT', 'DPV', 'CSKH']}><Reports /></Guard>} />
             <Route path="/dispatch" element={<Guard roles={['DPV']}><DispatcherHub initialTab="diagnostics" /></Guard>} />
@@ -213,8 +209,9 @@ function LayoutContent() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-        <footer className="site-footer">HomeFix · Chăm sóc ngôi nhà của bạn <span>Nhóm 08 · Công nghệ phần mềm</span></footer>
+        <footer className="site-footer">HomeFix · Chăm sóc ngôi nhà của bạn <span>Dịch vụ sửa chữa và bảo trì</span></footer>
       </div>
+      {customer && <CustomerChatWidget />}
       {(customer || technician) && (
         <nav className="bottom-nav">
           {menus.map(([url, name, Icon]) => (
@@ -277,12 +274,5 @@ function App() {
 }
 
 menuByRole.CSKH.push(['/reports', 'Chất lượng dịch vụ', ChartNoAxesCombined]);
-menuByRole.KT = [
-  ['/', 'Tổng quan tài chính', ChartNoAxesCombined],
-  ['/finance?tab=revenue', 'Đối soát doanh thu', ClipboardList],
-  ['/finance?tab=wallet', 'Duyệt Ví KTV', Wallet],
-  ['/finance?tab=bank', 'Giao dịch', ArrowDownUp],
-  ['/reports', 'Báo cáo dòng tiền', ChartNoAxesCombined]
-];
 
 createRoot(document.getElementById('root')).render(<App />);

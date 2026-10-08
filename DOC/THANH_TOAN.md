@@ -73,14 +73,4 @@ $env:HOST='127.0.0.1'
 npm.cmd start
 ```
 
-Terminal thứ hai trong SRC:
-
-```powershell
-$env:DB_NAME='HomeFix_Payment_Test'
-$env:TEST_BASE_URL='http://localhost:3002/api'
-$env:HOMEFIX_TEST_URL='http://localhost:3002'
-node --test --test-concurrency=1 tests/bank-payments.test.js
-node tests/ui-payments.mjs
-```
-
-Kiểm thử trình duyệt dùng Edge trên Windows, tạo tài khoản và đơn giả. Kiểm tra gõ từng ký tự, giữ con trỏ qua chu kỳ tự tải lại 10 giây, Tab/Escape và sự kiện bộ gõ trong hộp thoại dùng chung. Kết quả trong SRC/test-results. Đóng các terminal kiểm thử trước khi chạy bản demo để không giữ biến môi trường DB_NAME kiểm thử.
+Mở `http://localhost:3002`, thực hiện luồng nghiệm thu và chọn COD hoặc BANK theo hướng dẫn trên. Dùng tài khoản, đơn và chứng từ thử trên database riêng; không chuyển tiền thật để kiểm tra giao diện. Đóng terminal này trước khi chạy bản demo để không giữ biến `DB_NAME` của database thử.

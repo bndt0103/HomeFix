@@ -9,13 +9,14 @@ const master = await new sql.ConnectionPool(dbConfig('master')).connect();
 const exists = await one('SELECT database_id FROM sys.databases WHERE name=@name', { name: config.database }, master);
 if (!exists) await master.request().query(`CREATE DATABASE [${config.database}]`); await master.close();
 const v = await one("SELECT OBJECT_ID('dbo.SchemaVersion') AS id");
+if (await one("SELECT 1 oldSchema WHERE OBJECT_ID('dbo.DonHang','U') IS NOT NULL AND OBJECT_ID('dbo.ChiTietDonHang','U') IS NULL")) throw new Error('Database cũ: dùng công cụ chuyển sang database mới; không sửa tại chỗ.');
 if (!v.id) {
     const existing = await one('SELECT COUNT(*) n FROM sys.tables'); if (existing.n) throw new Error('DB đã có bảng khác. Chọn DB_NAME trống để bảo vệ dữ liệu.');
     const text = fs.readFileSync(path.join(root, 'database/001_schema.sql'), 'utf8');
-    for (const batch of text.split(/^GO\s*$/m).filter(x => x.trim())) await q(batch);
+    for (const batch of text.split(/^GO\s*$/mi).filter(x => x.trim())) await q(batch);
 }
-for (const filename of ['002_procedures_triggers.sql', '003_cancellation_snapshot.sql', '004_auth_otp.sql', '005_bank_payments.sql', '007_user_avatar.sql', '007_temporary_account_locks.sql', '008_policy_proposals.sql', '008_technician_application.sql', '009_customer_location.sql'])
-    for (const batch of fs.readFileSync(path.join(root, 'database', filename), 'utf8').split(/^GO\s*$/m).filter(x => x.trim())) await q(batch);
+for (const filename of ['002_procedures_triggers.sql', '003_cancellation_snapshot.sql', '004_auth_otp.sql', '005_bank_payments.sql', '007_user_avatar.sql', '007_temporary_account_locks.sql', '008_policy_proposals.sql', '008_technician_application.sql', '009_customer_location.sql', '010_dispatch_communication.sql', '011_material_onsite_consent.sql', '012_order_item_integrity.sql', '013_vietnamese_dictionary.sql','014_support_chat.sql'])
+    for (const batch of fs.readFileSync(path.join(root, 'database', filename), 'utf8').split(/^GO\s*$/mi).filter(x => x.trim())) await q(batch);
 const hash = await bcrypt.hash('HomeFix@123', 12);
 await transaction(null, async t => {
     const demo = [['KH', 'Khách hàng An', 'kh'], ['KTV', 'Kỹ thuật viên Minh', 'ktv'], ['DPV', 'Điều phối Linh', 'dpv'], ['CSKH', 'Chăm sóc khách hàng', 'cskh'], ['KT', 'Kế toán Hạnh', 'kt'], ['ADMIN', 'Quản trị HomeFix', 'admin'], ['GD', 'Giám đốc HomeFix', 'gd'], ['KH', 'Khách hàng Bình', 'kh2'], ['KTV', 'Kỹ thuật viên Nam', 'ktv2']];

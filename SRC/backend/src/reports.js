@@ -9,14 +9,14 @@ function period(req) {
 reportsRouter.get('/reports/quality',roles('GD','CSKH'),wrap(async(req,res)=>{
  const p=period(req);
  const customers=await one(`SELECT (SELECT COUNT(*) FROM dbo.NguoiDung WHERE role='KH' AND createdAt>=@from AND createdAt<@to) newCustomers,
- (SELECT COUNT(DISTINCT customerId) FROM dbo.DonHang WHERE createdAt>=@from AND createdAt<@to) activeCustomers,
- (SELECT COUNT(*) FROM dbo.DonHang WHERE createdAt>=@from AND createdAt<@to) totalOrders,
+ (SELECT COUNT(DISTINCT customerId) FROM dbo.ChiTietDonHang WHERE createdAt>=@from AND createdAt<@to) activeCustomers,
+ (SELECT COUNT(*) FROM dbo.ChiTietDonHang WHERE createdAt>=@from AND createdAt<@to) totalOrders,
  (SELECT COUNT(*) FROM dbo.ThanhToan WHERE paidAt>=@from AND paidAt<@to) completedOrders,
- (SELECT COUNT(DISTINCT o.customerId) FROM dbo.ThanhToan p JOIN dbo.DonHang o ON o.id=p.orderId WHERE p.paidAt>=@from AND p.paidAt<@to) servedCustomers,
- (SELECT COUNT(DISTINCT o.id) FROM dbo.DonHang o JOIN dbo.YeuCauHoTro t ON t.orderId=o.id AND t.type='Complaint' WHERE o.createdAt>=@from AND o.createdAt<@to) complaintOrders`,p);
+ (SELECT COUNT(DISTINCT o.customerId) FROM dbo.ThanhToan p JOIN dbo.ChiTietDonHang o ON o.id=p.orderId WHERE p.paidAt>=@from AND p.paidAt<@to) servedCustomers,
+ (SELECT COUNT(DISTINCT o.id) FROM dbo.ChiTietDonHang o JOIN dbo.YeuCauHoTro t ON t.orderId=o.id AND t.type='Complaint' WHERE o.createdAt>=@from AND o.createdAt<@to) complaintOrders`,p);
  const ratings=await q('SELECT rating,COUNT(*) count FROM dbo.DanhGia WHERE createdAt>=@from AND createdAt<@to GROUP BY rating',p);
  const lowRatings=await q(`SELECT TOP 100 r.orderId,r.rating,r.comment,r.createdAt,o.contactName,o.contactPhone,n.fullName technicianName
- FROM dbo.DanhGia r JOIN dbo.DonHang o ON o.id=r.orderId LEFT JOIN dbo.NguoiDung n ON n.id=r.technicianId
+ FROM dbo.DanhGia r JOIN dbo.ChiTietDonHang o ON o.id=r.orderId LEFT JOIN dbo.NguoiDung n ON n.id=r.technicianId
  WHERE r.rating<3 AND r.createdAt>=@from AND r.createdAt<@to ORDER BY r.createdAt DESC`,p);
  const complaints=await q(`SELECT TOP 100 t.id,t.orderId,t.description,t.status,t.createdAt,n.fullName customerName
  FROM dbo.YeuCauHoTro t JOIN dbo.NguoiDung n ON n.id=t.customerId WHERE t.type='Complaint' AND t.createdAt>=@from AND t.createdAt<@to ORDER BY t.id DESC`,p);
@@ -26,7 +26,7 @@ reportsRouter.get('/reports/quality',roles('GD','CSKH'),wrap(async(req,res)=>{
 reportsRouter.get('/reports/performance',roles('GD','KT','DPV','CSKH'),wrap(async(req,res)=>{
  const rows=await q(`SELECT k.id,n.fullName,k.skillGroup,k.availability,n.isActive,n.createdAt,
  (SELECT COUNT(DISTINCT a.orderId) FROM dbo.LenhDieuPhoi a WHERE a.technicianId=k.id AND a.status='Accepted' AND a.decidedAt>=@from AND a.decidedAt<@to) assignedOrders,
- (SELECT COUNT(DISTINCT a.orderId) FROM dbo.LenhDieuPhoi a JOIN dbo.DonHang o ON o.id=a.orderId WHERE a.technicianId=k.id AND a.status='Accepted' AND a.decidedAt>=@from AND a.decidedAt<@to AND o.status='HoanThanh') finishedOrders,
+ (SELECT COUNT(DISTINCT a.orderId) FROM dbo.LenhDieuPhoi a JOIN dbo.ChiTietDonHang o ON o.id=a.orderId WHERE a.technicianId=k.id AND a.status='Accepted' AND a.decidedAt>=@from AND a.decidedAt<@to AND o.status='HoanThanh') finishedOrders,
  (SELECT COUNT(DISTINCT a.orderId) FROM dbo.LenhDieuPhoi a JOIN dbo.YeuCauHoTro t ON t.orderId=a.orderId AND t.type='Complaint' WHERE a.technicianId=k.id AND a.status='Accepted' AND a.decidedAt>=@from AND a.decidedAt<@to) complaintOrders,
  (SELECT COUNT(*) FROM dbo.LenhDieuPhoi a WHERE a.technicianId=k.id AND a.status='Rejected' AND a.decidedAt>=@from AND a.decidedAt<@to) rejectedOrders,
  (SELECT AVG(CAST(rating AS decimal(5,2))) FROM dbo.DanhGia r WHERE r.technicianId=k.id AND r.createdAt>=@from AND r.createdAt<@to) averageRating
@@ -40,7 +40,7 @@ reportsRouter.get('/reports/performance',roles('GD','KT','DPV','CSKH'),wrap(asyn
  SUM(CASE WHEN o.scheduledAt IS NOT NULL AND h.arrivedAt<=o.scheduledAt THEN 1 ELSE 0 END) onTimeVisits,
  COUNT(CASE WHEN h.finishedAt>=h.startedAt THEN 1 END) measuredJobs,
  SUM(CASE WHEN h.finishedAt>=h.startedAt THEN DATEDIFF(second,h.startedAt,h.finishedAt)/60.0 ELSE 0 END) processingMinutes
- FROM cohort c JOIN dbo.DonHang o ON o.id=c.orderId
+ FROM cohort c JOIN dbo.ChiTietDonHang o ON o.id=c.orderId
  OUTER APPLY(SELECT MIN(CASE WHEN toStatus='DaDenNoi' THEN happenedAt END) arrivedAt,
  MIN(CASE WHEN toStatus='DangXuLy' THEN happenedAt END) startedAt,
  MIN(CASE WHEN toStatus='ChoNghiemThu' THEN happenedAt END) finishedAt
@@ -115,7 +115,7 @@ export async function sendReportNotifications() {
     }
     if(prefs.performanceWeekly||prefs.performanceAlerts){
      const perf=await one(`SELECT COUNT(*) assignedOrders,COALESCE(SUM(CASE WHEN o.status='HoanThanh' THEN 1 ELSE 0 END),0) finishedOrders
-      FROM dbo.LenhDieuPhoi a JOIN dbo.DonHang o ON o.id=a.orderId WHERE a.status='Accepted' AND a.decidedAt>=@from AND a.decidedAt<@to`,{from:previous,to:monday},t);
+      FROM dbo.LenhDieuPhoi a JOIN dbo.ChiTietDonHang o ON o.id=a.orderId WHERE a.status='Accepted' AND a.decidedAt>=@from AND a.decidedAt<@to`,{from:previous,to:monday},t);
      if(prefs.performanceWeekly)await emit('Báo cáo hiệu suất tuần '+previous.toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}),`${perf.finishedOrders}/${perf.assignedOrders} đơn đã nhận tuần trước hiện đã hoàn thành. Mở Hiệu suất KTV để xem chi tiết.`);
      if(prefs.performanceAlerts&&Number(perf.assignedOrders)>0&&Number(perf.finishedOrders)/Number(perf.assignedOrders)<.9)await emit('Cảnh báo hiệu suất thấp','Dưới 90% đơn nhận tuần trước đã hoàn thành; số liệu gồm cả đơn đang làm. Mở Hiệu suất KTV để kiểm tra.');
     }
@@ -123,7 +123,7 @@ export async function sendReportNotifications() {
 
    if(prefs.qualityAlerts){
     const stats=await one(`SELECT (SELECT AVG(CAST(rating AS decimal(5,2))) FROM dbo.DanhGia WHERE createdAt>=@from) averageRating,
-     (SELECT COUNT(*) FROM dbo.DonHang WHERE createdAt>=@from) totalOrders,(SELECT COUNT(DISTINCT o.id) FROM dbo.DonHang o JOIN dbo.YeuCauHoTro t ON t.orderId=o.id AND t.type='Complaint' WHERE o.createdAt>=@from) complaints`,{from:previous},t);
+     (SELECT COUNT(*) FROM dbo.ChiTietDonHang WHERE createdAt>=@from) totalOrders,(SELECT COUNT(DISTINCT o.id) FROM dbo.ChiTietDonHang o JOIN dbo.YeuCauHoTro t ON t.orderId=o.id AND t.type='Complaint' WHERE o.createdAt>=@from) complaints`,{from:previous},t);
     const badRating=stats.averageRating!=null&&Number(stats.averageRating)<4.2,badRate=Number(stats.totalOrders)>0&&Number(stats.complaints)/Number(stats.totalOrders)>.03;
     if((badRating||badRate)&&!await one("SELECT id FROM dbo.ThongBao WHERE userId=@uid AND title=N'Cảnh báo chất lượng dịch vụ' AND createdAt>=@monday",{uid,monday},t))await notify(t,uid,null,'Cảnh báo chất lượng dịch vụ','Điểm đánh giá dưới 4,2 sao hoặc tỷ lệ đơn có khiếu nại trên 3%. Mở Báo cáo để kiểm tra các đơn cần chăm sóc.');
    }
